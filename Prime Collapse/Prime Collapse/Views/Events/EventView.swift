@@ -9,14 +9,14 @@ struct EventView: View {
     
     var body: some View {
         if let event = eventManager.currentEvent {
-            VStack(spacing: 0) {
+            VStack {
                 // Event header
                 VStack(spacing: 4) {
                     Text(event.title)
                         .font(.title3)
                         .fontWeight(.bold)
                         .foregroundColor(.white)
-                        .padding(.top, 16)
+                        .padding(.vertical, 16)
                     
                     // Category indicator
                     Text(categoryName(event.category))
@@ -35,10 +35,9 @@ struct EventView: View {
                 Text(event.description)
                     .font(.body)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 20)
+                    .padding()
                     .frame(maxWidth: .infinity)
-                    .background(Color.white.opacity(0.95))
+                    .background(Color.blue.opacity(0.65))
                 
                 // Event choices
                 VStack(spacing: 1) {
