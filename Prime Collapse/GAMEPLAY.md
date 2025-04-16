@@ -60,10 +60,11 @@
 - Haptic feedback on important events
 
 ### Current Balance
-- Reform ending requires consistent ethical choices
-- Loop ending is challenging to achieve and maintain
-- Collapse is the default outcome if moral decay isn't managed
-- Game is designed for ~5-15 minute play sessions
+- Upgrade costs increase exponentially with each purchase to extend gameplay loop
+- Unethical upgrades provide 2-3x better automation boosts than ethical alternatives
+- Moral decay increases more quickly, making collapse easier to achieve
+- Ethical upgrades now require strategic timing to be effective
+- Game is designed for ~10-20 minute play sessions
 
 ## Upgrade Progression
 
@@ -76,11 +77,22 @@
 - Rush Delivery: Moderate automation boost with slight ethical impact
 - Extended Shifts: Higher production but increased moral decay
 - Automate Sorting: Efficiency improvement with neutral ethical standing
+- **Child Labor Loopholes**: Major automation boost with severe ethical concerns (large moral decay increase)
+- **Employee Surveillance**: Increased efficiency by monitoring workers (moderate moral decay increase)
 
 ### Late Game Upgrades
 - AI Optimization: Major automation boost with significant moral impact
 - Remove Worker Breaks: Large production boost but severe ethical concerns
 - Sustainable Practices: Moderate boost with positive ethical impact
+- **Community Investment Program**: Moderate automation boost with positive ethical impact (reduces moral decay)
+- **Worker Replacement System**: Massive automation boost by replacing humans with robots (extreme moral decay increase)
+- **Algorithmic Wage Suppression**: Large profit margin increase by dynamically lowering worker pay (high moral decay increase)
+
+## Upgrade Cost Structure
+- Base upgrades: $50-100
+- Mid-tier upgrades: $250-500
+- Late-game upgrades: $750-1500
+- Each purchase of repeatable upgrades increases cost by 60%
 
 ## Gameplay Tips
 

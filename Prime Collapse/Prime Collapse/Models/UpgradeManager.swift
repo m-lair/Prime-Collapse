@@ -13,24 +13,43 @@ struct UpgradeManager {
         [
             // Basic upgrades
             hireWorker,
-            sameDayDelivery,
-            removeWorkerBreaks,
-            aiOptimization,
+            improvePackaging,
+            basicTraining,
             
-            // New upgrades
-            overnightShifts,
-            robotsReplacementProgram,
-            algorithmicPricing,
-            taxAvoidanceScheme,
-            lobbyingCampaign
+            // Mid-game upgrades
+            rushDelivery,
+            extendedShifts,
+            automateSorting,
+            childLaborLoopholes,
+            employeeSurveillance,
+            
+            // Late-game upgrades
+            aiOptimization,
+            removeWorkerBreaks,
+            sustainablePractices,
+            communityInvestment,
+            workerReplacementSystem,
+            algorithmicWageSuppression
         ]
     }
     
+    // Calculate price increase for repeatable upgrades
+    static func calculatePrice(basePrice: Double, timesPurchased: Int, upgradeName: String = "") -> Double {
+        // Use a lower multiplier (40% instead of 60%) for the Hire Worker upgrade
+        if upgradeName == "Hire Worker" {
+            return basePrice * pow(1.4, Double(timesPurchased))
+        }
+        
+        // Default: 60% increase per purchase for other upgrades
+        return basePrice * pow(1.6, Double(timesPurchased))
+    }
+    
+    // EARLY GAME UPGRADES
     // Basic worker upgrade
     static let hireWorker = Upgrade(
         name: "Hire Worker",
         description: "Hire a worker to ship packages automatically.",
-        cost: 10.0,
+        cost: 50.0, // Increased from 10
         effect: { gameState in
             gameState.workers += 1
             gameState.automationRate += 0.1 // Each worker ships 0.1 packages per second
@@ -39,38 +58,99 @@ struct UpgradeManager {
         moralImpact: 0.0 // Hiring workers is neutral morally
     )
     
-    // Improve delivery speed
-    static let sameDayDelivery = Upgrade(
-        name: "Same Day Delivery",
-        description: "Increase value of each package by promising faster delivery.",
-        cost: 50.0,
+    // Improve packaging efficiency
+    static let improvePackaging = Upgrade(
+        name: "Improve Packaging",
+        description: "Streamline package handling for better efficiency.",
+        cost: 75.0,
         effect: { gameState in
-            // Since we don't have a direct way to increase the value per package,
-            // we'll simulate it by increasing the automation rate by 50%
-            gameState.automationRate *= 1.5
+            gameState.automationRate *= 1.2 // 20% efficiency improvement
         },
         isRepeatable: false,
-        moralImpact: 2.0 // Slightly unethical due to increased worker pressure
+        moralImpact: 0.0 // Neutral ethical impact
     )
     
-    // Remove worker breaks
-    static let removeWorkerBreaks = Upgrade(
-        name: "Remove Worker Breaks",
-        description: "Increase efficiency by 25% but at what cost?",
+    // Basic training for workers
+    static let basicTraining = Upgrade(
+        name: "Basic Training",
+        description: "Train workers for better performance and safety.",
         cost: 100.0,
         effect: { gameState in
-            // Increase all worker efficiency by 25%
-            gameState.automationRate *= 1.25
+            gameState.automationRate *= 1.15 // 15% efficiency boost
+            gameState.moralDecay -= 2.0 // Small decrease in moral decay
         },
         isRepeatable: false,
-        moralImpact: 10.0 // Very unethical
+        moralImpact: -3.0 // Positive ethical impact (negative moral decay)
     )
     
+    // MID GAME UPGRADES
+    // Rush delivery service
+    static let rushDelivery = Upgrade(
+        name: "Rush Delivery",
+        description: "Promise faster delivery for premium prices.",
+        cost: 250.0,
+        effect: { gameState in
+            gameState.automationRate *= 1.4 // 40% automation boost
+        },
+        isRepeatable: false,
+        moralImpact: 3.0 // Slightly unethical - pressures workers
+    )
+    
+    // Extended shifts for workers
+    static let extendedShifts = Upgrade(
+        name: "Extended Shifts",
+        description: "Longer working hours for all employees.",
+        cost: 300.0,
+        effect: { gameState in
+            gameState.automationRate *= 1.6 // 60% automation boost
+        },
+        isRepeatable: false,
+        moralImpact: 8.0 // Highly unethical - work-life balance destruction
+    )
+    
+    // Automate sorting process
+    static let automateSorting = Upgrade(
+        name: "Automate Sorting",
+        description: "Install conveyor systems for package sorting.",
+        cost: 350.0,
+        effect: { gameState in
+            gameState.automationRate *= 1.3 // 30% efficiency boost
+        },
+        isRepeatable: false,
+        moralImpact: 1.0 // Nearly neutral - technology improvement
+    )
+    
+    // Child labor loopholes (new unethical upgrade)
+    static let childLaborLoopholes = Upgrade(
+        name: "Child Labor Loopholes",
+        description: "Exploit legal loopholes to hire underage workers for lower wages.",
+        cost: 400.0,
+        effect: { gameState in
+            gameState.automationRate *= 2.0 // 100% automation boost
+            gameState.money += 200 // Immediate profit from wage savings
+        },
+        isRepeatable: false,
+        moralImpact: 20.0 // Severely unethical - exploiting children
+    )
+    
+    // Employee surveillance (new unethical upgrade)
+    static let employeeSurveillance = Upgrade(
+        name: "Employee Surveillance",
+        description: "Install monitoring systems to track worker productivity.",
+        cost: 275.0,
+        effect: { gameState in
+            gameState.automationRate *= 1.5 // 50% automation boost
+        },
+        isRepeatable: false,
+        moralImpact: 10.0 // Highly unethical - privacy violation
+    )
+    
+    // LATE GAME UPGRADES
     // AI optimization
     static let aiOptimization = Upgrade(
         name: "AI Optimization",
         description: "Use machine learning to optimize worker routes.",
-        cost: 200.0,
+        cost: 750.0, // Increased from 200
         effect: { gameState in
             // Double automation rate
             gameState.automationRate *= 2.0
@@ -79,74 +159,71 @@ struct UpgradeManager {
         moralImpact: 5.0 // Moderately unethical due to worker surveillance
     )
     
-    // Overnight shifts to increase production
-    static let overnightShifts = Upgrade(
-        name: "Overnight Shifts",
-        description: "Keep the warehouse running 24/7.",
-        cost: 75.0,
+    // Remove worker breaks
+    static let removeWorkerBreaks = Upgrade(
+        name: "Remove Worker Breaks",
+        description: "Increase efficiency by 80% but at what cost?",
+        cost: 800.0, // Increased from 100
         effect: { gameState in
-            // Increase automation rate by 40%
-            gameState.automationRate *= 1.4
+            // Increase all worker efficiency by 25%
+            gameState.automationRate *= 1.8 // Increased from 1.25
         },
         isRepeatable: false,
-        moralImpact: 6.0 // Quite unethical - impacts worker health
+        moralImpact: 15.0 // Very unethical (increased from 10)
     )
     
-    // Replace workers with robots
-    static let robotsReplacementProgram = Upgrade(
-        name: "Robotic Workforce",
-        description: "Replace human workers with tireless robots.",
-        cost: 300.0,
+    // Sustainable practices (ethical option)
+    static let sustainablePractices = Upgrade(
+        name: "Sustainable Practices",
+        description: "Implement eco-friendly packaging and worker wellness programs.",
+        cost: 900.0,
         effect: { gameState in
-            // Double automation and reduce worker count
-            gameState.automationRate *= 2.0
-            gameState.workers = max(0, gameState.workers - 5)
+            gameState.automationRate *= 1.3 // 30% automation boost
+            gameState.moralDecay -= 5.0 // Reduces moral decay
         },
         isRepeatable: false,
-        moralImpact: 8.0 // Highly unethical - massive layoffs
+        moralImpact: -8.0 // Highly ethical (negative moral impact)
     )
     
-    // Algorithmic pricing to maximize profits
-    static let algorithmicPricing = Upgrade(
-        name: "Algorithmic Pricing",
-        description: "Dynamically price packages for maximum profit.",
-        cost: 150.0,
+    // Community investment program (new ethical upgrade)
+    static let communityInvestment = Upgrade(
+        name: "Community Investment Program",
+        description: "Invest in local communities and worker development programs.",
+        cost: 1000.0,
         effect: { gameState in
-            // Each package is now worth 50% more
-            // Instead of direct per-package value, we'll simulate by
-            // giving a one-time cash bonus and small automation boost
-            gameState.money += 100.0
-            gameState.automationRate *= 1.2
+            gameState.automationRate *= 1.4 // 40% automation boost
+            gameState.moralDecay -= 10.0 // Significant reduction in moral decay
         },
         isRepeatable: false,
-        moralImpact: 4.0 // Somewhat unethical - price manipulation
+        moralImpact: -12.0 // Extremely ethical (large negative moral impact)
     )
     
-    // Tax avoidance scheme
-    static let taxAvoidanceScheme = Upgrade(
-        name: "Tax Optimization",
-        description: "Employ creative accounting to reduce tax burden.",
-        cost: 250.0,
+    // Worker replacement system (new unethical upgrade)
+    static let workerReplacementSystem = Upgrade(
+        name: "Worker Replacement System",
+        description: "Completely automate warehousing and eliminate human roles.",
+        cost: 1200.0,
         effect: { gameState in
-            // Large one-time money bonus
-            gameState.money += 500.0
+            gameState.automationRate *= 3.0 // 200% automation boost
+            // Reduces worker count but maintains automation
+            let workersLaidOff = max(0, gameState.workers - 2)
+            gameState.workers = 2
+            gameState.money += Double(workersLaidOff) * 50 // One-time profit from layoffs
         },
         isRepeatable: false,
-        moralImpact: 7.0 // Highly unethical - potential legal issues
+        moralImpact: 25.0 // Extreme moral decay - mass unemployment
     )
     
-    // Lobbying campaign to reduce regulations
-    static let lobbyingCampaign = Upgrade(
-        name: "Lobbying Campaign",
-        description: "Influence politicians to remove regulatory constraints.",
-        cost: 400.0,
+    // Algorithmic wage suppression (new unethical upgrade)
+    static let algorithmicWageSuppression = Upgrade(
+        name: "Algorithmic Wage Suppression",
+        description: "Use data analytics to minimize worker compensation.",
+        cost: 1500.0,
         effect: { gameState in
-            // Significant boost to automation efficiency
-            gameState.automationRate *= 3.0
-            // But also dramatically increases moral decay
-            gameState.moralDecay += 15.0
+            gameState.automationRate *= 1.7 // 70% automation boost
+            gameState.money += 500 // Immediate profit from wage reduction
         },
         isRepeatable: false,
-        moralImpact: 12.0 // Extremely unethical - corruption
+        moralImpact: 18.0 // Very unethical - manipulating wages
     )
 } 

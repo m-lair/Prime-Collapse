@@ -20,12 +20,95 @@ struct Prime_CollapseApp: App {
             ContentView()
                 .environment(game)
                 .environment(gameCenterManager)
-                .onChange(of: game.totalPackagesShipped) { _, _ in
+                .onChange(of: game.totalPackagesShipped) {
                     // Update Game Center scores and achievements when game state changes
                     gameCenterManager.updateFromGameState(game)
                 }
         }
-        .modelContainer(for: [SavedGameState.self])
+        // Use a simpler approach with a separate modelContainer creation method
+        .modelContainer(createModelContainer())
+    }
+    
+    // Create a model container with error handling
+    private func createModelContainer() -> ModelContainer {
+        do {
+            // Try the simplest form first
+            let container = try ModelContainer(for: SavedGameState.self)
+            print("Successfully created model container")
+            return container
+        } catch {
+            print("❌ Error creating model container: \(error)")
+            
+            // Try with memory-only configuration as an emergency fallback
+            print("⚠️ Attempting with memory-only configuration...")
+            do {
+                let memoryOnlyConfig = ModelConfiguration(isStoredInMemoryOnly: true)
+                let container = try ModelContainer(for: SavedGameState.self, configurations: memoryOnlyConfig)
+                print("✅ Created memory-only container (data won't be saved)")
+                return container
+            } catch {
+                print("❌ Memory-only container also failed: \(error)")
+                
+                // Last resort: delete the database files and start fresh
+                print("🔥 EMERGENCY RECOVERY: Deleting database files and starting fresh...")
+                if deleteSwiftDataStores() {
+                    do {
+                        // Try again with default configuration after deleting files
+                        let container = try ModelContainer(for: SavedGameState.self)
+                        print("✅ Successfully created container after deleting database")
+                        return container
+                    } catch {
+                        print("❌❌ Complete failure even after deleting database: \(error)")
+                    }
+                }
+                
+                // If we reach this point, nothing worked - create an in-memory container
+                print("⚠️ Last resort: Creating minimal in-memory container")
+                do {
+                    let memConfig = ModelConfiguration(isStoredInMemoryOnly: true)
+                    return try ModelContainer(for: Schema([]), configurations: memConfig)
+                } catch {
+                    fatalError("Catastrophic failure: \(error)")
+                }
+            }
+        }
+    }
+    
+    // Helper function to delete SwiftData stores
+    private func deleteSwiftDataStores() -> Bool {
+        do {
+            // Get the application support directory
+            let appSupportDir = try FileManager.default.url(
+                for: .applicationSupportDirectory,
+                in: .userDomainMask,
+                appropriateFor: nil,
+                create: false
+            )
+            
+            // Look for SwiftData/default.store directory
+            let storeDir = appSupportDir.appendingPathComponent("SwiftData", isDirectory: true)
+                                        .appendingPathComponent("default.store", isDirectory: true)
+            
+            if FileManager.default.fileExists(atPath: storeDir.path) {
+                try FileManager.default.removeItem(at: storeDir)
+                print("✅ Successfully deleted SwiftData store directory")
+                return true
+            } else {
+                print("⚠️ SwiftData store directory not found at expected path: \(storeDir.path)")
+                
+                // Try to find and list all directories in Application Support
+                let contents = try? FileManager.default.contentsOfDirectory(
+                    at: appSupportDir,
+                    includingPropertiesForKeys: nil
+                )
+                print("📂 App Support contents: \(contents?.map { $0.lastPathComponent } ?? [])")
+                
+                return false
+            }
+        } catch {
+            print("❌ Error deleting SwiftData stores: \(error)")
+            return false
+        }
     }
 }
 
@@ -37,23 +120,12 @@ enum SchemaV1: VersionedSchema {
     static var versionIdentifier = Schema.Version(1, 0, 0)
     
     static var models: [any PersistentModel.Type] {
-        [SavedGameState.self]
-    }
-}
-
-// When you need to add a new version in the future, do it like this:
-/*
-enum SchemaV2: VersionedSchema {
-    static var versionIdentifier = Schema.Version(2, 0, 0)
-    
-    static var models: [any PersistentModel.Type] {
-        [SavedGameStateV2.self]
+        [SavedGameStateV1.self]
     }
     
-    // Define the updated model structure here
+    // Define the original model structure
     @Model
-    final class SavedGameStateV2 {
-        // All your current properties plus new ones
+    final class SavedGameStateV1 {
         var totalPackagesShipped: Int
         var money: Double
         var workers: Int
@@ -66,10 +138,7 @@ enum SchemaV2: VersionedSchema {
         var endingType: String
         var purchasedUpgradeIDs: [String]
         var repeatableUpgradeIDs: [String]
-        // Add your new properties here
-        // var newProperty: String = "default"
         
-        // Remember to update the initializer
         init() {
             self.totalPackagesShipped = 0
             self.money = 0.0
@@ -83,17 +152,22 @@ enum SchemaV2: VersionedSchema {
             self.endingType = "collapse"
             self.purchasedUpgradeIDs = []
             self.repeatableUpgradeIDs = []
-            // self.newProperty = "default"
         }
     }
 }
-*/
+
+// Updated schema that fixes the array materialization issue
+enum SchemaV2: VersionedSchema {
+    static var versionIdentifier = Schema.Version(2, 0, 0)
+    
+    static var models: [any PersistentModel.Type] {
+        [SavedGameState.self]
+    }
+}
 
 // MARK: - Migration Plans
 // This defines how to migrate between schema versions
 
-// For future migrations, you can define a plan like this:
-/*
 enum SavedGameStateMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
         [SchemaV1.self, SchemaV2.self]
@@ -103,19 +177,37 @@ enum SavedGameStateMigrationPlan: SchemaMigrationPlan {
         [migrateV1toV2]
     }
     
-    // Migration from V1 to V2
+    // Migration from V1 to V2 - converting array properties to serialized strings
     static let migrateV1toV2 = MigrationStage.custom(
         fromVersion: SchemaV1.self,
         toVersion: SchemaV2.self,
         willMigrate: nil,
         didMigrate: { context in
-            // Migration code here to handle setting defaults for new properties
-            let descriptor = FetchDescriptor<SchemaV2.SavedGameStateV2>()
-            guard let savedGames = try? context.fetch(descriptor) else { return }
+            // Fetch all V1 records (original schema)
+            let descriptorV1 = FetchDescriptor<SchemaV1.SavedGameStateV1>()
+            guard let oldGames = try? context.fetch(descriptorV1) else { return }
             
-            for game in savedGames {
-                // Set default values for any new properties
-                // game.newProperty = "default value"
+            for oldGame in oldGames {
+                // Create a new SavedGameState with serialized arrays
+                let newGame = SavedGameState(
+                    totalPackagesShipped: oldGame.totalPackagesShipped,
+                    money: oldGame.money,
+                    workers: oldGame.workers,
+                    automationRate: oldGame.automationRate,
+                    moralDecay: oldGame.moralDecay,
+                    isCollapsing: oldGame.isCollapsing,
+                    purchasedUpgradeIDs: oldGame.purchasedUpgradeIDs,
+                    repeatableUpgradeIDs: oldGame.repeatableUpgradeIDs,
+                    packageAccumulator: oldGame.packageAccumulator,
+                    ethicalChoicesMade: oldGame.ethicalChoicesMade,
+                    endingType: oldGame.endingType
+                )
+                
+                // Add new record
+                context.insert(newGame)
+                
+                // Delete the old record
+                context.delete(oldGame)
             }
             
             // Save changes
@@ -123,7 +215,6 @@ enum SavedGameStateMigrationPlan: SchemaMigrationPlan {
         }
     )
 }
-*/
 
 // MARK: - Migration Helper Functions
 

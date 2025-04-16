@@ -8,6 +8,9 @@ import GameKit
     /// Whether the user is authenticated with Game Center
     var isAuthenticated = false
     
+    /// Whether authentication has been attempted
+    private var hasAttemptedAuthentication = false
+    
     /// The current player's Game Center profile
     var localPlayer: GKLocalPlayer?
     
@@ -16,6 +19,26 @@ import GameKit
     
     /// Error message if authentication fails
     var authenticationError: String?
+    
+    // MARK: - Throttling Properties
+    
+    /// Timestamp of last leaderboard update
+    private var lastLeaderboardUpdate = Date(timeIntervalSince1970: 0)
+    
+    /// Timestamp of last achievement update
+    private var lastAchievementUpdate = Date(timeIntervalSince1970: 0)
+    
+    /// Minimum interval between leaderboard updates (in seconds)
+    private let leaderboardUpdateInterval: TimeInterval = 5.0
+    
+    /// Minimum interval between achievement updates (in seconds)
+    private let achievementUpdateInterval: TimeInterval = 5.0
+    
+    /// Cache of last submitted scores to avoid duplicate submissions
+    private var lastSubmittedScores: [String: Int] = [:]
+    
+    /// Cache of last reported achievement progresses to avoid duplicate reports
+    private var lastReportedAchievements: [String: Double] = [:]
     
     // MARK: - Leaderboard IDs
     
@@ -46,46 +69,60 @@ import GameKit
     
     override init() {
         super.init()
-        authenticatePlayer()
+        // Don't authenticate automatically on init
+        
+        // Load achievement descriptions once during init
+        loadAchievementDescriptions()
     }
     
     // MARK: - Authentication
     
     /// Authenticates the local player with Game Center
     func authenticatePlayer() {
-        GKLocalPlayer.local.authenticateHandler = { [weak self] viewController, error in
-            guard let self = self else { return }
-            
-            if let viewController = viewController {
-                // Present the authentication view controller
-                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                   let rootViewController = windowScene.windows.first?.rootViewController {
-                    rootViewController.present(viewController, animated: true)
+        // Prevent multiple authentication attempts
+        guard !hasAttemptedAuthentication else { return }
+        
+        hasAttemptedAuthentication = true
+        
+        // Make sure we're on the main thread
+        DispatchQueue.main.async {
+            GKLocalPlayer.local.authenticateHandler = { [weak self] viewController, error in
+                guard let self = self else { return }
+                
+                if let viewController = viewController {
+                    // Present the authentication view controller
+                    if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                       let rootViewController = windowScene.windows.first?.rootViewController {
+                        rootViewController.present(viewController, animated: true)
+                    }
+                    return
                 }
-                return
-            }
-            
-            if let error = error {
-                self.authenticationError = error.localizedDescription
-                self.isAuthenticated = false
-                print("Game Center authentication error: \(error.localizedDescription)")
-                return
-            }
-            
-            if GKLocalPlayer.local.isAuthenticated {
-                self.localPlayer = GKLocalPlayer.local
-                self.isAuthenticated = true
-                print("Successfully authenticated with Game Center")
                 
-                // Load the player's profile image
-                self.loadPlayerProfileImage()
+                if let error = error {
+                    self.authenticationError = error.localizedDescription
+                    self.isAuthenticated = false
+                    print("Game Center authentication error: \(error.localizedDescription)")
+                    return
+                }
                 
-                // Register for challenges
-                GKLocalPlayer.local.register(self)
-            } else {
-                self.isAuthenticated = false
-                self.authenticationError = "Player is not authenticated"
-                print("Game Center authentication failed: Player is not authenticated")
+                if GKLocalPlayer.local.isAuthenticated {
+                    self.localPlayer = GKLocalPlayer.local
+                    self.isAuthenticated = true
+                    print("Successfully authenticated with Game Center")
+                    
+                    // Load the player's profile image
+                    self.loadPlayerProfileImage()
+                    
+                    // Load achievement descriptions
+                    self.loadAchievementDescriptions()
+                    
+                    // Register for challenges
+                    GKLocalPlayer.local.register(self)
+                } else {
+                    self.isAuthenticated = false
+                    self.authenticationError = "Player is not authenticated"
+                    print("Game Center authentication failed: Player is not authenticated")
+                }
             }
         }
     }
@@ -105,6 +142,41 @@ import GameKit
             if let image = image {
                 DispatchQueue.main.async {
                     self.playerProfileImage = image
+                }
+            }
+        }
+    }
+    
+    /// Loads achievement descriptions to ensure they exist before reporting
+    private func loadAchievementDescriptions() {
+        guard isAuthenticated else { return }
+        
+        let achievementIDs = [
+            Self.firstWorkerAchievementID,
+            Self.automationMilestoneAchievementID,
+            Self.ethicalChoicesAchievementID,
+            Self.economicCollapseAchievementID,
+            Self.reformEndingAchievementID
+        ]
+        
+        GKAchievementDescription.loadAchievementDescriptions { [weak self] descriptions, error in
+            if let error = error {
+                print("Error loading achievement descriptions: \(error.localizedDescription)")
+                return
+            }
+            
+            guard let descriptions = descriptions else {
+                print("No achievement descriptions loaded")
+                return
+            }
+            
+            print("Loaded \(descriptions.count) achievement descriptions")
+            
+            // Check if all our achievement IDs exist
+            let loadedIDs = Set(descriptions.map { $0.identifier })
+            for achievementID in achievementIDs {
+                if !loadedIDs.contains(achievementID) {
+                    print("WARNING: Achievement ID '\(achievementID)' is not configured in App Store Connect")
                 }
             }
         }
@@ -130,9 +202,18 @@ import GameKit
     ///   - leaderboardID: The ID of the leaderboard to submit the score to
     func submitScore(_ score: Int, to leaderboardID: String) {
         guard isAuthenticated else {
-            print("Cannot submit score: Player not authenticated")
+            // Silently ignore if not authenticated to prevent console spam
             return
         }
+        
+        // Check if we've already submitted this score
+        if let lastScore = lastSubmittedScores[leaderboardID], lastScore >= score {
+            // Skip if the new score is not higher than the last submitted score
+            return
+        }
+        
+        // Update the cache
+        lastSubmittedScores[leaderboardID] = score
         
         GKLeaderboard.submitScore(score, context: 0, player: GKLocalPlayer.local, leaderboardIDs: [leaderboardID]) { error in
             if let error = error {
@@ -163,9 +244,25 @@ import GameKit
     ///   - percentComplete: The percentage of completion (0.0 to 100.0)
     func reportAchievement(achievementID: String, percentComplete: Double) {
         guard isAuthenticated else {
-            print("Cannot report achievement: Player not authenticated")
+            // Silently ignore if not authenticated to prevent console spam
             return
         }
+        
+        // Check if we've already reported this progress
+        if let lastProgress = lastReportedAchievements[achievementID] {
+            // Skip if the new progress is not significantly different (allow for small rounding differences)
+            if abs(lastProgress - percentComplete) < 1.0 {
+                return
+            }
+            
+            // Skip if the achievement is already completed
+            if lastProgress >= 100.0 {
+                return
+            }
+        }
+        
+        // Update the cache
+        lastReportedAchievements[achievementID] = percentComplete
         
         let achievement = GKAchievement(identifier: achievementID)
         achievement.percentComplete = percentComplete
@@ -191,6 +288,8 @@ import GameKit
                 print("Error resetting achievements: \(error.localizedDescription)")
             } else {
                 print("Successfully reset all achievements")
+                // Clear achievement cache
+                self.lastReportedAchievements.removeAll()
             }
         }
     }
@@ -200,33 +299,51 @@ import GameKit
     /// Updates Game Center with the current game state
     /// - Parameter gameState: The current game state
     func updateFromGameState(_ gameState: GameState) {
-        // Submit scores to leaderboards
-        submitScore(gameState.totalPackagesShipped, to: Self.totalPackagesLeaderboardID)
-        submitScore(Int(gameState.money), to: Self.totalMoneyLeaderboardID)
-        
-        // Update achievements
-        
-        // First worker hired
-        if gameState.workers >= 1 {
-            reportAchievement(achievementID: Self.firstWorkerAchievementID, percentComplete: 100.0)
+        // Only proceed if authenticated
+        guard isAuthenticated else {
+            // Silently ignore to prevent console spam
+            return
         }
         
-        // Automation milestone (10 packages/sec)
-        let automationProgress = min(gameState.automationRate / 10.0 * 100.0, 100.0)
-        reportAchievement(achievementID: Self.automationMilestoneAchievementID, percentComplete: automationProgress)
+        let now = Date()
         
-        // Ethical choices (based on ethical choices made)
-        let ethicalChoicesProgress = min(Double(gameState.ethicalChoicesMade) / 5.0 * 100.0, 100.0)
-        reportAchievement(achievementID: Self.ethicalChoicesAchievementID, percentComplete: ethicalChoicesProgress)
-        
-        // Economic collapse
-        if gameState.isCollapsing {
-            reportAchievement(achievementID: Self.economicCollapseAchievementID, percentComplete: 100.0)
+        // Throttle leaderboard updates
+        if now.timeIntervalSince(lastLeaderboardUpdate) >= leaderboardUpdateInterval {
+            // Submit scores to leaderboards
+            submitScore(gameState.totalPackagesShipped, to: Self.totalPackagesLeaderboardID)
+            submitScore(Int(gameState.money), to: Self.totalMoneyLeaderboardID)
+            
+            lastLeaderboardUpdate = now
         }
         
-        // Reform ending
-        if gameState.endingType == .reform {
-            reportAchievement(achievementID: Self.reformEndingAchievementID, percentComplete: 100.0)
+        // Throttle achievement updates
+        if now.timeIntervalSince(lastAchievementUpdate) >= achievementUpdateInterval {
+            // Update achievements
+            
+            // First worker hired
+            if gameState.workers >= 1 {
+                reportAchievement(achievementID: Self.firstWorkerAchievementID, percentComplete: 100.0)
+            }
+            
+            // Automation milestone (10 packages/sec)
+            let automationProgress = min(gameState.automationRate / 10.0 * 100.0, 100.0)
+            reportAchievement(achievementID: Self.automationMilestoneAchievementID, percentComplete: automationProgress)
+            
+            // Ethical choices (based on ethical choices made)
+            let ethicalChoicesProgress = min(Double(gameState.ethicalChoicesMade) / 5.0 * 100.0, 100.0)
+            reportAchievement(achievementID: Self.ethicalChoicesAchievementID, percentComplete: ethicalChoicesProgress)
+            
+            // Economic collapse
+            if gameState.isCollapsing {
+                reportAchievement(achievementID: Self.economicCollapseAchievementID, percentComplete: 100.0)
+            }
+            
+            // Reform ending
+            if gameState.endingType == .reform {
+                reportAchievement(achievementID: Self.reformEndingAchievementID, percentComplete: 100.0)
+            }
+            
+            lastAchievementUpdate = now
         }
     }
     

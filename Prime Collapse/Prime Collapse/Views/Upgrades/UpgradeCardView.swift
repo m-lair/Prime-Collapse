@@ -6,6 +6,11 @@ struct UpgradeCardView: View {
     var gameState: GameState
     @State private var isPressed = false
     
+    // Calculate current price accounting for repeat purchases
+    private var currentPrice: Double {
+        return gameState.getCurrentUpgradeCost(upgrade)
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Title area with ethics indicator
@@ -16,17 +21,25 @@ struct UpgradeCardView: View {
                 
                 Spacer()
                 
-                if upgrade.moralImpact > 0 {
-                    // Ethics impact indicator
-                    HStack(spacing: 2) {
-                        ForEach(0..<min(5, Int(upgrade.moralImpact)), id: \.self) { _ in
+                // Ethics impact indicator
+                HStack(spacing: 2) {
+                    if upgrade.moralImpact > 0 {
+                        // Unethical indicators (red triangles)
+                        ForEach(0..<min(5, Int(ceil(upgrade.moralImpact/5))), id: \.self) { _ in
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .font(.system(size: 8))
                                 .foregroundColor(ethicsImpactColor)
                         }
-                        
-                        Spacer()
+                    } else if upgrade.moralImpact < 0 {
+                        // Ethical indicators (green leaves)
+                        ForEach(0..<min(5, Int(ceil(abs(upgrade.moralImpact)/3))), id: \.self) { _ in
+                            Image(systemName: "leaf.fill")
+                                .font(.system(size: 8))
+                                .foregroundColor(.green)
+                        }
                     }
+                    
+                    Spacer()
                 }
             }
             
@@ -48,9 +61,9 @@ struct UpgradeCardView: View {
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.yellow)
                     
-                    Text("\(Int(upgrade.cost))")
+                    Text("\(Int(currentPrice))")
                         .font(.system(size: 16, weight: .bold, design: .rounded))
-                        .foregroundColor(gameState.canAfford(upgrade.cost) ? .white : .white.opacity(0.5))
+                        .foregroundColor(gameState.canAfford(currentPrice) ? .white : .white.opacity(0.5))
                 }
                 
                 Spacer()
@@ -74,7 +87,7 @@ struct UpgradeCardView: View {
                         .background(
                             Capsule()
                                 .fill(
-                                    gameState.canAfford(upgrade.cost) 
+                                    gameState.canAfford(currentPrice) 
                                     ? Color.green 
                                     : Color.gray.opacity(0.5)
                                 )
@@ -82,7 +95,7 @@ struct UpgradeCardView: View {
                         )
                         .scaleEffect(isPressed ? 0.95 : 1.0)
                 }
-                .disabled(!gameState.canAfford(upgrade.cost))
+                .disabled(!gameState.canAfford(currentPrice))
             }
         }
         .padding(12)
@@ -106,7 +119,9 @@ struct UpgradeCardView: View {
     }
     
     private var cardBackgroundColor: Color {
-        if upgrade.isRepeatable {
+        if upgrade.moralImpact < 0 {
+            return Color(red: 0.1, green: 0.5, blue: 0.3) // Ethical upgrades are green
+        } else if upgrade.isRepeatable {
             return Color.blue // Repeatable upgrades are blue
         } else if upgrade.moralImpact > 5 {
             return Color(red: 0.5, green: 0.2, blue: 0.5) // High moral impact is purple

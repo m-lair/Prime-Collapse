@@ -21,9 +21,9 @@ final class SavedGameState {
     var ethicalChoicesMade: Int
     var endingType: String // Store as string since we can't store enums directly
     
-    // We store upgrade IDs since we can't directly store the upgrades
-    var purchasedUpgradeIDs: [String] // All purchased upgrades
-    var repeatableUpgradeIDs: [String] // Only repeatable upgrades
+    // Replace arrays with string storage to prevent materialization issues
+    var purchasedUpgradeIDsString: String // Serialized JSON array of UUIDs
+    var repeatableUpgradeIDsString: String // Serialized JSON array of UUIDs
     
     init(
         totalPackagesShipped: Int = 0,
@@ -45,11 +45,52 @@ final class SavedGameState {
         self.moralDecay = moralDecay
         self.isCollapsing = isCollapsing
         self.lastUpdate = Date()
-        self.purchasedUpgradeIDs = purchasedUpgradeIDs
-        self.repeatableUpgradeIDs = repeatableUpgradeIDs
+        
+        // Serialize arrays to JSON strings
+        self.purchasedUpgradeIDsString = SavedGameState.serializeArray(purchasedUpgradeIDs)
+        self.repeatableUpgradeIDsString = SavedGameState.serializeArray(repeatableUpgradeIDs)
+        
         self.packageAccumulator = packageAccumulator
         self.ethicalChoicesMade = ethicalChoicesMade
         self.endingType = endingType
+    }
+    
+    // Static helper to serialize array to JSON string
+    private static func serializeArray(_ array: [String]) -> String {
+        guard let data = try? JSONSerialization.data(withJSONObject: array),
+              let jsonString = String(data: data, encoding: .utf8) else {
+            return "[]" // Empty array as fallback
+        }
+        return jsonString
+    }
+    
+    // Helper to deserialize JSON string to array
+    private static func deserializeArray(_ jsonString: String) -> [String] {
+        guard let data = jsonString.data(using: .utf8),
+              let array = try? JSONSerialization.jsonObject(with: data) as? [String] else {
+            return [] // Empty array as fallback
+        }
+        return array
+    }
+    
+    // Computed property to access purchasedUpgradeIDs safely
+    var purchasedUpgradeIDs: [String] {
+        get {
+            return Self.deserializeArray(purchasedUpgradeIDsString)
+        }
+        set {
+            purchasedUpgradeIDsString = Self.serializeArray(newValue)
+        }
+    }
+    
+    // Computed property to access repeatableUpgradeIDs safely
+    var repeatableUpgradeIDs: [String] {
+        get {
+            return Self.deserializeArray(repeatableUpgradeIDsString)
+        }
+        set {
+            repeatableUpgradeIDsString = Self.serializeArray(newValue)
+        }
     }
     
     // Convert a GameState to a SavedGameState

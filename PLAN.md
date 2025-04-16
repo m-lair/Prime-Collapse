@@ -130,14 +130,6 @@ A SwiftUI clicker-style satire game about capitalism gone too far
   4. Test migrations thoroughly before releasing
 * Be careful with array properties - they can cause materialization issues during migration
 
-### Next Steps Suggestions
-* Implement the separate upgrade screen with more detailed upgrade information
-* Develop more detailed ending screens with stats and narrative conclusions
-* Add more upgrades with different effects (not just automation rate multipliers)
-* Add more visual polish to the upgrade cards
-* Implement a settings screen with save/reset options
-* Consider adding analytics to track player decisions and game progression patterns 
-
 ## 🎲 Step 12: Random Events System
 * [ ] Create a `GameEvent` model:
     * [ ] `id: UUID`

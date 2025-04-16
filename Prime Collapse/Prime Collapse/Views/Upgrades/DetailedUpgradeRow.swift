@@ -6,6 +6,11 @@ struct DetailedUpgradeRow: View {
     var gameState: GameState
     @State private var isPressed = false
     
+    // Calculate current price accounting for repeat purchases
+    private var currentPrice: Double {
+        return gameState.getCurrentUpgradeCost(upgrade)
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header with title and cost
@@ -79,9 +84,9 @@ struct DetailedUpgradeRow: View {
                 HStack(spacing: 12) {
                     // Cost with coin icon
                     HStack(spacing: 4) {
-                        Text("$\(Int(upgrade.cost))")
+                        Text("$\(Int(currentPrice))")
                             .font(.system(size: 20, weight: .bold, design: .rounded))
-                            .foregroundColor(gameState.canAfford(upgrade.cost) ? .white : .white.opacity(0.5))
+                            .foregroundColor(gameState.canAfford(currentPrice) ? .white : .white.opacity(0.5))
                     }
                     
                     // Buy button
@@ -101,7 +106,7 @@ struct DetailedUpgradeRow: View {
                             .background(
                                 Capsule()
                                     .fill(
-                                        gameState.canAfford(upgrade.cost) 
+                                        gameState.canAfford(currentPrice) 
                                         ? Color.green 
                                         : Color.gray.opacity(0.5)
                                     )
@@ -109,7 +114,7 @@ struct DetailedUpgradeRow: View {
                             )
                             .scaleEffect(isPressed ? 0.95 : 1.0)
                     }
-                    .disabled(!gameState.canAfford(upgrade.cost))
+                    .disabled(!gameState.canAfford(currentPrice))
                 }
             }
         }
@@ -138,22 +143,32 @@ struct DetailedUpgradeRow: View {
         switch upgrade.name {
         case "Hire Worker":
             return "+0.1 packages/sec"
-        case "Same Day Delivery":
+        case "Improve Packaging":
+            return "20% automation boost"
+        case "Basic Training":
+            return "15% automation boost, -2 moral decay"
+        case "Rush Delivery":
+            return "40% automation boost"
+        case "Extended Shifts":
+            return "60% automation boost"
+        case "Automate Sorting":
+            return "30% automation boost"
+        case "Child Labor Loopholes":
+            return "100% automation boost, +$200 bonus"
+        case "Employee Surveillance":
             return "50% automation boost"
-        case "Remove Worker Breaks":
-            return "25% automation boost"
         case "AI Optimization":
             return "100% automation boost (2x)"
-        case "Overnight Shifts":
-            return "40% automation boost"
-        case "Robotic Workforce":
-            return "100% automation boost (2x) & reduces workers by 5"
-        case "Algorithmic Pricing":
-            return "+$100 bonus & 20% automation boost"
-        case "Tax Optimization":
-            return "+$500 bonus"
-        case "Lobbying Campaign":
-            return "200% automation boost (3x) but increases moral decay"
+        case "Remove Worker Breaks":
+            return "80% automation boost"
+        case "Sustainable Practices":
+            return "30% automation boost, -5 moral decay"
+        case "Community Investment Program":
+            return "40% automation boost, -10 moral decay"
+        case "Worker Replacement System":
+            return "200% automation boost (3x), reduce workers to 2"
+        case "Algorithmic Wage Suppression":
+            return "70% automation boost, +$500 bonus"
         default:
             return "Improves efficiency"
         }

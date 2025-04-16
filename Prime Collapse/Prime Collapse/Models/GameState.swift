@@ -13,7 +13,7 @@ import Observation
     // Core game metrics
     var totalPackagesShipped: Int = 0
     var money: Double = 0.0
-    var workers: Int = 0
+    var workers: Int = 1  // Start with 1 worker
     
     // Automation and efficiency
     var automationRate: Double = 0.0 // Packages per second
@@ -70,23 +70,47 @@ import Observation
     
     // Apply an upgrade
     func applyUpgrade(_ upgrade: Upgrade) {
-        if canAfford(upgrade.cost) {
-            money -= upgrade.cost
+        // Count how many times this upgrade has been purchased if repeatable
+        let timesPurchased = purchasedUpgradeIDs.filter { $0 == upgrade.id }.count
+        
+        // Calculate actual cost based on purchase count for repeatable upgrades
+        let actualCost = upgrade.isRepeatable && timesPurchased > 0 
+            ? UpgradeManager.calculatePrice(basePrice: upgrade.cost, timesPurchased: timesPurchased, upgradeName: upgrade.name)
+            : upgrade.cost
+            
+        if canAfford(actualCost) {
+            money -= actualCost
             upgrade.effect(self)
             
             // Add to purchased upgrades list
             purchasedUpgradeIDs.append(upgrade.id)
             
-            // Add to owned upgrades if repeatable
+            // Add to owned upgrades if repeatable, ensuring each instance has a unique ID
             if upgrade.isRepeatable {
-                upgrades.append(upgrade)
+                // Create a new instance with a unique ID for repeatable upgrades
+                let uniqueUpgrade = Upgrade(
+                    id: UUID(), // Generate a new UUID for this instance
+                    name: upgrade.name,
+                    description: upgrade.description,
+                    cost: upgrade.cost,
+                    effect: upgrade.effect,
+                    isRepeatable: upgrade.isRepeatable,
+                    moralImpact: upgrade.moralImpact
+                )
+                upgrades.append(uniqueUpgrade)
             }
             
             // Update moral decay based on the upgrade
-            moralDecay += upgrade.moralImpact
+            // For unethical upgrades (positive moral impact), increase decay more aggressively
+            if upgrade.moralImpact > 0 {
+                moralDecay += upgrade.moralImpact * 1.5 // 50% more moral decay impact for unethical choices
+            } else {
+                // For ethical upgrades (negative or zero moral impact), apply normally
+                moralDecay += upgrade.moralImpact
+            }
             
             // Track ethical choices
-            if upgrade.moralImpact < 3.0 {
+            if upgrade.moralImpact < 0 {
                 ethicalChoicesMade += 1
                 checkForReformEnding()
             }
@@ -107,6 +131,17 @@ import Observation
         return purchasedUpgradeIDs.contains(upgrade.id)
     }
     
+    // Get the current cost of an upgrade accounting for price increases
+    func getCurrentUpgradeCost(_ upgrade: Upgrade) -> Double {
+        if !upgrade.isRepeatable {
+            return upgrade.cost
+        }
+        
+        // Count how many times this upgrade has been purchased
+        let timesPurchased = purchasedUpgradeIDs.filter { $0 == upgrade.id }.count
+        return UpgradeManager.calculatePrice(basePrice: upgrade.cost, timesPurchased: timesPurchased, upgradeName: upgrade.name)
+    }
+    
     // Check if player qualifies for the Reform ending
     private func checkForReformEnding() {
         // To get the Reform ending:
@@ -121,10 +156,10 @@ import Observation
     // Check if player qualifies for the Loop ending
     private func checkForLoopEnding() {
         // To get the Loop ending:
-        // 1. Moral decay must be between 70-90 (on the edge)
-        // 2. Must have earned at least $2000 
-        // 3. Must have shipped at least 1000 packages
-        if moralDecay >= 70 && moralDecay <= 90 && money >= 2000 && totalPackagesShipped >= 1000 {
+        // 1. Moral decay must be between 75-85 (on the edge)
+        // 2. Must have earned at least $2500
+        // 3. Must have shipped at least 1500 packages
+        if moralDecay >= 75 && moralDecay <= 85 && money >= 2500 && totalPackagesShipped >= 1500 {
             endingType = .loop
         }
     }
@@ -133,7 +168,7 @@ import Observation
     func reset() {
         totalPackagesShipped = 0
         money = 0.0
-        workers = 0
+        workers = 1  // Reset to 1 worker instead of 0
         automationRate = 0.0
         packageAccumulator = 0.0
         upgrades = []
