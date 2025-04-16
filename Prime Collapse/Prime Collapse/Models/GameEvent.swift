@@ -13,6 +13,8 @@ struct GameEvent: Identifiable {
         case market
         case publicRelations
         case regulatory
+        case technology
+        case crisis
     }
     
     let category: Category

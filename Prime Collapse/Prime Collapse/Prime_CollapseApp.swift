@@ -16,6 +16,21 @@ struct Prime_CollapseApp: App {
     @State var gameCenterManager = GameCenterManager()
     @State var eventManager = EventManager()
     
+    // Manually create the ModelContainer with the migration plan
+    let container: ModelContainer
+    
+    init() {
+        do {
+            // Define the schema using the LATEST version
+            let schema = Schema(versionedSchema: SchemaV3.self)
+            // Create the container using the initializer that accepts a migration plan
+            container = try ModelContainer(for: schema, migrationPlan: SavedGameStateMigrationPlan.self)
+        } catch {
+            // Handle error appropriately - perhaps fatalError for now, or more robust error handling
+            fatalError("Failed to create ModelContainer: \(error)")
+        }
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -27,11 +42,13 @@ struct Prime_CollapseApp: App {
                     gameCenterManager.updateFromGameState(game)
                 }
         }
-        // Use a simpler approach with a separate modelContainer creation method
-        .modelContainer(createModelContainer())
+        // Pass the pre-configured container to the view modifier
+        .modelContainer(container)
     }
     
     // Create a model container with error handling
+    // NOTE: This function is no longer directly used when a migration plan is active,
+    // but keep it for potential future use or fallback logic.
     private func createModelContainer() -> ModelContainer {
         do {
             // Try the simplest form first
@@ -117,7 +134,7 @@ struct Prime_CollapseApp: App {
 // MARK: - Schema Versions
 // This section defines all schema versions for migration purposes
 
-// V1 is the current schema with endingType
+// V1 is the original schema
 enum SchemaV1: VersionedSchema {
     static var versionIdentifier = Schema.Version(1, 0, 0)
     
@@ -158,12 +175,79 @@ enum SchemaV1: VersionedSchema {
     }
 }
 
-// Updated schema that fixes the array materialization issue
+// V2 fixed array materialization
 enum SchemaV2: VersionedSchema {
     static var versionIdentifier = Schema.Version(2, 0, 0)
     
     static var models: [any PersistentModel.Type] {
-        [SavedGameState.self]
+        // Point to the explicit V2 model definition below
+        [SavedGameStateV2.self]
+    }
+    
+    // Define the model structure AS IT WAS IN V2
+    @Model
+    final class SavedGameStateV2 {
+        var totalPackagesShipped: Int
+        var money: Double
+        var workers: Int
+        var automationRate: Double
+        var moralDecay: Double
+        var isCollapsing: Bool
+        var lastUpdate: Date
+        var packageAccumulator: Double
+        var ethicalChoicesMade: Int
+        var endingType: String
+        
+        // Worker-related stats (already present in V2)
+        var workerEfficiency: Double
+        var workerMorale: Double
+        var customerSatisfaction: Double
+        
+        // Package and automation stats (already present in V2)
+        var packageValue: Double
+        var automationEfficiency: Double
+        var automationLevel: Int
+        
+        // Corporate metrics (already present in V2)
+        var corporateEthics: Double
+        
+        // String-based arrays (from V1->V2 migration)
+        var purchasedUpgradeIDsString: String
+        var repeatableUpgradeIDsString: String
+        
+        // V2 did not have publicPerception or environmentalImpact
+        
+        // Need an init or default values for SwiftData
+        init() {
+            self.totalPackagesShipped = 0
+            self.money = 0.0
+            self.workers = 0
+            self.automationRate = 0.0
+            self.moralDecay = 0.0
+            self.isCollapsing = false
+            self.lastUpdate = Date()
+            self.packageAccumulator = 0.0
+            self.ethicalChoicesMade = 0
+            self.endingType = "collapse"
+            self.workerEfficiency = 1.0
+            self.workerMorale = 0.8
+            self.customerSatisfaction = 0.9
+            self.packageValue = 1.0
+            self.automationEfficiency = 1.0
+            self.automationLevel = 0
+            self.corporateEthics = 0.5
+            self.purchasedUpgradeIDsString = "[]"
+            self.repeatableUpgradeIDsString = "[]"
+        }
+    }
+}
+
+// V3 adds new metrics (publicPerception, environmentalImpact)
+enum SchemaV3: VersionedSchema {
+    static var versionIdentifier = Schema.Version(3, 0, 0)
+    
+    static var models: [any PersistentModel.Type] {
+        [SavedGameState.self] // References the latest model definition
     }
 }
 
@@ -172,11 +256,11 @@ enum SchemaV2: VersionedSchema {
 
 enum SavedGameStateMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        [SchemaV1.self, SchemaV2.self]
+        [SchemaV1.self, SchemaV2.self, SchemaV3.self] // Add V3
     }
     
     static var stages: [MigrationStage] {
-        [migrateV1toV2]
+        [migrateV1toV2, migrateV2toV3] // Add V2 -> V3 stage
     }
     
     // Migration from V1 to V2 - converting array properties to serialized strings
@@ -190,20 +274,37 @@ enum SavedGameStateMigrationPlan: SchemaMigrationPlan {
             guard let oldGames = try? context.fetch(descriptorV1) else { return }
             
             for oldGame in oldGames {
-                // Create a new SavedGameState with serialized arrays
-                let newGame = SavedGameState(
-                    totalPackagesShipped: oldGame.totalPackagesShipped,
-                    money: oldGame.money,
-                    workers: oldGame.workers,
-                    automationRate: oldGame.automationRate,
-                    moralDecay: oldGame.moralDecay,
-                    isCollapsing: oldGame.isCollapsing,
-                    purchasedUpgradeIDs: oldGame.purchasedUpgradeIDs,
-                    repeatableUpgradeIDs: oldGame.repeatableUpgradeIDs,
-                    packageAccumulator: oldGame.packageAccumulator,
-                    ethicalChoicesMade: oldGame.ethicalChoicesMade,
-                    endingType: oldGame.endingType
-                )
+                // Create a new SavedGameStateV2 instance, mapping V1 data
+                let newGame = SchemaV2.SavedGameStateV2()
+                
+                // Manually map fields from V1 to V2
+                newGame.totalPackagesShipped = oldGame.totalPackagesShipped
+                newGame.money = oldGame.money
+                newGame.workers = oldGame.workers
+                newGame.automationRate = oldGame.automationRate
+                newGame.moralDecay = oldGame.moralDecay
+                newGame.isCollapsing = oldGame.isCollapsing
+                newGame.lastUpdate = oldGame.lastUpdate // Keep original date?
+                newGame.packageAccumulator = oldGame.packageAccumulator
+                newGame.ethicalChoicesMade = oldGame.ethicalChoicesMade
+                newGame.endingType = oldGame.endingType
+                
+                // Handle the array migration (V1 array -> V2 string)
+                // We need the serializeArray helper - might need to make it accessible
+                // For now, assume it's accessible or redefine it locally if needed.
+                // Let's assume SavedGameState.serializeArray is usable for now.
+                newGame.purchasedUpgradeIDsString = SavedGameState.serializeArray(oldGame.purchasedUpgradeIDs)
+                newGame.repeatableUpgradeIDsString = SavedGameState.serializeArray(oldGame.repeatableUpgradeIDs)
+                
+                // Set default values for fields added between V1 and V2 (if any)
+                // Based on SavedGameStateV2 definition, these were added:
+                newGame.workerEfficiency = 1.0 // Default value
+                newGame.workerMorale = 0.8 // Default value
+                newGame.customerSatisfaction = 0.9 // Default value
+                newGame.packageValue = 1.0 // Default value
+                newGame.automationEfficiency = 1.0 // Default value
+                newGame.automationLevel = 0 // Default value
+                newGame.corporateEthics = 0.5 // Default value
                 
                 // Add new record
                 context.insert(newGame)
@@ -216,6 +317,16 @@ enum SavedGameStateMigrationPlan: SchemaMigrationPlan {
             try? context.save()
         }
     )
+    
+    // Migration from V2 to V3 - Adding new metrics with default values
+    static let migrateV2toV3 = MigrationStage.lightweight(
+        fromVersion: SchemaV2.self,
+        toVersion: SchemaV3.self
+    )
+    // NOTE: Lightweight migration works here because we are only *adding*
+    // new properties, and the SavedGameState.init() provides default values.
+    // If we were renaming or deleting properties, a custom migration like V1->V2
+    // might be needed.
 }
 
 // MARK: - Migration Helper Functions
@@ -231,16 +342,20 @@ func printMigrationInfo() {
 /*
  When you need to add a new property to SavedGameState, follow these steps:
  
- 1. Create a new schema version (SchemaV2) by uncommenting and modifying the template above
- 2. In that schema version, declare a new model class (SavedGameStateV2) with all existing properties 
-    plus your new properties
- 3. Uncomment and update the SavedGameStateMigrationPlan to include the migration
- 4. In the App's scene builder, update the modelContainer line to:
-    .modelContainer(for: Schema([SavedGameState.self]), migrationPlan: SavedGameStateMigrationPlan.self)
- 5. Once the migration is complete, update your actual SavedGameState model to match SavedGameStateV2
+ 1. Define the new property in the `SavedGameState.swift` model class.
+    Make sure to provide a default value in the `init` method.
+ 2. Create a new schema version enum (e.g., `SchemaV3`) in `Prime_CollapseApp.swift`.
+    - Increment the version number (e.g., `Schema.Version(3, 0, 0)`).
+    - Set `models` to `[SavedGameState.self]`.
+ 3. Add the new schema enum to `SavedGameStateMigrationPlan.schemas`.
+ 4. Define a new migration stage (e.g., `migrateV2toV3`).
+    - Use `MigrationStage.lightweight` if you only added new properties with defaults.
+    - Use `MigrationStage.custom` for complex changes (renaming, data transformation).
+ 5. Add the new migration stage to `SavedGameStateMigrationPlan.stages`.
+ 6. Ensure the `.modelContainer` modifier in the App's `body` is using the migration plan:
+    `.modelContainer(for: Schema([SavedGameState.self]), migrationPlan: SavedGameStateMigrationPlan.self)`
  
  IMPORTANT TIPS:
- - Always make new properties optional or provide default values during migration
- - If renaming properties, use @Attribute(originalName: "oldName") on the new property
- - Test migrations thoroughly before releasing
+ - Lightweight migration relies on default values in your model's `init`.
+ - Test migrations thoroughly, especially after clearing app data or using older builds.
  */

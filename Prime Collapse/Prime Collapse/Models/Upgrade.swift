@@ -18,7 +18,11 @@ struct Upgrade: Identifiable, Hashable {
     let effect: (GameState) -> Void
     
     let isRepeatable: Bool
-    let moralImpact: Double // How much this affects moral decay (0-10 scale)
+    let moralImpact: Double // Positive for unethical, negative for ethical
+    
+    // New Step 13 Impacts
+    let publicPerceptionImpact: Double
+    let environmentalImpactImpact: Double
     
     // Constructor with default values
     init(
@@ -28,7 +32,9 @@ struct Upgrade: Identifiable, Hashable {
         cost: Double,
         effect: @escaping (GameState) -> Void,
         isRepeatable: Bool = false,
-        moralImpact: Double = 0.0
+        moralImpact: Double = 0.0,
+        publicPerceptionImpact: Double = 0.0, // Default impact
+        environmentalImpactImpact: Double = 0.0 // Default impact
     ) {
         self.id = id
         self.name = name
@@ -37,6 +43,8 @@ struct Upgrade: Identifiable, Hashable {
         self.effect = effect
         self.isRepeatable = isRepeatable
         self.moralImpact = moralImpact
+        self.publicPerceptionImpact = publicPerceptionImpact
+        self.environmentalImpactImpact = environmentalImpactImpact
     }
     
     // Hashable conformance

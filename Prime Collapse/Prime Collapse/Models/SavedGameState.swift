@@ -34,6 +34,10 @@ final class SavedGameState {
     // Corporate metrics
     var corporateEthics: Double
     
+    // New Step 13 Metrics
+    var publicPerception: Double // Scale 0-100
+    var environmentalImpact: Double // Scale 0-100
+    
     // Replace arrays with string storage to prevent materialization issues
     var purchasedUpgradeIDsString: String // Serialized JSON array of UUIDs
     var repeatableUpgradeIDsString: String // Serialized JSON array of UUIDs
@@ -75,6 +79,10 @@ final class SavedGameState {
         self.automationLevel = automationLevel
         self.corporateEthics = corporateEthics
         
+        // Initialize new metrics with defaults
+        self.publicPerception = 50.0 // Default starting value
+        self.environmentalImpact = 0.0 // Default starting value (lower is better?)
+        
         // Serialize arrays to JSON strings
         self.purchasedUpgradeIDsString = SavedGameState.serializeArray(purchasedUpgradeIDs)
         self.repeatableUpgradeIDsString = SavedGameState.serializeArray(repeatableUpgradeIDs)
@@ -85,7 +93,7 @@ final class SavedGameState {
     }
     
     // Static helper to serialize array to JSON string
-    private static func serializeArray(_ array: [String]) -> String {
+    static func serializeArray(_ array: [String]) -> String {
         guard let data = try? JSONSerialization.data(withJSONObject: array),
               let jsonString = String(data: data, encoding: .utf8) else {
             return "[]" // Empty array as fallback
@@ -94,7 +102,7 @@ final class SavedGameState {
     }
     
     // Helper to deserialize JSON string to array
-    private static func deserializeArray(_ jsonString: String) -> [String] {
+    static func deserializeArray(_ jsonString: String) -> [String] {
         guard let data = jsonString.data(using: .utf8),
               let array = try? JSONSerialization.jsonObject(with: data) as? [String] else {
             return [] // Empty array as fallback
@@ -141,7 +149,7 @@ final class SavedGameState {
             endingTypeString = "loop"
         }
         
-        return SavedGameState(
+        let savedGame = SavedGameState(
             totalPackagesShipped: gameState.totalPackagesShipped,
             money: gameState.money,
             workers: gameState.workers,
@@ -161,6 +169,12 @@ final class SavedGameState {
             automationLevel: gameState.automationLevel,
             corporateEthics: gameState.corporateEthics
         )
+        
+        // Add new metrics when converting
+        savedGame.publicPerception = gameState.publicPerception
+        savedGame.environmentalImpact = gameState.environmentalImpact
+        
+        return savedGame
     }
     
     // Apply saved state to a game state
@@ -183,6 +197,10 @@ final class SavedGameState {
         gameState.automationEfficiency = automationEfficiency
         gameState.automationLevel = automationLevel
         gameState.corporateEthics = corporateEthics
+        
+        // Apply new metrics
+        gameState.publicPerception = publicPerception
+        gameState.environmentalImpact = environmentalImpact
         
         // Convert string back to enum
         switch endingType {

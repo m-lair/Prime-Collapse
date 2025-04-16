@@ -43,6 +43,10 @@ import Observation
     var ethicalChoicesMade: Int = 0
     var endingType: GameEnding = .collapse
     
+    // New Step 13 Metrics
+    var publicPerception: Double = 50.0 // Scale 0-100, default starting value
+    var environmentalImpact: Double = 0.0 // Scale 0-100, default starting value (lower is better?)
+    
     // Ship a package manually (tap action)
     func shipPackage() {
         totalPackagesShipped += 1
@@ -68,7 +72,17 @@ import Observation
         }
         
         // Calculate effective automation rate based on worker efficiency and automation efficiency
-        let effectiveAutomationRate = automationRate * workerEfficiency * automationEfficiency
+        // Factor in worker morale: Morale below 0.5 starts reducing efficiency linearly down to 0 at 0 morale.
+        // Morale above 0.7 could provide a small boost (e.g., up to 10% at 1.0 morale).
+        let moraleFactor: Double
+        if workerMorale < 0.5 {
+            moraleFactor = workerMorale * 2.0 // Scales from 0.0 at 0 morale to 1.0 at 0.5 morale
+        } else if workerMorale > 0.7 {
+            moraleFactor = 1.0 + (workerMorale - 0.7) / 3.0 // Scales from 1.0 at 0.7 morale to 1.1 at 1.0 morale
+        } else {
+            moraleFactor = 1.0 // Neutral effect between 0.5 and 0.7
+        }
+        let effectiveAutomationRate = automationRate * workerEfficiency * automationEfficiency * moraleFactor
         
         // Calculate fractional packages shipped
         let fractionalPackages = effectiveAutomationRate * timeElapsed
@@ -118,6 +132,10 @@ import Observation
             
             // Add to purchased upgrades list
             purchasedUpgradeIDs.append(upgrade.id)
+            
+            // Apply new metric impacts
+            publicPerception = max(0, min(100, publicPerception + upgrade.publicPerceptionImpact)) // Clamp between 0-100
+            environmentalImpact = max(0, min(100, environmentalImpact + upgrade.environmentalImpactImpact)) // Clamp between 0-100
             
             // Add to owned upgrades if repeatable, ensuring each instance has a unique ID
             if upgrade.isRepeatable {
@@ -176,9 +194,24 @@ import Observation
             return upgrade.cost
         }
         
-        // Count how many times this upgrade has been purchased
+        // Calculate base cost accounting for repeatability
         let timesPurchased = purchasedUpgradeIDs.filter { $0 == upgrade.id }.count
-        return UpgradeManager.calculatePrice(basePrice: upgrade.cost, timesPurchased: timesPurchased, upgradeName: upgrade.name)
+        let baseCost = UpgradeManager.calculatePrice(basePrice: upgrade.cost, timesPurchased: timesPurchased, upgradeName: upgrade.name)
+        
+        // Apply modifier based on public perception (0-100 scale)
+        let perceptionModifier: Double
+        if publicPerception < 30 {
+            // Increase cost significantly for low perception (up to +50% cost at 0 perception)
+            perceptionModifier = 1.0 + (30.0 - publicPerception) / 30.0 * 0.5 
+        } else if publicPerception > 70 {
+            // Decrease cost slightly for high perception (down to -10% cost at 100 perception)
+            perceptionModifier = 1.0 - (publicPerception - 70.0) / 30.0 * 0.1
+        } else {
+            // No modifier for neutral perception (30-70)
+            perceptionModifier = 1.0
+        }
+        
+        return baseCost * perceptionModifier
     }
     
     // Check if player qualifies for the Reform ending
@@ -226,5 +259,9 @@ import Observation
         automationEfficiency = 1.0
         automationLevel = 0
         corporateEthics = 0.5
+        
+        // Reset new metrics
+        publicPerception = 50.0
+        environmentalImpact = 0.0
     }
 } 

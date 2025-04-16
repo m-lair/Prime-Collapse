@@ -305,6 +305,49 @@ struct DashboardView: View {
                             .padding(.horizontal)
                         }
                         
+                        // New Societal Impact Section
+                        DashboardSection(title: "Societal Impact") {
+                            VStack(spacing: 10) {
+                                // Public Perception
+                                HStack {
+                                    DashboardStatCard(
+                                        icon: "person.crop.circle.badge.checkmark",
+                                        title: "Public Perception",
+                                        value: "\(Int(gameState.publicPerception))/100",
+                                        iconColor: publicPerceptionColor
+                                    )
+                                    
+                                    DashboardStatCard(
+                                        icon: "leaf.arrow.triangle.circlepath",
+                                        title: "Environmental Impact",
+                                        value: "\(Int(gameState.environmentalImpact))/100",
+                                        iconColor: environmentalImpactColor
+                                    )
+                                }
+                                
+                                // Add progress bars or detailed text descriptions if needed
+                                // Example for Public Perception:
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Perception Level: \(publicPerceptionText)")
+                                        .font(.caption)
+                                    ProgressView(value: gameState.publicPerception / 100.0)
+                                        .tint(publicPerceptionColor)
+                                }
+                                .padding(.horizontal)
+                                
+                                // Example for Environmental Impact:
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Impact Level: \(environmentalImpactText)")
+                                        .font(.caption)
+                                    ProgressView(value: gameState.environmentalImpact / 100.0)
+                                        .tint(environmentalImpactColor)
+                                }
+                                .padding(.horizontal)
+                                
+                            }
+                            .padding(.horizontal)
+                        }
+                        
                         // Corporate Ethics
                         DashboardSection(title: "Corporate Ethics") {
                             VStack(spacing: 15) {
@@ -688,6 +731,47 @@ struct DashboardView: View {
             return .mint
         }
     }
+    
+    // --- ADD HELPER VARS FOR NEW METRICS --- 
+    
+    private var publicPerceptionColor: Color {
+        let perception = gameState.publicPerception
+        if perception < 20 { return .red }
+        if perception < 40 { return .orange }
+        if perception < 60 { return .yellow }
+        if perception < 80 { return .green }
+        return .mint
+    }
+    
+    private var publicPerceptionText: String {
+        let perception = gameState.publicPerception
+        if perception < 20 { return "Very Negative" }
+        if perception < 40 { return "Negative" }
+        if perception < 60 { return "Neutral" }
+        if perception < 80 { return "Positive" }
+        return "Very Positive"
+    }
+    
+    private var environmentalImpactColor: Color {
+        let impact = gameState.environmentalImpact
+        // Higher impact is worse, so colors are reversed
+        if impact < 20 { return .green } // Low impact
+        if impact < 40 { return .yellow }
+        if impact < 60 { return .orange }
+        if impact < 80 { return .red }
+        return Color(red: 0.6, green: 0, blue: 0) // Dark Red for very high impact
+    }
+    
+    private var environmentalImpactText: String {
+        let impact = gameState.environmentalImpact
+        if impact < 20 { return "Minimal" }
+        if impact < 40 { return "Low" }
+        if impact < 60 { return "Moderate" }
+        if impact < 80 { return "High" }
+        return "Severe"
+    }
+    
+    // --- END HELPER VARS --- 
 }
 
 #Preview {

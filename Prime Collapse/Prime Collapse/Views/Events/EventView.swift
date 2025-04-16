@@ -162,10 +162,13 @@ struct EventView: View {
     // Helper for category display
     private func categoryName(_ category: GameEvent.Category) -> String {
         switch category {
-            case .workplace: return "Workplace"
-            case .market: return "Market"
-            case .publicRelations: return "PR"
-            case .regulatory: return "Regulatory"
+        case .workplace: return "Workplace"
+        case .market: return "Market"
+        case .publicRelations: return "PR"
+        case .regulatory: return "Regulatory"
+        case .technology: return "Technology"
+        case .crisis: return "Crisis"
+            
         }
     }
     
@@ -175,6 +178,8 @@ struct EventView: View {
             case .market: return .green
             case .publicRelations: return .purple
             case .regulatory: return .orange
+            case .technology: return .yellow
+            case .crisis: return .red
         }
     }
 }
