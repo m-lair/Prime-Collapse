@@ -7,11 +7,11 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		2CC2FDB72DAF193D0006FF39 /* Prime Collapse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Prime Collapse.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		2CC2FDD62DAF4E100006FF39 /* Prime Collapse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Prime Collapse.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		2CC2FDB92DAF193D0006FF39 /* Prime Collapse */ = {
+		2CC2FDD82DAF4E100006FF39 /* Prime Collapse */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "Prime Collapse";
 			sourceTree = "<group>";
@@ -19,7 +19,7 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		2CC2FDB42DAF193D0006FF39 /* Frameworks */ = {
+		2CC2FDD32DAF4E100006FF39 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -29,18 +29,18 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		2CC2FDAE2DAF193D0006FF39 = {
+		2CC2FDCD2DAF4E100006FF39 = {
 			isa = PBXGroup;
 			children = (
-				2CC2FDB92DAF193D0006FF39 /* Prime Collapse */,
-				2CC2FDB82DAF193D0006FF39 /* Products */,
+				2CC2FDD82DAF4E100006FF39 /* Prime Collapse */,
+				2CC2FDD72DAF4E100006FF39 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		2CC2FDB82DAF193D0006FF39 /* Products */ = {
+		2CC2FDD72DAF4E100006FF39 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				2CC2FDB72DAF193D0006FF39 /* Prime Collapse.app */,
+				2CC2FDD62DAF4E100006FF39 /* Prime Collapse.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,64 +48,64 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		2CC2FDB62DAF193D0006FF39 /* Prime Collapse */ = {
+		2CC2FDD52DAF4E100006FF39 /* Prime Collapse */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 2CC2FDC62DAF193E0006FF39 /* Build configuration list for PBXNativeTarget "Prime Collapse" */;
+			buildConfigurationList = 2CC2FDE42DAF4E110006FF39 /* Build configuration list for PBXNativeTarget "Prime Collapse" */;
 			buildPhases = (
-				2CC2FDB32DAF193D0006FF39 /* Sources */,
-				2CC2FDB42DAF193D0006FF39 /* Frameworks */,
-				2CC2FDB52DAF193D0006FF39 /* Resources */,
+				2CC2FDD22DAF4E100006FF39 /* Sources */,
+				2CC2FDD32DAF4E100006FF39 /* Frameworks */,
+				2CC2FDD42DAF4E100006FF39 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				2CC2FDB92DAF193D0006FF39 /* Prime Collapse */,
+				2CC2FDD82DAF4E100006FF39 /* Prime Collapse */,
 			);
 			name = "Prime Collapse";
 			packageProductDependencies = (
 			);
 			productName = "Prime Collapse";
-			productReference = 2CC2FDB72DAF193D0006FF39 /* Prime Collapse.app */;
+			productReference = 2CC2FDD62DAF4E100006FF39 /* Prime Collapse.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		2CC2FDAF2DAF193D0006FF39 /* Project object */ = {
+		2CC2FDCE2DAF4E100006FF39 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1620;
 				LastUpgradeCheck = 1620;
 				TargetAttributes = {
-					2CC2FDB62DAF193D0006FF39 = {
+					2CC2FDD52DAF4E100006FF39 = {
 						CreatedOnToolsVersion = 16.2;
 					};
 				};
 			};
-			buildConfigurationList = 2CC2FDB22DAF193D0006FF39 /* Build configuration list for PBXProject "Prime Collapse" */;
+			buildConfigurationList = 2CC2FDD12DAF4E100006FF39 /* Build configuration list for PBXProject "Prime Collapse" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
 			);
-			mainGroup = 2CC2FDAE2DAF193D0006FF39;
+			mainGroup = 2CC2FDCD2DAF4E100006FF39;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
-			productRefGroup = 2CC2FDB82DAF193D0006FF39 /* Products */;
+			productRefGroup = 2CC2FDD72DAF4E100006FF39 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				2CC2FDB62DAF193D0006FF39 /* Prime Collapse */,
+				2CC2FDD52DAF4E100006FF39 /* Prime Collapse */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		2CC2FDB52DAF193D0006FF39 /* Resources */ = {
+		2CC2FDD42DAF4E100006FF39 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -115,7 +115,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		2CC2FDB32DAF193D0006FF39 /* Sources */ = {
+		2CC2FDD22DAF4E100006FF39 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -125,7 +125,7 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		2CC2FDC42DAF193E0006FF39 /* Debug */ = {
+		2CC2FDE22DAF4E110006FF39 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -177,18 +177,18 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 15.1;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				SDKROOT = macosx;
+				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
 			name = Debug;
 		};
-		2CC2FDC52DAF193E0006FF39 /* Release */ = {
+		2CC2FDE32DAF4E110006FF39 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -234,91 +234,96 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 15.1;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				SDKROOT = macosx;
+				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
 		};
-		2CC2FDC72DAF193E0006FF39 /* Debug */ = {
+		2CC2FDE52DAF4E110006FF39 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "Prime Collapse/Prime_Collapse.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Prime Collapse/Preview Content\"";
 				DEVELOPMENT_TEAM = 5Z6AC3LV9L;
-				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
-					"@executable_path/../Frameworks",
+					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "duhmarcus.Prime-Collapse";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
-		2CC2FDC82DAF193E0006FF39 /* Release */ = {
+		2CC2FDE62DAF4E110006FF39 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "Prime Collapse/Prime_Collapse.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Prime Collapse/Preview Content\"";
 				DEVELOPMENT_TEAM = 5Z6AC3LV9L;
-				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
-					"@executable_path/../Frameworks",
+					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "duhmarcus.Prime-Collapse";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		2CC2FDB22DAF193D0006FF39 /* Build configuration list for PBXProject "Prime Collapse" */ = {
+		2CC2FDD12DAF4E100006FF39 /* Build configuration list for PBXProject "Prime Collapse" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				2CC2FDC42DAF193E0006FF39 /* Debug */,
-				2CC2FDC52DAF193E0006FF39 /* Release */,
+				2CC2FDE22DAF4E110006FF39 /* Debug */,
+				2CC2FDE32DAF4E110006FF39 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		2CC2FDC62DAF193E0006FF39 /* Build configuration list for PBXNativeTarget "Prime Collapse" */ = {
+		2CC2FDE42DAF4E110006FF39 /* Build configuration list for PBXNativeTarget "Prime Collapse" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				2CC2FDC72DAF193E0006FF39 /* Debug */,
-				2CC2FDC82DAF193E0006FF39 /* Release */,
+				2CC2FDE52DAF4E110006FF39 /* Debug */,
+				2CC2FDE62DAF4E110006FF39 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = 2CC2FDAF2DAF193D0006FF39 /* Project object */;
+	rootObject = 2CC2FDCE2DAF4E100006FF39 /* Project object */;
 }
