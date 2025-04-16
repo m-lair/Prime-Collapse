@@ -28,6 +28,7 @@ struct EventView: View {
                         .background(categoryColor(event.category).opacity(0.8))
                         .clipShape(Capsule())
                 }
+                .padding(.bottom)
                 .frame(maxWidth: .infinity)
                 .background(Color.black.opacity(0.8))
                 
