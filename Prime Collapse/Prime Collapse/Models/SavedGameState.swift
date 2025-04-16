@@ -126,6 +126,8 @@ final class SavedGameState {
     static func from(gameState: GameState) -> SavedGameState {
         // Extract purchased upgrade IDs
         let allPurchasedIDs = gameState.purchasedUpgradeIDs.map { $0.uuidString }
+        
+        // Only save the upgrades that are repeatable (currently owned)
         let repeatableIDs = gameState.upgrades.map { $0.id.uuidString }
         
         // Convert enum to string
@@ -194,7 +196,7 @@ final class SavedGameState {
             gameState.endingType = .collapse
         }
         
-        // Restore all purchased upgrade IDs
+        // Restore purchased upgrade IDs
         gameState.purchasedUpgradeIDs = []
         for idString in purchasedUpgradeIDs {
             if let uuid = UUID(uuidString: idString) {
@@ -202,13 +204,27 @@ final class SavedGameState {
             }
         }
         
-        // Restore repeatable upgrades
+        // Restore repeatable upgrades (based on 'Hire Worker' upgrade)
         gameState.upgrades = []
-        for idString in repeatableUpgradeIDs {
-            if let uuid = UUID(uuidString: idString),
-               let upgrade = UpgradeManager.availableUpgrades.first(where: { $0.id == uuid }) {
-                gameState.upgrades.append(upgrade)
-            }
+        
+        // Find the "Hire Worker" upgrade
+        let hireWorkerUpgrade = UpgradeManager.hireWorker
+        
+        // Count how many workers were hired (to recreate the correct number of worker upgrades)
+        let totalWorkerUpgrades = repeatableUpgradeIDs.count
+        
+        // Recreate each worker upgrade with a unique ID
+        for _ in 0..<totalWorkerUpgrades {
+            let uniqueUpgrade = Upgrade(
+                id: UUID(), // New unique ID
+                name: hireWorkerUpgrade.name,
+                description: hireWorkerUpgrade.description,
+                cost: hireWorkerUpgrade.cost,
+                effect: hireWorkerUpgrade.effect,
+                isRepeatable: hireWorkerUpgrade.isRepeatable,
+                moralImpact: hireWorkerUpgrade.moralImpact
+            )
+            gameState.upgrades.append(uniqueUpgrade)
         }
     }
 } 

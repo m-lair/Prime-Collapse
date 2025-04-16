@@ -6,6 +6,43 @@ struct DashboardView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(GameCenterManager.self) private var gameCenterManager
     
+    // Ethics rating enum for better readability
+    enum EthicsRating: String {
+        case excellent = "Excellent"
+        case good = "Good"
+        case neutral = "Neutral"
+        case concerning = "Concerning"
+        case poor = "Poor"
+        case critical = "Critical"
+        
+        var description: String {
+            switch self {
+            case .excellent:
+                return "Industry-leading ethical standards and practices"
+            case .good:
+                return "Strong ethical foundation with positive societal impact"
+            case .neutral:
+                return "Standard business practices with no major concerns"
+            case .concerning:
+                return "Some questionable practices that may attract criticism"
+            case .poor:
+                return "Significantly unethical practices damaging reputation"
+            case .critical:
+                return "Severely unethical behavior risking systemic collapse"
+            }
+        }
+        
+        var color: Color {
+            switch self {
+            case .excellent: return .mint
+            case .good: return .green
+            case .neutral: return .yellow
+            case .concerning: return .orange
+            case .poor, .critical: return .red
+            }
+        }
+    }
+    
     var body: some View {
         ZStack {
             // Background gradient
@@ -43,46 +80,227 @@ struct DashboardView: View {
                 // Dashboard content
                 ScrollView {
                     VStack(spacing: 20) {
-                        // Game Center section
-                        DashboardSection(title: "Game Center") {
-                            GameCenterView()
-                                .padding(.horizontal)
-                        }
-                        
-                        // Game Statistics
-                        DashboardSection(title: "Game Statistics") {
-                            // Packages
-                            HStack {
-                                DashboardStatCard(
-                                    icon: "shippingbox.fill",
-                                    title: "Total Packages",
-                                    value: "\(gameState.totalPackagesShipped)",
-                                    iconColor: .yellow
-                                )
+                        // Business KPIs
+                        DashboardSection(title: "Business Performance") {
+                            // Key business metrics
+                            VStack(spacing: 10) {
+                                HStack {
+                                    DashboardStatCard(
+                                        icon: "dollarsign.circle.fill",
+                                        title: "Revenue",
+                                        value: "$\(String(format: "%.2f", gameState.money))",
+                                        iconColor: .green
+                                    )
+                                    
+                                    DashboardStatCard(
+                                        icon: "shippingbox.fill",
+                                        title: "Total Packages",
+                                        value: "\(gameState.totalPackagesShipped)",
+                                        iconColor: .yellow
+                                    )
+                                }
                                 
-                                DashboardStatCard(
-                                    icon: "dollarsign.circle.fill",
-                                    title: "Current Money",
-                                    value: "$\(String(format: "%.2f", gameState.money))",
-                                    iconColor: .green
-                                )
+                                // Package and delivery metrics
+                                HStack {
+                                    DashboardStatCard(
+                                        icon: "dollarsign.square.fill",
+                                        title: "Package Value",
+                                        value: "$\(String(format: "%.2f", gameState.packageValue))",
+                                        iconColor: .mint
+                                    )
+                                    
+                                    let effectiveRate = gameState.automationRate * gameState.workerEfficiency * gameState.automationEfficiency
+                                    DashboardStatCard(
+                                        icon: "chart.line.uptrend.xyaxis",
+                                        title: "Hourly Income",
+                                        value: "$\(String(format: "%.2f", effectiveRate * gameState.packageValue * 3600))",
+                                        iconColor: .orange
+                                    )
+                                }
                             }
                             .padding(.horizontal)
-                            
-                            HStack {
-                                DashboardStatCard(
-                                    icon: "person.3.fill",
-                                    title: "Workers",
-                                    value: "\(gameState.workers)",
-                                    iconColor: .blue
-                                )
+                        }
+                        
+                        // Workforce Section
+                        DashboardSection(title: "Workforce Analytics") {
+                            VStack(spacing: 10) {
+                                // Workers and efficiency
+                                HStack {
+                                    DashboardStatCard(
+                                        icon: "person.3.fill",
+                                        title: "Workers",
+                                        value: "\(gameState.workers)",
+                                        iconColor: .blue
+                                    )
+                                    
+                                    DashboardStatCard(
+                                        icon: "gauge.medium",
+                                        title: "Worker Efficiency",
+                                        value: "\(String(format: "%.2f", gameState.workerEfficiency))×",
+                                        iconColor: .indigo
+                                    )
+                                }
                                 
-                                DashboardStatCard(
-                                    icon: "speedometer",
-                                    title: "Automation Rate",
-                                    value: "\(String(format: "%.1f", gameState.automationRate))/sec",
-                                    iconColor: .purple
+                                // Worker morale
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack {
+                                        Text("Worker Morale")
+                                            .font(.system(size: 16, weight: .semibold))
+                                            .foregroundColor(.white)
+                                        
+                                        Spacer()
+                                        
+                                        Text(moraleRatingText)
+                                            .font(.system(size: 16, weight: .bold))
+                                            .foregroundColor(moraleColor)
+                                    }
+                                    
+                                    // Morale bar
+                                    ZStack(alignment: .leading) {
+                                        // Background
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .fill(Color.white.opacity(0.2))
+                                            .frame(height: 12)
+                                        
+                                        // Fill
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .fill(
+                                                LinearGradient(
+                                                    gradient: Gradient(colors: [moraleColor.opacity(0.7), moraleColor]),
+                                                    startPoint: .leading,
+                                                    endPoint: .trailing
+                                                )
+                                            )
+                                            .frame(width: max(CGFloat(gameState.workerMorale) * UIScreen.main.bounds.width * 0.85, 10), height: 12)
+                                    }
+                                    
+                                    Text(moraleEffectDescription)
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.white.opacity(0.8))
+                                }
+                                .padding(.horizontal)
+                                .padding(.vertical, 8)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(Color.white.opacity(0.05))
                                 )
+                                .padding(.horizontal)
+                            }
+                            .padding(.horizontal)
+                        }
+                        
+                        // Automation Section
+                        DashboardSection(title: "Automation Systems") {
+                            VStack(spacing: 10) {
+                                // Automation metrics
+                                HStack {
+                                    DashboardStatCard(
+                                        icon: "speedometer",
+                                        title: "Base Rate",
+                                        value: "\(String(format: "%.1f", gameState.automationRate))/sec",
+                                        iconColor: .purple
+                                    )
+                                    
+                                    DashboardStatCard(
+                                        icon: "gearshape.2.fill",
+                                        title: "Efficiency",
+                                        value: "\(String(format: "%.2f", gameState.automationEfficiency))×",
+                                        iconColor: .teal
+                                    )
+                                }
+                                
+                                // Effective production
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack {
+                                        Text("Effective Production")
+                                            .font(.system(size: 16, weight: .semibold))
+                                            .foregroundColor(.white)
+                                        
+                                        Spacer()
+                                        
+                                        let effectiveRate = gameState.automationRate * gameState.workerEfficiency * gameState.automationEfficiency
+                                        Text("\(String(format: "%.2f", effectiveRate)) packages/sec")
+                                            .font(.system(size: 16, weight: .bold))
+                                            .foregroundColor(.white)
+                                    }
+                                    
+                                    // Factors breakdown
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Base rate: \(String(format: "%.2f", gameState.automationRate)) packages/sec")
+                                        Text("Worker efficiency: ×\(String(format: "%.2f", gameState.workerEfficiency))")
+                                        Text("Automation efficiency: ×\(String(format: "%.2f", gameState.automationEfficiency))")
+                                        Text("Package value: $\(String(format: "%.2f", gameState.packageValue))")
+                                        Text("Customer satisfaction: \(Int(gameState.customerSatisfaction * 100))%")
+                                        
+                                        Divider()
+                                            .background(Color.white.opacity(0.3))
+                                            .padding(.vertical, 4)
+                                        
+                                        let incomePerSec = gameState.automationRate * gameState.workerEfficiency * gameState.automationEfficiency * gameState.packageValue * (0.5 + gameState.customerSatisfaction * 0.5)
+                                        Text("Income rate: $\(String(format: "%.2f", incomePerSec))/sec")
+                                            .font(.system(size: 16, weight: .bold))
+                                    }
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.white.opacity(0.8))
+                                }
+                                .padding(.horizontal)
+                                .padding(.vertical, 12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(Color.white.opacity(0.05))
+                                )
+                                .padding(.horizontal)
+                            }
+                            .padding(.horizontal)
+                        }
+                        
+                        // Customer Metrics
+                        DashboardSection(title: "Customer Metrics") {
+                            VStack(spacing: 10) {
+                                // Customer satisfaction
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack {
+                                        Text("Customer Satisfaction")
+                                            .font(.system(size: 16, weight: .semibold))
+                                            .foregroundColor(.white)
+                                        
+                                        Spacer()
+                                        
+                                        Text(customerSatisfactionRatingText)
+                                            .font(.system(size: 16, weight: .bold))
+                                            .foregroundColor(customerSatisfactionColor)
+                                    }
+                                    
+                                    // Satisfaction bar
+                                    ZStack(alignment: .leading) {
+                                        // Background
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .fill(Color.white.opacity(0.2))
+                                            .frame(height: 12)
+                                        
+                                        // Fill
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .fill(
+                                                LinearGradient(
+                                                    gradient: Gradient(colors: [customerSatisfactionColor.opacity(0.7), customerSatisfactionColor]),
+                                                    startPoint: .leading,
+                                                    endPoint: .trailing
+                                                )
+                                            )
+                                            .frame(width: max(CGFloat(gameState.customerSatisfaction) * UIScreen.main.bounds.width * 0.85, 10), height: 12)
+                                    }
+                                    
+                                    Text(customerSatisfactionEffect)
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.white.opacity(0.8))
+                                }
+                                .padding(.horizontal)
+                                .padding(.vertical, 8)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(Color.white.opacity(0.05))
+                                )
+                                .padding(.horizontal)
                             }
                             .padding(.horizontal)
                         }
@@ -90,21 +308,21 @@ struct DashboardView: View {
                         // Corporate Ethics
                         DashboardSection(title: "Corporate Ethics") {
                             VStack(spacing: 15) {
-                                // Progress bar
-                                VStack(alignment: .leading, spacing: 8) {
+                                // Ethics status card
+                                VStack(alignment: .leading, spacing: 12) {
                                     HStack {
-                                        Text("Ethics Level")
+                                        Text("Ethics Rating")
                                             .font(.system(size: 16, weight: .semibold))
                                             .foregroundColor(.white)
                                         
                                         Spacer()
                                         
-                                        Text("\(Int(gameState.moralDecay))/100")
+                                        Text(ethicsRating.rawValue)
                                             .font(.system(size: 16, weight: .bold))
-                                            .foregroundColor(moralDecayColor)
+                                            .foregroundColor(ethicsRating.color)
                                     }
                                     
-                                    // Styled progress bar
+                                    // Risk level indicator
                                     ZStack(alignment: .leading) {
                                         // Background
                                         RoundedRectangle(cornerRadius: 10)
@@ -121,36 +339,101 @@ struct DashboardView: View {
                                                 )
                                             )
                                             .frame(width: max(CGFloat(gameState.moralDecay) / 100.0 * UIScreen.main.bounds.width * 0.85, 10), height: 12)
+                                        
+                                        // Descriptive markers
+                                        HStack(spacing: 0) {
+                                            ForEach(0..<5) { i in
+                                                Rectangle()
+                                                    .fill(Color.white.opacity(0.5))
+                                                    .frame(width: 1, height: 8)
+                                                    .frame(maxWidth: .infinity)
+                                            }
+                                        }
                                     }
+                                    
+                                    // Risk level labels
+                                    HStack(spacing: 0) {
+                                        Text("Low Risk")
+                                            .font(.system(size: 10, weight: .medium))
+                                            .foregroundColor(.white.opacity(0.7))
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                        
+                                        Text("Moderate")
+                                            .font(.system(size: 10, weight: .medium))
+                                            .foregroundColor(.white.opacity(0.7))
+                                            .frame(maxWidth: .infinity, alignment: .center)
+                                        
+                                        Text("Collapse Risk")
+                                            .font(.system(size: 10, weight: .medium))
+                                            .foregroundColor(.white.opacity(0.7))
+                                            .frame(maxWidth: .infinity, alignment: .trailing)
+                                    }
+                                    
+                                    Text(ethicsRating.description)
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.white.opacity(0.8))
+                                        .padding(.top, 4)
+                                }
+                                .padding(.horizontal)
+                                .padding(.vertical, 12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(Color.white.opacity(0.05))
+                                )
+                                .padding(.horizontal)
+                                
+                                // Ethical choices and corporate virtue
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Ethical Choices Made")
+                                            .font(.system(size: 16, weight: .semibold))
+                                            .foregroundColor(.white)
+                                        
+                                        Text("\(gameState.ethicalChoicesMade)")
+                                            .font(.system(size: 20, weight: .bold))
+                                            .foregroundColor(.green)
+                                    }
+                                    .padding()
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .fill(Color.white.opacity(0.05))
+                                    )
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Corporate Virtue")
+                                            .font(.system(size: 16, weight: .semibold))
+                                            .foregroundColor(.white)
+                                        
+                                        Text(corporateVirtueRatingText)
+                                            .font(.system(size: 20, weight: .bold))
+                                            .foregroundColor(corporateEthicsColor)
+                                    }
+                                    .padding()
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .fill(Color.white.opacity(0.05))
+                                    )
                                 }
                                 .padding(.horizontal)
                                 
                                 // Status indicator
                                 HStack {
-                                    if gameState.moralDecay < 50 {
-                                        StatusTag(
-                                            icon: "checkmark.circle.fill",
-                                            text: "Ethical Corporation",
-                                            color: .green
-                                        )
-                                    } else if gameState.moralDecay < 80 {
-                                        StatusTag(
-                                            icon: "exclamationmark.triangle.fill",
-                                            text: "Ethics Declining",
-                                            color: .orange
-                                        )
-                                    } else {
-                                        StatusTag(
-                                            icon: "xmark.circle.fill",
-                                            text: "Critical Ethics Failure",
-                                            color: .red
-                                        )
-                                    }
+                                    StatusTag(
+                                        icon: statusIcon,
+                                        text: statusText,
+                                        color: ethicsRating.color
+                                    )
                                     
                                     Spacer()
                                 }
                                 .padding(.horizontal)
                             }
+                        }
+                        
+                        // Game Center section
+                        DashboardSection(title: "Game Center") {
+                            GameCenterView()
+                                .padding(.horizontal)
                         }
                         
                         // Path Progress
@@ -169,8 +452,8 @@ struct DashboardView: View {
                                             isMet: gameState.ethicalChoicesMade >= 5
                                         ),
                                         RequirementItem(
-                                            title: "Ethics Level",
-                                            value: "< 50",
+                                            title: "Ethics Rating",
+                                            value: "Good or Better",
                                             isMet: gameState.moralDecay < 50
                                         ),
                                         RequirementItem(
@@ -189,8 +472,8 @@ struct DashboardView: View {
                                     icon: "infinity",
                                     requirements: [
                                         RequirementItem(
-                                            title: "Ethics Level",
-                                            value: "Between 70-90",
+                                            title: "Ethics Rating",
+                                            value: "Concerning",
                                             isMet: (gameState.moralDecay >= 70 && gameState.moralDecay <= 90)
                                         ),
                                         RequirementItem(
@@ -214,8 +497,8 @@ struct DashboardView: View {
                                     icon: "chart.line.downtrend.xyaxis",
                                     requirements: [
                                         RequirementItem(
-                                            title: "Ethics Level",
-                                            value: "> 100",
+                                            title: "Ethics Rating",
+                                            value: "Critical",
                                             isMet: gameState.moralDecay > 100
                                         )
                                     ]
@@ -227,6 +510,99 @@ struct DashboardView: View {
                     .padding(.vertical, 20)
                 }
             }
+        }
+    }
+    
+    // Ethics rating based on moral decay
+    private var ethicsRating: EthicsRating {
+        switch gameState.moralDecay {
+        case 0..<20:
+            return .excellent
+        case 20..<40:
+            return .good
+        case 40..<60:
+            return .neutral
+        case 60..<80:
+            return .concerning
+        case 80..<100:
+            return .poor
+        default:
+            return .critical
+        }
+    }
+    
+    // Status icon for the ethics status tag
+    private var statusIcon: String {
+        switch ethicsRating {
+        case .excellent, .good:
+            return "checkmark.circle.fill"
+        case .neutral:
+            return "equal.circle.fill"
+        case .concerning:
+            return "exclamationmark.triangle.fill"
+        case .poor, .critical:
+            return "xmark.circle.fill"
+        }
+    }
+    
+    // Status text for the ethics status tag
+    private var statusText: String {
+        switch ethicsRating {
+        case .excellent, .good:
+            return "Ethical Corporation"
+        case .neutral:
+            return "Standard Business Practices"
+        case .concerning:
+            return "Ethics Under Review"
+        case .poor:
+            return "Ethics Failure"
+        case .critical:
+            return "Critical Ethics Failure"
+        }
+    }
+    
+    // Corporate ethics (virtue) rating text
+    private var corporateVirtueRatingText: String {
+        if gameState.corporateEthics < 0.3 {
+            return "Very Low"
+        } else if gameState.corporateEthics < 0.5 {
+            return "Low"
+        } else if gameState.corporateEthics < 0.7 {
+            return "Moderate"
+        } else if gameState.corporateEthics < 0.9 {
+            return "High"
+        } else {
+            return "Exemplary"
+        }
+    }
+    
+    // Morale rating text
+    private var moraleRatingText: String {
+        if gameState.workerMorale < 0.3 {
+            return "Very Low"
+        } else if gameState.workerMorale < 0.5 {
+            return "Low"
+        } else if gameState.workerMorale < 0.7 {
+            return "Moderate"
+        } else if gameState.workerMorale < 0.9 {
+            return "High"
+        } else {
+            return "Excellent"
+        }
+    }
+    
+    // Customer satisfaction rating text
+    private var customerSatisfactionRatingText: String {
+        if gameState.customerSatisfaction < 0.3 {
+            return "Very Poor"
+        } else if gameState.customerSatisfaction < 0.5 {
+            return "Poor"
+        } else if gameState.customerSatisfaction < 0.7 {
+            return "Adequate"
+        } else if gameState.customerSatisfaction < 0.9 {
+            return "Good"
+        } else {
+            return "Excellent"
         }
     }
     
@@ -242,6 +618,76 @@ struct DashboardView: View {
             return .red
         }
     }
+    
+    private var moraleColor: Color {
+        if gameState.workerMorale < 0.3 {
+            return .red
+        } else if gameState.workerMorale < 0.5 {
+            return .orange
+        } else if gameState.workerMorale < 0.7 {
+            return .yellow
+        } else if gameState.workerMorale < 0.9 {
+            return .green
+        } else {
+            return .mint
+        }
+    }
+    
+    private var moraleEffectDescription: String {
+        if gameState.workerMorale < 0.3 {
+            return "Worker efficiency severely reduced, high risk of strikes and resignations."
+        } else if gameState.workerMorale < 0.5 {
+            return "Worker efficiency reduced, increased turnover and complaints."
+        } else if gameState.workerMorale < 0.7 {
+            return "Neutral morale, standard worker performance."
+        } else if gameState.workerMorale < 0.9 {
+            return "Good morale, workers are productive and efficient."
+        } else {
+            return "Excellent morale, workers are highly motivated and maximally efficient."
+        }
+    }
+    
+    private var customerSatisfactionColor: Color {
+        if gameState.customerSatisfaction < 0.3 {
+            return .red
+        } else if gameState.customerSatisfaction < 0.5 {
+            return .orange
+        } else if gameState.customerSatisfaction < 0.7 {
+            return .yellow
+        } else if gameState.customerSatisfaction < 0.9 {
+            return .green
+        } else {
+            return .mint
+        }
+    }
+    
+    private var customerSatisfactionEffect: String {
+        if gameState.customerSatisfaction < 0.3 {
+            return "Package value severely reduced, reputation damage limits growth."
+        } else if gameState.customerSatisfaction < 0.5 {
+            return "Package value reduced, customer complaints increasing."
+        } else if gameState.customerSatisfaction < 0.7 {
+            return "Standard customer expectations met, average package value."
+        } else if gameState.customerSatisfaction < 0.9 {
+            return "Customers are satisfied, increased package value and referrals."
+        } else {
+            return "Customers are delighted, maximum package values and excellent reputation."
+        }
+    }
+    
+    private var corporateEthicsColor: Color {
+        if gameState.corporateEthics < 0.3 {
+            return .red
+        } else if gameState.corporateEthics < 0.5 {
+            return .orange
+        } else if gameState.corporateEthics < 0.7 {
+            return .yellow
+        } else if gameState.corporateEthics < 0.9 {
+            return .green
+        } else {
+            return .mint
+        }
+    }
 }
 
 #Preview {
@@ -249,8 +695,13 @@ struct DashboardView: View {
         let state = GameState()
         state.totalPackagesShipped = 523
         state.money = 1250
-        state.workers = 10
-        state.moralDecay = 45
+        state.workers = 5
+        state.automationRate = 0.75
+        state.moralDecay = 35
+        state.workerEfficiency = 1.2
+        state.automationEfficiency = 1.5
+        state.workerMorale = 0.75
+        state.customerSatisfaction = 0.85
         return state
     }())
 } 

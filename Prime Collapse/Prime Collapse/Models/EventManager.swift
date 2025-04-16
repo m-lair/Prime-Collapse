@@ -21,15 +21,16 @@ import SwiftUI
             choices: [
                 EventChoice(
                     text: "Improve conditions (+$500 per worker cost)",
-                    moralImpact: 1.0,
+                    moralImpact: -5.0, // Negative value reduces moral decay
                     effect: { state in
                         state.money -= Double(state.workers) * 500
                         state.workerEfficiency += 0.1
+                        state.workerMorale += 0.2
                     }
                 ),
                 EventChoice(
                     text: "Ignore their complaints",
-                    moralImpact: -1.0,
+                    moralImpact: 8.0, // Positive value increases moral decay
                     effect: { state in
                         state.workerEfficiency -= 0.2
                         state.workerMorale -= 0.1
@@ -49,7 +50,7 @@ import SwiftUI
             choices: [
                 EventChoice(
                     text: "Raise prices temporarily",
-                    moralImpact: -0.5,
+                    moralImpact: 5.0, // Increase moral decay (unethical)
                     effect: { state in
                         state.packageValue *= 1.5
                         
@@ -61,7 +62,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Keep prices stable for customer loyalty",
-                    moralImpact: 0.5,
+                    moralImpact: -3.0, // Decrease moral decay (ethical)
                     effect: { state in
                         state.customerSatisfaction += 0.1
                     }
@@ -80,14 +81,14 @@ import SwiftUI
             choices: [
                 EventChoice(
                     text: "Showcase innovation and efficiency",
-                    moralImpact: 0.0,
+                    moralImpact: 2.0, // Slightly unethical (focuses on profits)
                     effect: { state in
                         state.automationEfficiency += 0.05
                     }
                 ),
                 EventChoice(
                     text: "Highlight worker treatment",
-                    moralImpact: 0.5,
+                    moralImpact: -4.0, // Ethical choice
                     effect: { state in
                         state.workerMorale += 0.2
                         state.money -= 1000
@@ -107,14 +108,16 @@ import SwiftUI
             choices: [
                 EventChoice(
                     text: "Upgrade for full compliance ($5000)",
-                    moralImpact: 1.0,
+                    moralImpact: -8.0, // Very ethical choice
                     effect: { state in
                         state.money -= 5000
+                        // Count this as an ethical choice for ending conditions
+                        state.ethicalChoicesMade += 1
                     }
                 ),
                 EventChoice(
                     text: "Cut corners with minimal upgrades ($1000)",
-                    moralImpact: -0.5,
+                    moralImpact: 5.0, // Unethical
                     effect: { state in
                         state.money -= 1000
                         state.corporateEthics -= 0.1
@@ -122,7 +125,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Bribe the inspector ($2000)",
-                    moralImpact: -2.0,
+                    moralImpact: 12.0, // Very unethical
                     effect: { state in
                         state.money -= 2000
                         state.corporateEthics -= 0.3
@@ -180,8 +183,26 @@ import SwiftUI
         // Apply the choice effect
         choice.effect(gameState)
         
-        // Update moral compass based on choice
-        gameState.corporateEthics += choice.moralImpact / 10.0
+        // Update moral decay based on choice
+        gameState.moralDecay += choice.moralImpact
+        
+        // Update corporate ethics as well (scaled down)
+        gameState.corporateEthics += choice.moralImpact > 0 ? -0.05 : 0.05
+        
+        // Track ethical choices for ending conditions
+        if choice.moralImpact < 0 {
+            gameState.ethicalChoicesMade += 1
+            // Check for potential reform ending
+            if gameState.moralDecay < 50 && gameState.money >= 1000 && gameState.ethicalChoicesMade >= 5 {
+                gameState.endingType = .reform
+            }
+        }
+        
+        // Check if we've entered collapse phase
+        if gameState.moralDecay >= 100 {
+            gameState.isCollapsing = true
+            gameState.endingType = .collapse
+        }
         
         // Clear the current event
         currentEvent = nil

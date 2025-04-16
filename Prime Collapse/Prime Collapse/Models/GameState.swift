@@ -46,7 +46,10 @@ import Observation
     // Ship a package manually (tap action)
     func shipPackage() {
         totalPackagesShipped += 1
-        earnMoney(1.0) // Base money per package
+        
+        // Calculate the actual value based on package value and customer satisfaction
+        let actualValue = packageValue * (0.5 + (customerSatisfaction * 0.5))
+        earnMoney(actualValue)
     }
     
     // Add money to the player's account
@@ -58,8 +61,17 @@ import Observation
     func processAutomation(currentTime: Date) {
         let timeElapsed = currentTime.timeIntervalSince(lastUpdate)
         
+        // Skip if no time has passed
+        guard timeElapsed > 0 else {
+            lastUpdate = currentTime
+            return
+        }
+        
+        // Calculate effective automation rate based on worker efficiency and automation efficiency
+        let effectiveAutomationRate = automationRate * workerEfficiency * automationEfficiency
+        
         // Calculate fractional packages shipped
-        let fractionalPackages = automationRate * timeElapsed
+        let fractionalPackages = effectiveAutomationRate * timeElapsed
         
         // Add to our accumulator
         packageAccumulator += fractionalPackages
@@ -68,9 +80,18 @@ import Observation
         let packagesShipped = Int(packageAccumulator)
         if packagesShipped > 0 {
             totalPackagesShipped += packagesShipped
-            earnMoney(Double(packagesShipped))
+            
+            // Calculate package value factoring in customer satisfaction
+            let valuePerPackage = packageValue * (0.5 + (customerSatisfaction * 0.5))
+            earnMoney(Double(packagesShipped) * valuePerPackage)
+            
             // Subtract the shipped packages from the accumulator
             packageAccumulator -= Double(packagesShipped)
+        }
+        
+        // Slowly decay morale if very low ethics
+        if corporateEthics < 0.3 && workerMorale > 0.2 {
+            workerMorale -= timeElapsed * 0.01 * (0.3 - corporateEthics)
         }
         
         lastUpdate = currentTime
@@ -136,6 +157,11 @@ import Observation
             
             // Check for loop ending
             checkForLoopEnding()
+            
+            // Update automation level for event triggers when appropriate
+            if upgrade.name.contains("Automate") || upgrade.name.contains("AI") {
+                automationLevel += 1
+            }
         }
     }
     

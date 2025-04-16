@@ -64,7 +64,8 @@ struct UpgradeManager {
         description: "Streamline package handling for better efficiency.",
         cost: 75.0,
         effect: { gameState in
-            gameState.automationRate *= 1.2 // 20% efficiency improvement
+            gameState.workerEfficiency *= 1.2 // 20% worker efficiency improvement
+            gameState.packageValue *= 1.1 // 10% increase in package value
         },
         isRepeatable: false,
         moralImpact: 0.0 // Neutral ethical impact
@@ -76,8 +77,9 @@ struct UpgradeManager {
         description: "Train workers for better performance and safety.",
         cost: 100.0,
         effect: { gameState in
-            gameState.automationRate *= 1.15 // 15% efficiency boost
-            gameState.moralDecay -= 2.0 // Small decrease in moral decay
+            gameState.workerEfficiency *= 1.15 // 15% efficiency boost
+            gameState.workerMorale += 0.1 // Improve worker morale
+            gameState.corporateEthics += 0.05 // Slight improvement in corporate ethics
         },
         isRepeatable: false,
         moralImpact: -3.0 // Positive ethical impact (negative moral decay)
@@ -90,7 +92,9 @@ struct UpgradeManager {
         description: "Promise faster delivery for premium prices.",
         cost: 250.0,
         effect: { gameState in
-            gameState.automationRate *= 1.4 // 40% automation boost
+            gameState.automationEfficiency *= 1.4 // 40% automation boost
+            gameState.packageValue *= 1.3 // 30% more value per package
+            gameState.workerMorale -= 0.05 // Slight decrease in morale due to pressure
         },
         isRepeatable: false,
         moralImpact: 3.0 // Slightly unethical - pressures workers
@@ -103,6 +107,8 @@ struct UpgradeManager {
         cost: 300.0,
         effect: { gameState in
             gameState.automationRate *= 1.6 // 60% automation boost
+            gameState.workerMorale -= 0.15 // Significant decrease in worker morale
+            gameState.corporateEthics -= 0.1 // Decrease in ethics
         },
         isRepeatable: false,
         moralImpact: 8.0 // Highly unethical - work-life balance destruction
@@ -114,7 +120,8 @@ struct UpgradeManager {
         description: "Install conveyor systems for package sorting.",
         cost: 350.0,
         effect: { gameState in
-            gameState.automationRate *= 1.3 // 30% efficiency boost
+            gameState.automationEfficiency *= 1.3 // 30% efficiency boost
+            gameState.automationLevel += 1 // Increase automation level
         },
         isRepeatable: false,
         moralImpact: 1.0 // Nearly neutral - technology improvement
@@ -128,6 +135,8 @@ struct UpgradeManager {
         effect: { gameState in
             gameState.automationRate *= 2.0 // 100% automation boost
             gameState.money += 200 // Immediate profit from wage savings
+            gameState.corporateEthics -= 0.2 // Major decrease in corporate ethics
+            gameState.workerMorale -= 0.2 // Major decrease in worker morale
         },
         isRepeatable: false,
         moralImpact: 20.0 // Severely unethical - exploiting children
@@ -139,7 +148,9 @@ struct UpgradeManager {
         description: "Install monitoring systems to track worker productivity.",
         cost: 275.0,
         effect: { gameState in
-            gameState.automationRate *= 1.5 // 50% automation boost
+            gameState.workerEfficiency *= 1.5 // 50% worker efficiency boost
+            gameState.workerMorale -= 0.1 // Decrease in worker morale
+            gameState.corporateEthics -= 0.1 // Decrease in ethics
         },
         isRepeatable: false,
         moralImpact: 10.0 // Highly unethical - privacy violation
@@ -152,8 +163,9 @@ struct UpgradeManager {
         description: "Use machine learning to optimize worker routes.",
         cost: 750.0, // Increased from 200
         effect: { gameState in
-            // Double automation rate
-            gameState.automationRate *= 2.0
+            // Double automation efficiency
+            gameState.automationEfficiency *= 2.0
+            gameState.automationLevel += 1 // Increase automation level
         },
         isRepeatable: false,
         moralImpact: 5.0 // Moderately unethical due to worker surveillance
@@ -165,8 +177,10 @@ struct UpgradeManager {
         description: "Increase efficiency by 80% but at what cost?",
         cost: 800.0, // Increased from 100
         effect: { gameState in
-            // Increase all worker efficiency by 25%
-            gameState.automationRate *= 1.8 // Increased from 1.25
+            // Increase worker efficiency by 80%
+            gameState.workerEfficiency *= 1.8 // Increased from 1.25
+            gameState.workerMorale -= 0.25 // Significant decrease in morale
+            gameState.corporateEthics -= 0.15 // Significant decrease in ethics
         },
         isRepeatable: false,
         moralImpact: 15.0 // Very unethical (increased from 10)
@@ -178,8 +192,10 @@ struct UpgradeManager {
         description: "Implement eco-friendly packaging and worker wellness programs.",
         cost: 900.0,
         effect: { gameState in
-            gameState.automationRate *= 1.3 // 30% automation boost
-            gameState.moralDecay -= 5.0 // Reduces moral decay
+            gameState.automationEfficiency *= 1.3 // 30% automation boost
+            gameState.workerMorale += 0.1 // Improved worker morale
+            gameState.customerSatisfaction += 0.1 // Improved customer satisfaction
+            gameState.corporateEthics += 0.15 // Improved corporate ethics
         },
         isRepeatable: false,
         moralImpact: -8.0 // Highly ethical (negative moral impact)
@@ -191,8 +207,10 @@ struct UpgradeManager {
         description: "Invest in local communities and worker development programs.",
         cost: 1000.0,
         effect: { gameState in
-            gameState.automationRate *= 1.4 // 40% automation boost
-            gameState.moralDecay -= 10.0 // Significant reduction in moral decay
+            gameState.automationEfficiency *= 1.4 // 40% automation boost
+            gameState.workerMorale += 0.2 // Major increase in worker morale
+            gameState.customerSatisfaction += 0.15 // Significant improvement in customer satisfaction
+            gameState.corporateEthics += 0.2 // Major improvement in corporate ethics
         },
         isRepeatable: false,
         moralImpact: -12.0 // Extremely ethical (large negative moral impact)
@@ -204,11 +222,13 @@ struct UpgradeManager {
         description: "Completely automate warehousing and eliminate human roles.",
         cost: 1200.0,
         effect: { gameState in
-            gameState.automationRate *= 3.0 // 200% automation boost
+            gameState.automationEfficiency *= 3.0 // 200% automation boost
+            gameState.automationLevel += 2 // Major increase in automation level
             // Reduces worker count but maintains automation
             let workersLaidOff = max(0, gameState.workers - 2)
             gameState.workers = 2
             gameState.money += Double(workersLaidOff) * 50 // One-time profit from layoffs
+            gameState.corporateEthics -= 0.25 // Major decrease in ethics
         },
         isRepeatable: false,
         moralImpact: 25.0 // Extreme moral decay - mass unemployment
@@ -220,8 +240,11 @@ struct UpgradeManager {
         description: "Use data analytics to minimize worker compensation.",
         cost: 1500.0,
         effect: { gameState in
-            gameState.automationRate *= 1.7 // 70% automation boost
+            gameState.automationRate *= 1.2 // 20% base automation boost
+            gameState.workerEfficiency *= 1.5 // 50% efficiency boost
             gameState.money += 500 // Immediate profit from wage reduction
+            gameState.workerMorale -= 0.3 // Major decrease in worker morale
+            gameState.corporateEthics -= 0.2 // Major decrease in ethics
         },
         isRepeatable: false,
         moralImpact: 18.0 // Very unethical - manipulating wages
