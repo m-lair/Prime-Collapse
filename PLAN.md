@@ -44,8 +44,8 @@ A SwiftUI clicker-style satire game about capitalism gone too far
     * [x] Tap button
     * [x] Collapse warning banner
     * [x] Upgrade list (horizontal scroll)
-* [ ] Separate upgrade screen
-* [ ] Optional "Dashboard" showing morality score and collapse risk
+* [x] Separate upgrade screen
+* [x] Optional "Dashboard" showing morality score and collapse risk
 
 ## 🆙 Step 5: Upgrade System (Completed)
 * [x] Create `Upgrade` model:
@@ -76,10 +76,12 @@ A SwiftUI clicker-style satire game about capitalism gone too far
 * [x] Load on app launch, create fresh state if none found
 * [x] Implement proper schema versioning for future migrations
 
-## 🔐 Step 8: Optional Sign in with Apple
-* [ ] Use Apple's `SignInWithAppleButton` (SwiftUI-native)
-* [ ] On sign-in, show user's name on dashboard
-* [ ] Keep fallback guest mode by default
+## 🔐 Step 8: Game Center Integration
+* [ ] Add GameKit framework and necessary entitlements
+* [ ] Implement GKLocalPlayer authentication on app launch
+* [ ] Create leaderboards for metrics like total packages shipped and money earned
+* [ ] Add achievements for game milestones (first worker hired, reaching automation thresholds)
+* [ ] Display player's Game Center profile on dashboard
 
 ## 🌚 Step 9: Endings (Partially Completed)
 * [x] Define multiple game outcomes:

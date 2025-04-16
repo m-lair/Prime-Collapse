@@ -8,14 +8,22 @@
 import SwiftUI
 import SwiftData
 import Foundation
+import GameKit
 
 @main
 struct Prime_CollapseApp: App {
     @State var game = GameState()
+    @State var gameCenterManager = GameCenterManager()
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(game)
+                .environment(gameCenterManager)
+                .onChange(of: game.totalPackagesShipped) { _, _ in
+                    // Update Game Center scores and achievements when game state changes
+                    gameCenterManager.updateFromGameState(game)
+                }
         }
         .modelContainer(for: [SavedGameState.self])
     }

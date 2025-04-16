@@ -9,11 +9,10 @@ struct UpgradeCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Title area with ethics indicator
-            HStack {
+            VStack(alignment: .leading) {
                 Text(upgrade.name)
                     .font(.system(size: 16, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
-                    .lineLimit(1)
                 
                 Spacer()
                 
@@ -25,6 +24,8 @@ struct UpgradeCardView: View {
                                 .font(.system(size: 8))
                                 .foregroundColor(ethicsImpactColor)
                         }
+                        
+                        Spacer()
                     }
                 }
             }
@@ -35,7 +36,6 @@ struct UpgradeCardView: View {
                 .foregroundColor(.white.opacity(0.8))
                 .multilineTextAlignment(.leading)
                 .lineLimit(3)
-                .fixedSize(horizontal: false, vertical: true)
                 .frame(height: 50, alignment: .top)
             
             Spacer()
@@ -86,7 +86,7 @@ struct UpgradeCardView: View {
             }
         }
         .padding(12)
-        .frame(width: 180, height: 165)
+        .frame(width: 230, height: 165)
         .background(
             LinearGradient(
                 gradient: Gradient(colors: [
@@ -133,7 +133,7 @@ struct UpgradeCardView: View {
 }
 
 #Preview {
-    UpgradeCardView(upgrade: UpgradeManager.availableUpgrades.first!, gameState: GameState())
+    UpgradeCardView(upgrade: UpgradeManager.availableUpgrades[0], gameState: GameState())
         .previewLayout(.sizeThatFits)
         .padding()
         .background(Color.blue.opacity(0.3))

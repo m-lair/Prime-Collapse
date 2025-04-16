@@ -10,6 +10,7 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(GameState.self) private var gameState
+    @Environment(GameCenterManager.self) private var gameCenterManager
     @State private var gameTask: Task<Void, Never>?
     @Query private var savedGames: [SavedGameState]
     @Environment(\.modelContext) private var modelContext
@@ -238,6 +239,9 @@ struct ContentView: View {
         
         do {
             try modelContext.save()
+            
+            // Update Game Center with the latest stats
+            gameCenterManager.updateFromGameState(gameState)
         } catch {
             print("Error saving game: \(error)")
         }

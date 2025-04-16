@@ -14,7 +14,7 @@ struct UpgradeListView: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading) {
             // Upgrades header with ribbon effect
             ZStack {
                 // Ribbon background
@@ -47,10 +47,10 @@ struct UpgradeListView: View {
                 // Heading with button
                 HStack {
                     Text("UPGRADES")
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                         .shadow(color: .black.opacity(0.5), radius: 1)
-                        .padding(.leading, 16)
+                        .padding(.horizontal)
                     
                     Spacer()
                     
@@ -60,8 +60,8 @@ struct UpgradeListView: View {
                         Text("MORE")
                             .font(.system(size: 12, weight: .bold))
                             .foregroundColor(.white)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
                             .background(
                                 Capsule()
                                     .fill(Color.white.opacity(0.2))
@@ -71,16 +71,18 @@ struct UpgradeListView: View {
                                     )
                             )
                     }
-                    .padding(.trailing, 24)
+                    .padding(.horizontal)
+                    .padding(.trailing)
+                    
+                    Spacer()
                 }
-                .frame(width: 220, height: 60)
+                .padding(.trailing, 20)
             }
             .frame(height: 60)
-            .padding(.leading)
             
             // Upgrade cards
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
+                HStack() {
                     ForEach(availableUpgrades, id: \.id) { upgrade in
                         UpgradeCardView(upgrade: upgrade, gameState: gameState)
                             .shadow(color: .black.opacity(0.2), radius: 3)

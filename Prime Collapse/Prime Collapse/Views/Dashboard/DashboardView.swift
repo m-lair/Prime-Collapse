@@ -4,6 +4,7 @@ import SwiftUI
 struct DashboardView: View {
     var gameState: GameState
     @Environment(\.dismiss) private var dismiss
+    @Environment(GameCenterManager.self) private var gameCenterManager
     
     var body: some View {
         ZStack {
@@ -42,6 +43,12 @@ struct DashboardView: View {
                 // Dashboard content
                 ScrollView {
                     VStack(spacing: 20) {
+                        // Game Center section
+                        DashboardSection(title: "Game Center") {
+                            GameCenterView()
+                                .padding(.horizontal)
+                        }
+                        
                         // Game Statistics
                         DashboardSection(title: "Game Statistics") {
                             // Packages
