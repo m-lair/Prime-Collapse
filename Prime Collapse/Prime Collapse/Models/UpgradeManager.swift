@@ -82,7 +82,7 @@ struct UpgradeManager {
             gameState.corporateEthics += 0.05 // Slight improvement in corporate ethics
         },
         isRepeatable: false,
-        moralImpact: 3.0 // Positive ethical impact (Inverted from -3.0)
+        moralImpact: -3.0 // Positive ethical impact
     )
     
     // MID GAME UPGRADES
@@ -97,7 +97,7 @@ struct UpgradeManager {
             gameState.workerMorale -= 0.05 // Slight decrease in morale due to pressure
         },
         isRepeatable: false,
-        moralImpact: -3.0 // Slightly unethical - pressures workers (Inverted from 3.0)
+        moralImpact: 3.0 // Slightly unethical - pressures workers
     )
     
     // Extended shifts for workers
@@ -111,7 +111,7 @@ struct UpgradeManager {
             gameState.corporateEthics -= 0.1 // Decrease in ethics
         },
         isRepeatable: false,
-        moralImpact: -8.0 // Highly unethical - work-life balance destruction (Inverted from 8.0)
+        moralImpact: 8.0 // Highly unethical - work-life balance destruction
     )
     
     // Automate sorting process
@@ -124,7 +124,7 @@ struct UpgradeManager {
             gameState.automationLevel += 1 // Increase automation level
         },
         isRepeatable: false,
-        moralImpact: -1.0 // Nearly neutral - technology improvement (Inverted from 1.0)
+        moralImpact: 1.0 // Slightly unethical - potential job displacement later
     )
     
     // Child labor loopholes (new unethical upgrade)
@@ -139,7 +139,7 @@ struct UpgradeManager {
             gameState.workerMorale -= 0.2 // Major decrease in worker morale
         },
         isRepeatable: false,
-        moralImpact: -20.0 // Severely unethical - exploiting children (Inverted from 20.0)
+        moralImpact: 20.0 // Severely unethical - exploiting children
     )
     
     // Employee surveillance (new unethical upgrade)
@@ -153,7 +153,7 @@ struct UpgradeManager {
             gameState.corporateEthics -= 0.1 // Decrease in ethics
         },
         isRepeatable: false,
-        moralImpact: -10.0 // Highly unethical - privacy violation (Inverted from 10.0)
+        moralImpact: 10.0 // Highly unethical - privacy violation
     )
     
     // LATE GAME UPGRADES
@@ -168,7 +168,7 @@ struct UpgradeManager {
             gameState.automationLevel += 1 // Increase automation level
         },
         isRepeatable: false,
-        moralImpact: -5.0 // Moderately unethical due to worker surveillance (Inverted from 5.0)
+        moralImpact: 5.0 // Moderately unethical due to worker surveillance implications
     )
     
     // Remove worker breaks
@@ -183,7 +183,7 @@ struct UpgradeManager {
             gameState.corporateEthics -= 0.15 // Significant decrease in ethics
         },
         isRepeatable: false,
-        moralImpact: -15.0 // Very unethical (Inverted from 15.0)
+        moralImpact: 15.0 // Very unethical
     )
     
     // Sustainable practices (ethical option)
@@ -198,7 +198,7 @@ struct UpgradeManager {
             gameState.corporateEthics += 0.15 // Improved corporate ethics
         },
         isRepeatable: false,
-        moralImpact: 8.0 // Highly ethical (Inverted from -8.0)
+        moralImpact: -8.0 // Highly ethical
     )
     
     // Community investment program (new ethical upgrade)
@@ -213,7 +213,7 @@ struct UpgradeManager {
             gameState.corporateEthics += 0.2 // Major improvement in corporate ethics
         },
         isRepeatable: false,
-        moralImpact: 12.0 // Extremely ethical (Inverted from -12.0)
+        moralImpact: -12.0 // Extremely ethical
     )
     
     // Worker replacement system (new unethical upgrade)
@@ -231,7 +231,7 @@ struct UpgradeManager {
             gameState.corporateEthics -= 0.25 // Major decrease in ethics
         },
         isRepeatable: false,
-        moralImpact: -25.0 // Extreme moral decay - mass unemployment (Inverted from 25.0)
+        moralImpact: 25.0 // Extreme moral decay - mass unemployment
     )
     
     // Algorithmic wage suppression (new unethical upgrade)
@@ -247,6 +247,6 @@ struct UpgradeManager {
             gameState.corporateEthics -= 0.2 // Major decrease in ethics
         },
         isRepeatable: false,
-        moralImpact: -18.0 // Very unethical - manipulating wages (Inverted from 18.0)
+        moralImpact: 18.0 // Very unethical - manipulating wages
     )
 } 

@@ -22,13 +22,20 @@ struct DetailedUpgradeRow: View {
                             .font(.system(size: 18, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
                         
-                        if upgrade.moralImpact > 0 {
-                            // Ethics impact indicator
-                            HStack(spacing: 2) {
-                                ForEach(0..<min(5, Int(upgrade.moralImpact)), id: \.self) { _ in
+                        // Ethics impact indicators
+                        HStack(spacing: 2) {
+                            let (color, count) = ethicsIndicatorDetails(for: upgrade.moralImpact)
+                            if upgrade.moralImpact > 0 { // Unethical
+                                ForEach(0..<count, id: \.self) { _ in
                                     Image(systemName: "exclamationmark.triangle.fill")
                                         .font(.system(size: 10))
-                                        .foregroundColor(ethicsImpactColor)
+                                        .foregroundColor(color)
+                                }
+                            } else if upgrade.moralImpact < 0 { // Ethical
+                                ForEach(0..<count, id: \.self) { _ in
+                                    Image(systemName: "leaf.fill")
+                                        .font(.system(size: 10))
+                                        .foregroundColor(color) // Should be green from helper
                                 }
                             }
                         }
@@ -146,7 +153,7 @@ struct DetailedUpgradeRow: View {
         case "Improve Packaging":
             return "20% automation boost"
         case "Basic Training":
-            return "15% automation boost, -2 moral decay"
+            return "15% automation boost, Ethics +3"
         case "Rush Delivery":
             return "40% automation boost"
         case "Extended Shifts":
@@ -162,9 +169,9 @@ struct DetailedUpgradeRow: View {
         case "Remove Worker Breaks":
             return "80% automation boost"
         case "Sustainable Practices":
-            return "30% automation boost, -5 moral decay"
+            return "30% automation boost, Ethics +8"
         case "Community Investment Program":
-            return "40% automation boost, -10 moral decay"
+            return "40% automation boost, Ethics +12"
         case "Worker Replacement System":
             return "200% automation boost (3x), reduce workers to 2"
         case "Algorithmic Wage Suppression":
@@ -175,23 +182,38 @@ struct DetailedUpgradeRow: View {
     }
     
     private var cardBackgroundColor: Color {
-        if upgrade.isRepeatable {
-            return Color.blue // Repeatable upgrades are blue
-        } else if upgrade.moralImpact > 5 {
-            return Color(red: 0.5, green: 0.2, blue: 0.5) // High moral impact is purple
-        } else {
-            return Color(red: 0.3, green: 0.4, blue: 0.6) // Standard upgrades are blue-ish
+        if upgrade.moralImpact < 0 { // Ethical
+            return Color(red: 0.1, green: 0.5, blue: 0.3).opacity(0.8) // Greenish
+        } else if upgrade.moralImpact > 10 { // Very Unethical
+            return Color(red: 0.6, green: 0.1, blue: 0.3).opacity(0.8) // Dark Red/Purple
+        } else if upgrade.moralImpact > 0 { // Unethical
+            return Color(red: 0.5, green: 0.2, blue: 0.5).opacity(0.8) // Purple
+        } else if upgrade.isRepeatable { // Neutral & Repeatable
+            return Color.blue.opacity(0.8)
+        } else { // Neutral & Non-Repeatable
+            return Color(red: 0.3, green: 0.4, blue: 0.6).opacity(0.8) // Standard blue-ish
         }
     }
     
-    private var ethicsImpactColor: Color {
-        switch upgrade.moralImpact {
-        case 0..<3:
-            return .yellow
-        case 3..<7:
-            return .orange
-        default:
-            return .red
+    // Determines color and count for ethics indicators
+    private func ethicsIndicatorDetails(for impact: Double) -> (color: Color, count: Int) {
+        if impact > 0 { // Unethical
+            switch impact {
+            case 1...3:   return (.yellow, 1)
+            case 4...7:   return (.orange, 2)
+            case 8...14:  return (.red, 3)
+            case 15...24: return (.red.opacity(0.8), 4) // Darker red for higher impact
+            default:      return (.purple, 5) // Max level for extreme impact >= 25
+            }
+        } else if impact < 0 { // Ethical
+            switch abs(impact) {
+            case 1...3:   return (.green, 1)
+            case 4...7:   return (.green, 2)
+            case 8...14:  return (.green.opacity(0.8), 3) // Brighter green for higher impact
+            default:      return (.cyan, 4) // Max level for very ethical >= 15
+            }
+        } else { // Neutral
+            return (.gray, 0) // No indicator for neutral
         }
     }
     

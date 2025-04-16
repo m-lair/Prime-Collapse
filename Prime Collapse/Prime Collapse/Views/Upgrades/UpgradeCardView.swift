@@ -24,19 +24,26 @@ struct UpgradeCardView: View {
                 // Ethics impact indicator
                 HStack(spacing: 2) {
                     if upgrade.moralImpact > 0 {
-                        // Unethical indicators (red triangles)
-                        ForEach(0..<min(5, Int(ceil(upgrade.moralImpact/5))), id: \.self) { _ in
+                        // Unethical indicators (red/orange/yellow triangles)
+                        let (color, count) = ethicsIndicatorDetails(for: upgrade.moralImpact)
+                        ForEach(0..<count, id: \.self) { _ in
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .font(.system(size: 8))
-                                .foregroundColor(ethicsImpactColor)
+                                .foregroundColor(color)
                         }
                     } else if upgrade.moralImpact < 0 {
                         // Ethical indicators (green leaves)
-                        ForEach(0..<min(5, Int(ceil(abs(upgrade.moralImpact)/3))), id: \.self) { _ in
+                        let (_, count) = ethicsIndicatorDetails(for: upgrade.moralImpact)
+                        ForEach(0..<count, id: \.self) { _ in
                             Image(systemName: "leaf.fill")
                                 .font(.system(size: 8))
                                 .foregroundColor(.green)
                         }
+                    } else {
+                        // Neutral indicator (optional, could be omitted or use a gray circle)
+//                        Image(systemName: "circle")
+//                           .font(.system(size: 8))
+//                           .foregroundColor(.gray)
                     }
                     
                     Spacer()
@@ -119,27 +126,50 @@ struct UpgradeCardView: View {
     }
     
     private var cardBackgroundColor: Color {
-        if upgrade.moralImpact < 0 {
-            return Color(red: 0.1, green: 0.5, blue: 0.3) // Ethical upgrades are green
-        } else if upgrade.isRepeatable {
-            return Color.blue // Repeatable upgrades are blue
-        } else if upgrade.moralImpact > 5 {
-            return Color(red: 0.5, green: 0.2, blue: 0.5) // High moral impact is purple
-        } else {
-            return Color(red: 0.3, green: 0.4, blue: 0.6) // Standard upgrades are blue-ish
+        if upgrade.moralImpact < 0 { // Ethical
+            return Color(red: 0.1, green: 0.5, blue: 0.3) // Greenish
+        } else if upgrade.moralImpact > 10 { // Very Unethical
+             return Color(red: 0.6, green: 0.1, blue: 0.3) // Dark Red/Purple
+        } else if upgrade.moralImpact > 0 { // Unethical
+            return Color(red: 0.5, green: 0.2, blue: 0.5) // Purple
+        } else if upgrade.isRepeatable { // Neutral & Repeatable
+            return Color.blue
+        } else { // Neutral & Non-Repeatable
+            return Color(red: 0.3, green: 0.4, blue: 0.6) // Standard blue-ish
         }
     }
     
-    private var ethicsImpactColor: Color {
-        switch upgrade.moralImpact {
-        case 0..<3:
-            return .yellow
-        case 3..<7:
-            return .orange
-        default:
-            return .red
+    // Determines color and count for ethics indicators
+    private func ethicsIndicatorDetails(for impact: Double) -> (color: Color, count: Int) {
+        if impact > 0 { // Unethical
+            switch impact {
+            case 1...3:   return (.yellow, 1)
+            case 4...7:   return (.orange, 2)
+            case 8...14:  return (.red, 3)
+            case 15...24: return (.red.opacity(0.8), 4) // Darker red for higher impact
+            default:      return (.purple, 5) // Max level for extreme impact >= 25
+            }
+        } else if impact < 0 { // Ethical
+            switch abs(impact) {
+            case 1...3:   return (.green, 1)
+            case 4...7:   return (.green, 2)
+            case 8...14:  return (.green.opacity(0.8), 3) // Brighter green for higher impact
+            default:      return (.cyan, 4) // Max level for very ethical >= 15
+            }
+        } else { // Neutral
+            return (.gray, 0) // No indicator for neutral
         }
     }
+    
+    // Function kept for reference but logic moved to ethicsIndicatorDetails
+//    private var ethicsImpactColor: Color {
+//        switch upgrade.moralImpact {
+//        case 1...3: return .yellow // Slightly Unethical
+//        case 4...7: return .orange // Moderately Unethical
+//        case 8...: return .red    // Highly Unethical
+//        default: return .clear    // Default case for 0 or negative (ethical)
+//        }
+//    }
     
     private func playHaptic(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
         let generator = UIImpactFeedbackGenerator(style: style)

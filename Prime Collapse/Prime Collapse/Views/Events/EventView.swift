@@ -105,56 +105,52 @@ struct EventView: View {
     
     // Helper for ethics impact label
     private func ethicsImpactLabel(_ impact: Double) -> String {
-        if impact > 8 {
-            return "Very Unethical"
-        } else if impact > 3 {
-            return "Unethical"
-        } else if impact > 0 {
-            return "Slightly Unethical"
-        } else if impact < -8 {
-            return "Very Ethical"
-        } else if impact < -3 {
-            return "Ethical"
-        } else if impact < 0 {
-            return "Slightly Ethical"
-        } else {
-            return "Neutral"
-        }
+        if impact <= -8 { return "Very Unethical" }
+        else if impact <= -3 { return "Unethical" }       // Includes -3, -4, -5, -6, -7
+        else if impact < 0 { return "Slightly Unethical" } // Includes -1, -2
+        else if impact == 0 { return "Neutral" }
+        else if impact < 3 { return "Slightly Ethical" } // Includes 1, 2
+        else if impact < 8 { return "Ethical" }           // Includes 3, 4, 5, 6, 7
+        else { return "Very Ethical" }                  // Includes 8+
     }
     
     // Helper for ethics impact visualization
     private func ethicsImpactIndicator(_ impact: Double) -> some View {
-        HStack(spacing: 2) {
-            if impact > 0 {
-                // Unethical choice (moral decay increases)
-                ForEach(0..<min(5, Int(impact / 2) + 1), id: \.self) { index in
-                    Image(systemName: index < Int(impact / 2) ? "circle.fill" : "circle")
-                        .foregroundColor(.red)
-                        .font(.system(size: 8))
-                }
-            } else if impact < 0 {
-                // Ethical choice (moral decay decreases)
-                ForEach(0..<min(5, Int(abs(impact) / 2) + 1), id: \.self) { index in
-                    Image(systemName: index < Int(abs(impact) / 2) ? "circle.fill" : "circle")
-                        .foregroundColor(.green)
-                        .font(.system(size: 8))
-                }
-            } else {
-                // Neutral
-                Image(systemName: "circle")
+        // Map impact ranges to color and circle count
+        let (color, count): (Color, Int) = {
+            if impact <= -8 { return (.red, 5) }          // Very Unethical
+            else if impact <= -3 { return (.red, 4) }      // Unethical
+            else if impact < 0 { return (.red, 2) }        // Slightly Unethical
+            else if impact == 0 { return (.gray, 1) }      // Neutral
+            else if impact < 3 { return (.green, 2) }      // Slightly Ethical
+            else if impact < 8 { return (.green, 4) }      // Ethical
+            else { return (.green, 5) }                  // Very Ethical (>= 8)
+        }()
+
+        return HStack(spacing: 2) {
+            // Ensure neutral shows one gray circle
+            if impact == 0 {
+                 Image(systemName: "circle")
                     .foregroundColor(.gray)
                     .font(.system(size: 8))
+            } else {
+                // Display filled circles based on calculated count and color
+                ForEach(0..<count, id: \.self) { _ in
+                    Image(systemName: "circle.fill")
+                        .foregroundColor(color)
+                        .font(.system(size: 8))
+                }
             }
         }
     }
     
-    // Helper for ethics impact color
+    // Helper for ethics impact color (used for background)
     private func ethicsImpactColor(_ impact: Double) -> Color {
-        if impact > 0 {
+        if impact < 0 { // Negative impact -> Unethical -> Red
             return .red
-        } else if impact < 0 {
+        } else if impact > 0 { // Positive impact -> Ethical -> Green
             return .green
-        } else {
+        } else { // Neutral -> Gray
             return .gray
         }
     }
