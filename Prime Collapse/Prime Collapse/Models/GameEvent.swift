@@ -24,7 +24,7 @@ struct EventChoice: Identifiable {
     let id = UUID()
     let text: String
     let effect: (GameState) -> Void
-    let moralImpact: Double
+    let moralImpact: Double // Negative for unethical, positive for ethical
     
     // Initialize with default values to simplify creation
     init(

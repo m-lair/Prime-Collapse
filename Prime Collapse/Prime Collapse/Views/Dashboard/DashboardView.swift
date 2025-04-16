@@ -328,7 +328,7 @@ struct DashboardView: View {
                                 // Add progress bars or detailed text descriptions if needed
                                 // Example for Public Perception:
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("Perception Level: \(publicPerceptionText)")
+                                    Text("Public Perception: \(publicPerceptionText)")
                                         .font(.caption)
                                     ProgressView(value: gameState.publicPerception / 100.0)
                                         .tint(publicPerceptionColor)
@@ -337,7 +337,7 @@ struct DashboardView: View {
                                 
                                 // Example for Environmental Impact:
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("Impact Level: \(environmentalImpactText)")
+                                    Text("Environment Impact: \(environmentalImpactText)")
                                         .font(.caption)
                                     ProgressView(value: gameState.environmentalImpact / 100.0)
                                         .tint(environmentalImpactColor)
@@ -376,12 +376,12 @@ struct DashboardView: View {
                                         RoundedRectangle(cornerRadius: 10)
                                             .fill(
                                                 LinearGradient(
-                                                    gradient: Gradient(colors: [moralDecayColor.opacity(0.7), moralDecayColor]),
+                                                    gradient: Gradient(colors: [ethicsScoreColor.opacity(0.7), ethicsScoreColor]),
                                                     startPoint: .leading,
                                                     endPoint: .trailing
                                                 )
                                             )
-                                            .frame(width: max(CGFloat(gameState.moralDecay) / 100.0 * UIScreen.main.bounds.width * 0.85, 10), height: 12)
+                                            .frame(width: max(CGFloat(gameState.ethicsScore) / 100.0 * UIScreen.main.bounds.width * 0.85, 10), height: 12)
                                         
                                         // Descriptive markers
                                         HStack(spacing: 0) {
@@ -396,7 +396,7 @@ struct DashboardView: View {
                                     
                                     // Risk level labels
                                     HStack(spacing: 0) {
-                                        Text("Low Risk")
+                                        Text("Collapse Risk")
                                             .font(.system(size: 10, weight: .medium))
                                             .foregroundColor(.white.opacity(0.7))
                                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -406,7 +406,7 @@ struct DashboardView: View {
                                             .foregroundColor(.white.opacity(0.7))
                                             .frame(maxWidth: .infinity, alignment: .center)
                                         
-                                        Text("Collapse Risk")
+                                        Text("Low Risk")
                                             .font(.system(size: 10, weight: .medium))
                                             .foregroundColor(.white.opacity(0.7))
                                             .frame(maxWidth: .infinity, alignment: .trailing)
@@ -497,7 +497,7 @@ struct DashboardView: View {
                                         RequirementItem(
                                             title: "Ethics Rating",
                                             value: "Good or Better",
-                                            isMet: gameState.moralDecay < 50
+                                            isMet: gameState.ethicsScore >= 50
                                         ),
                                         RequirementItem(
                                             title: "Money Earned",
@@ -517,7 +517,7 @@ struct DashboardView: View {
                                         RequirementItem(
                                             title: "Ethics Rating",
                                             value: "Concerning",
-                                            isMet: (gameState.moralDecay >= 70 && gameState.moralDecay <= 90)
+                                            isMet: (gameState.ethicsScore >= 15 && gameState.ethicsScore <= 25)
                                         ),
                                         RequirementItem(
                                             title: "Money Earned",
@@ -542,7 +542,7 @@ struct DashboardView: View {
                                         RequirementItem(
                                             title: "Ethics Rating",
                                             value: "Critical",
-                                            isMet: gameState.moralDecay > 100
+                                            isMet: gameState.ethicsScore <= 0
                                         )
                                     ]
                                 )
@@ -556,20 +556,20 @@ struct DashboardView: View {
         }
     }
     
-    // Ethics rating based on moral decay
+    // Ethics rating based on ethics score (inverted logic)
     private var ethicsRating: EthicsRating {
-        switch gameState.moralDecay {
-        case 0..<20:
+        switch gameState.ethicsScore {
+        case 80...100:
             return .excellent
-        case 20..<40:
+        case 60..<80:
             return .good
         case 40..<60:
             return .neutral
-        case 60..<80:
+        case 20..<40:
             return .concerning
-        case 80..<100:
+        case 1..<20:
             return .poor
-        default:
+        default: // 0 or less
             return .critical
         }
     }
@@ -649,15 +649,16 @@ struct DashboardView: View {
         }
     }
     
-    private var moralDecayColor: Color {
-        switch gameState.moralDecay {
-        case 0..<30:
+    // Color based on ethics score (inverted logic)
+    private var ethicsScoreColor: Color {
+        switch gameState.ethicsScore {
+        case 70...100:
             return .green
-        case 30..<60:
+        case 40..<70:
             return .yellow
-        case 60..<90:
+        case 20..<40:
             return .orange
-        default:
+        default: // Below 20
             return .red
         }
     }
@@ -781,7 +782,7 @@ struct DashboardView: View {
         state.money = 1250
         state.workers = 5
         state.automationRate = 0.75
-        state.moralDecay = 35
+        state.ethicsScore = 35
         state.workerEfficiency = 1.2
         state.automationEfficiency = 1.5
         state.workerMorale = 0.75

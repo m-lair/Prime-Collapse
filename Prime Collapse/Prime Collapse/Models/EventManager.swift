@@ -21,7 +21,7 @@ import SwiftUI
             choices: [
                 EventChoice(
                     text: "Improve conditions (+$500 per worker cost)",
-                    moralImpact: -5.0, // Negative value reduces moral decay
+                    moralImpact: 5.0, // Ethical (Inverted from -5.0)
                     effect: { state in
                         state.money -= Double(state.workers) * 500
                         state.workerEfficiency += 0.1
@@ -30,7 +30,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Ignore their complaints",
-                    moralImpact: 8.0, // Positive value increases moral decay
+                    moralImpact: -8.0, // Unethical (Inverted from 8.0)
                     effect: { state in
                         state.workerEfficiency -= 0.2
                         state.workerMorale -= 0.1
@@ -50,7 +50,7 @@ import SwiftUI
             choices: [
                 EventChoice(
                     text: "Raise prices temporarily",
-                    moralImpact: 5.0, // Increase moral decay (unethical)
+                    moralImpact: -5.0, // Unethical (Inverted from 5.0)
                     effect: { state in
                         state.packageValue *= 1.5
                         
@@ -62,7 +62,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Keep prices stable for customer loyalty",
-                    moralImpact: -3.0, // Decrease moral decay (ethical)
+                    moralImpact: 3.0, // Ethical (Inverted from -3.0)
                     effect: { state in
                         state.customerSatisfaction += 0.1
                     }
@@ -81,14 +81,14 @@ import SwiftUI
             choices: [
                 EventChoice(
                     text: "Showcase innovation and efficiency",
-                    moralImpact: 2.0, // Slightly unethical (focuses on profits)
+                    moralImpact: -2.0, // Slightly unethical (Inverted from 2.0)
                     effect: { state in
                         state.automationEfficiency += 0.05
                     }
                 ),
                 EventChoice(
                     text: "Highlight worker treatment",
-                    moralImpact: -4.0, // Ethical choice
+                    moralImpact: 4.0, // Ethical (Inverted from -4.0)
                     effect: { state in
                         state.workerMorale += 0.2
                         state.money -= 1000
@@ -108,7 +108,7 @@ import SwiftUI
             choices: [
                 EventChoice(
                     text: "Upgrade for full compliance ($5000)",
-                    moralImpact: -8.0, // Very ethical choice
+                    moralImpact: 8.0, // Very ethical (Inverted from -8.0)
                     effect: { state in
                         state.money -= 5000
                         // Count this as an ethical choice for ending conditions
@@ -117,7 +117,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Cut corners with minimal upgrades ($1000)",
-                    moralImpact: 5.0, // Unethical
+                    moralImpact: -5.0, // Unethical (Inverted from 5.0)
                     effect: { state in
                         state.money -= 1000
                         state.corporateEthics -= 0.1
@@ -125,7 +125,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Bribe the inspector ($2000)",
-                    moralImpact: 12.0, // Very unethical
+                    moralImpact: -12.0, // Very unethical (Inverted from 12.0)
                     effect: { state in
                         state.money -= 2000
                         state.corporateEthics -= 0.3
@@ -145,7 +145,7 @@ import SwiftUI
             choices: [
                 EventChoice(
                     text: "Invest in training ($1000 per worker)",
-                    moralImpact: -6.0, // Ethical choice
+                    moralImpact: 6.0, // Ethical (Inverted from -6.0)
                     effect: { state in
                         state.money -= Double(state.workers) * 1000
                         state.workerEfficiency += 0.15
@@ -154,7 +154,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Skip training, focus on productivity",
-                    moralImpact: 3.0, // Somewhat unethical
+                    moralImpact: -3.0, // Somewhat unethical (Inverted from 3.0)
                     effect: { state in
                         state.workerMorale -= 0.05
                     }
@@ -172,7 +172,7 @@ import SwiftUI
             choices: [
                 EventChoice(
                     text: "Overhaul safety protocols ($3000)",
-                    moralImpact: -7.0, // Very ethical
+                    moralImpact: 7.0, // Very ethical (Inverted from -7.0)
                     effect: { state in
                         state.money -= 3000
                         state.workerMorale += 0.2
@@ -181,7 +181,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Minimum required fixes ($800)",
-                    moralImpact: 4.0, // Somewhat unethical
+                    moralImpact: -4.0, // Somewhat unethical (Inverted from 4.0)
                     effect: { state in
                         state.money -= 800
                         state.workerMorale -= 0.1
@@ -189,7 +189,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Cover it up (legal risk)",
-                    moralImpact: 10.0, // Very unethical
+                    moralImpact: -10.0, // Very unethical (Inverted from 10.0)
                     effect: { state in
                         state.corporateEthics -= 0.2
                         // Risk of future legal costs
@@ -214,7 +214,7 @@ import SwiftUI
             choices: [
                 EventChoice(
                     text: "Match their prices temporarily",
-                    moralImpact: 2.0, // Slightly unethical (market manipulation)
+                    moralImpact: -2.0, // Slightly unethical (Inverted from 2.0)
                     effect: { state in
                         state.packageValue *= 0.8
                         state.money -= 2000 // Cost of price adjustment campaign
@@ -227,7 +227,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Focus on quality over price",
-                    moralImpact: -3.0, // Ethical choice
+                    moralImpact: 3.0, // Ethical (Inverted from -3.0)
                     effect: { state in
                         state.customerSatisfaction += 0.15
                         state.workerMorale += 0.05
@@ -235,7 +235,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Spread rumors about competitor quality",
-                    moralImpact: 8.0, // Unethical
+                    moralImpact: -8.0, // Unethical (Inverted from 8.0)
                     effect: { state in
                         state.packageValue *= 0.9 // Still need a small price drop
                         state.corporateEthics -= 0.2
@@ -259,7 +259,7 @@ import SwiftUI
             choices: [
                 EventChoice(
                     text: "Absorb the costs temporarily",
-                    moralImpact: -4.0, // Ethical choice
+                    moralImpact: 4.0, // Ethical (Inverted from -4.0)
                     effect: { state in
                         state.money -= 3000
                         state.customerSatisfaction += 0.1
@@ -267,7 +267,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Pass costs to customers",
-                    moralImpact: 5.0, // Somewhat unethical
+                    moralImpact: -5.0, // Somewhat unethical (Inverted from 5.0)
                     effect: { state in
                         state.packageValue *= 1.2
                         state.customerSatisfaction -= 0.15
@@ -280,7 +280,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Cut worker benefits to offset costs",
-                    moralImpact: 7.0, // Unethical
+                    moralImpact: -7.0, // Unethical (Inverted from 7.0)
                     effect: { state in
                         state.workerMorale -= 0.2
                         state.workerEfficiency -= 0.1
@@ -300,7 +300,7 @@ import SwiftUI
             choices: [
                 EventChoice(
                     text: "Fully sponsor the program ($5000)",
-                    moralImpact: -8.0, // Very ethical
+                    moralImpact: 8.0, // Very ethical (Inverted from -8.0)
                     effect: { state in
                         state.money -= 5000
                         state.corporateEthics += 0.2
@@ -310,7 +310,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Minimal participation ($1000)",
-                    moralImpact: -2.0, // Somewhat ethical
+                    moralImpact: 2.0, // Somewhat ethical (Inverted from -2.0)
                     effect: { state in
                         state.money -= 1000
                         state.corporateEthics += 0.05
@@ -318,7 +318,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Decline but use PR to claim involvement",
-                    moralImpact: 9.0, // Very unethical
+                    moralImpact: -9.0, // Very unethical (Inverted from 9.0)
                     effect: { state in
                         state.customerSatisfaction += 0.05
                         state.corporateEthics -= 0.25
@@ -337,7 +337,7 @@ import SwiftUI
             choices: [
                 EventChoice(
                     text: "Address concerns with real changes",
-                    moralImpact: -6.0, // Ethical choice
+                    moralImpact: 6.0, // Ethical (Inverted from -6.0)
                     effect: { state in
                         state.money -= 4000
                         state.corporateEthics += 0.15
@@ -347,7 +347,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Issue PR statement without changes",
-                    moralImpact: 6.0, // Unethical
+                    moralImpact: -6.0, // Unethical (Inverted from 6.0)
                     effect: { state in
                         state.money -= 1000
                         state.corporateEthics -= 0.1
@@ -355,7 +355,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Pay for positive reviews and comments",
-                    moralImpact: 10.0, // Very unethical
+                    moralImpact: -10.0, // Very unethical (Inverted from 10.0)
                     effect: { state in
                         state.money -= 2500
                         state.corporateEthics -= 0.2
@@ -384,7 +384,7 @@ import SwiftUI
             choices: [
                 EventChoice(
                     text: "Implement full compliance",
-                    moralImpact: -7.0, // Very ethical
+                    moralImpact: 7.0, // Very ethical (Inverted from -7.0)
                     effect: { state in
                         state.money -= 6000
                         state.workerMorale += 0.15
@@ -394,7 +394,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Minimal compliance with loopholes",
-                    moralImpact: 5.0, // Somewhat unethical
+                    moralImpact: -5.0, // Somewhat unethical (Inverted from 5.0)
                     effect: { state in
                         state.money -= 1500
                         state.workerMorale -= 0.05
@@ -403,7 +403,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Lobby against regulations ($8000)",
-                    moralImpact: 9.0, // Very unethical
+                    moralImpact: -9.0, // Very unethical (Inverted from 9.0)
                     effect: { state in
                         state.money -= 8000
                         state.corporateEthics -= 0.2
@@ -430,7 +430,7 @@ import SwiftUI
             choices: [
                 EventChoice(
                     text: "Full transparency with records",
-                    moralImpact: -5.0, // Ethical choice
+                    moralImpact: 5.0, // Ethical (Inverted from -5.0)
                     effect: { state in
                         // Small penalty for minor discrepancies
                         state.money -= 1000
@@ -439,7 +439,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Hide questionable deductions",
-                    moralImpact: 7.0, // Unethical
+                    moralImpact: -7.0, // Unethical (Inverted from 7.0)
                     effect: { state in
                         // Risk of larger fine if caught
                         if Double.random(in: 0...1) < 0.4 {
@@ -452,7 +452,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Bribe the auditor ($3000)",
-                    moralImpact: 12.0, // Very unethical
+                    moralImpact: -12.0, // Very unethical (Inverted from 12.0)
                     effect: { state in
                         state.money -= 3000
                         state.corporateEthics -= 0.3
@@ -462,7 +462,7 @@ import SwiftUI
                             if Double.random(in: 0...1) < 0.6 {
                                 state.money -= 15000
                                 state.corporateEthics -= 0.2
-                                state.moralDecay += 10.0
+                                state.ethicalChoicesMade += 1
                             }
                         }
                     }
@@ -481,7 +481,7 @@ import SwiftUI
             choices: [
                 EventChoice(
                     text: "Invest in advanced tech ($12000)",
-                    moralImpact: 3.0, // Slightly unethical (replaces workers)
+                    moralImpact: -3.0, // Slightly unethical (Inverted from 3.0)
                     effect: { state in
                         state.money -= 12000
                         state.automationEfficiency += 0.25
@@ -490,7 +490,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Balanced approach with worker retraining ($8000)",
-                    moralImpact: -4.0, // Ethical choice
+                    moralImpact: 4.0, // Ethical (Inverted from -4.0)
                     effect: { state in
                         state.money -= 8000
                         state.automationEfficiency += 0.15
@@ -500,7 +500,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Ignore new technology",
-                    moralImpact: -1.0, // Slightly ethical (keeps workers)
+                    moralImpact: 1.0, // Slightly ethical (Inverted from -1.0)
                     effect: { state in
                         // Fall behind competition slightly
                         state.customerSatisfaction -= 0.05
@@ -520,7 +520,7 @@ import SwiftUI
             choices: [
                 EventChoice(
                     text: "Support affected workers ($3000)",
-                    moralImpact: -8.0, // Very ethical
+                    moralImpact: 8.0, // Very ethical (Inverted from -8.0)
                     effect: { state in
                         state.money -= 3000
                         state.workerMorale += 0.3
@@ -529,7 +529,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Minimal support, focus on resuming operations",
-                    moralImpact: 4.0, // Somewhat unethical
+                    moralImpact: -4.0, // Somewhat unethical (Inverted from 4.0)
                     effect: { state in
                         state.money -= 1000
                         state.workerMorale -= 0.1
@@ -538,7 +538,7 @@ import SwiftUI
                 ),
                 EventChoice(
                     text: "Use disaster to layoff underperforming workers",
-                    moralImpact: 10.0, // Very unethical
+                    moralImpact: -10.0, // Very unethical (Inverted from 10.0)
                     effect: { state in
                         let workersToLayoff = min(state.workers / 4, 5)
                         state.workers -= workersToLayoff
@@ -603,23 +603,25 @@ import SwiftUI
             gameState.money = 0
         }
         
-        // Update moral decay based on choice
-        gameState.moralDecay += choice.moralImpact
+        // Update ethics score based on choice (uses inverted moralImpact)
+        gameState.ethicsScore += choice.moralImpact
+        gameState.ethicsScore = max(0, min(100, gameState.ethicsScore)) // Clamp score
         
-        // Update corporate ethics as well (scaled down)
-        gameState.corporateEthics += choice.moralImpact > 0 ? -0.05 : 0.05
+        // Update corporate ethics as well (scaled down, logic inverted)
+        gameState.corporateEthics += choice.moralImpact > 0 ? 0.05 : -0.05 // Ethical improves, unethical worsens
+        gameState.corporateEthics = max(0, min(1, gameState.corporateEthics)) // Clamp
         
-        // Track ethical choices for ending conditions
-        if choice.moralImpact < 0 {
+        // Track ethical choices for ending conditions (positive impact is now ethical)
+        if choice.moralImpact > 0 {
             gameState.ethicalChoicesMade += 1
-            // Check for potential reform ending
-            if gameState.moralDecay < 50 && gameState.money >= 1000 && gameState.ethicalChoicesMade >= 5 {
+            // Check for potential reform ending (uses ethicsScore)
+            if gameState.ethicsScore >= 50 && gameState.money >= 1000 && gameState.ethicalChoicesMade >= 5 {
                 gameState.endingType = .reform
             }
         }
         
-        // Check if we've entered collapse phase
-        if gameState.moralDecay >= 100 {
+        // Check if we've entered collapse phase (uses ethicsScore)
+        if gameState.ethicsScore <= 0 {
             gameState.isCollapsing = true
             gameState.endingType = .collapse
         }

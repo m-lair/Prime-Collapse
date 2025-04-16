@@ -119,9 +119,10 @@ struct UpgradeScreenView: View {
                                         
                                         Spacer()
                                         
-                                        Text("\(Int(gameState.moralDecay))/100")
+                                        // Display ethics score (0-100)
+                                        Text("\(Int(gameState.ethicsScore))/100")
                                             .font(.system(size: 16, weight: .bold))
-                                            .foregroundColor(moralDecayColor)
+                                            .foregroundColor(ethicsScoreColor)
                                     }
                                     
                                     // Styled progress bar
@@ -135,17 +136,17 @@ struct UpgradeScreenView: View {
                                         RoundedRectangle(cornerRadius: 10)
                                             .fill(
                                                 LinearGradient(
-                                                    gradient: Gradient(colors: [moralDecayColor.opacity(0.7), moralDecayColor]),
+                                                    gradient: Gradient(colors: [ethicsScoreColor.opacity(0.7), ethicsScoreColor]),
                                                     startPoint: .leading,
                                                     endPoint: .trailing
                                                 )
                                             )
-                                            .frame(width: max(CGFloat(gameState.moralDecay) / 100.0 * UIScreen.main.bounds.width * 0.85, 10), height: 12)
+                                            .frame(width: max(CGFloat(gameState.ethicsScore) / 100.0 * UIScreen.main.bounds.width * 0.85, 10), height: 12)
                                     }
                                 }
                                 
-                                // Warning messages
-                                if gameState.moralDecay > 50 {
+                                // Warning messages (inverted logic)
+                                if gameState.ethicsScore < 50 {
                                     StatusTag(
                                         icon: "exclamationmark.triangle",
                                         text: "Warning: Corporate ethics declining",
@@ -153,7 +154,7 @@ struct UpgradeScreenView: View {
                                     )
                                 }
                                 
-                                if gameState.moralDecay > 80 {
+                                if gameState.ethicsScore < 20 {
                                     StatusTag(
                                         icon: "exclamationmark.triangle.fill",
                                         text: "CRITICAL: Economic collapse imminent",
@@ -170,24 +171,28 @@ struct UpgradeScreenView: View {
         }
     }
     
-    private var moralDecayColor: Color {
-        switch gameState.moralDecay {
-        case 0..<30:
+    // Renamed color calculation with inverted logic
+    private var ethicsScoreColor: Color {
+        switch gameState.ethicsScore {
+        case 70...100:
             return .green
-        case 30..<60:
+        case 40..<70:
             return .yellow
-        case 60..<90:
+        case 20..<40:
             return .orange
-        default:
+        default: // Below 20
             return .red
         }
     }
     
+    // Color for purchased upgrades (based on *inverted* moralImpact)
     private func purchasedUpgradeColor(for upgrade: Upgrade) -> Color {
-        if upgrade.moralImpact > 5 {
-            return Color(red: 0.5, green: 0.2, blue: 0.5) // High moral impact is purple
+        if upgrade.moralImpact < -5 { // Unethical upgrades (large negative impact)
+            return Color(red: 0.5, green: 0.2, blue: 0.5) // Unethical is purple
+        } else if upgrade.moralImpact > 5 { // Ethical upgrades (large positive impact)
+            return Color.mint // Ethical is mint
         } else {
-            return Color(red: 0.3, green: 0.4, blue: 0.6) // Standard upgrades are blue-ish
+            return Color(red: 0.3, green: 0.4, blue: 0.6) // Neutral/minor impact is blue-ish
         }
     }
 }

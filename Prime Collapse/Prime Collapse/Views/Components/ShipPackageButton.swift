@@ -75,7 +75,7 @@ struct ShipPackageButton: View {
             .frame(width: 180, height: 180)
         }
         .buttonStyle(PlainButtonStyle())
-        .disabled(gameState.isCollapsing && gameState.moralDecay > 120)
+        .disabled(gameState.isCollapsing)
     }
     
     private func playHaptic(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {

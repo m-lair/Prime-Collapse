@@ -14,7 +14,7 @@ final class SavedGameState {
     var money: Double
     var workers: Int
     var automationRate: Double
-    var moralDecay: Double
+    var ethicsScore: Double
     var isCollapsing: Bool
     var lastUpdate: Date
     var packageAccumulator: Double
@@ -47,7 +47,7 @@ final class SavedGameState {
         money: Double = 0.0,
         workers: Int = 0,
         automationRate: Double = 0.0,
-        moralDecay: Double = 0.0,
+        ethicsScore: Double = 100.0,
         isCollapsing: Bool = false,
         purchasedUpgradeIDs: [String] = [],
         repeatableUpgradeIDs: [String] = [],
@@ -66,7 +66,7 @@ final class SavedGameState {
         self.money = money
         self.workers = workers
         self.automationRate = automationRate
-        self.moralDecay = moralDecay
+        self.ethicsScore = ethicsScore
         self.isCollapsing = isCollapsing
         self.lastUpdate = Date()
         
@@ -154,7 +154,7 @@ final class SavedGameState {
             money: gameState.money,
             workers: gameState.workers,
             automationRate: gameState.automationRate,
-            moralDecay: gameState.moralDecay,
+            ethicsScore: gameState.ethicsScore,
             isCollapsing: gameState.isCollapsing,
             purchasedUpgradeIDs: allPurchasedIDs,
             repeatableUpgradeIDs: repeatableIDs,
@@ -183,7 +183,7 @@ final class SavedGameState {
         gameState.money = money
         gameState.workers = workers
         gameState.automationRate = automationRate
-        gameState.moralDecay = moralDecay
+        gameState.ethicsScore = ethicsScore
         gameState.isCollapsing = isCollapsing
         gameState.lastUpdate = Date() // Always use current date
         gameState.packageAccumulator = packageAccumulator

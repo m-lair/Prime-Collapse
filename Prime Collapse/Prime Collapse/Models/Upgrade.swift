@@ -18,7 +18,7 @@ struct Upgrade: Identifiable, Hashable {
     let effect: (GameState) -> Void
     
     let isRepeatable: Bool
-    let moralImpact: Double // Positive for unethical, negative for ethical
+    let moralImpact: Double // Negative for unethical, positive for ethical
     
     // New Step 13 Impacts
     let publicPerceptionImpact: Double

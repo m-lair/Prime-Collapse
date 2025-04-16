@@ -35,7 +35,7 @@ import Observation
     // Game mechanics
     var upgrades: [Upgrade] = []
     var purchasedUpgradeIDs: [UUID] = [] // Track all purchased upgrades by ID
-    var moralDecay: Double = 0.0
+    var ethicsScore: Double = 100.0 // Renamed from moralDecay, starts at 100 (good)
     var isCollapsing: Bool = false
     var lastUpdate: Date = Date()
     
@@ -152,23 +152,20 @@ import Observation
                 upgrades.append(uniqueUpgrade)
             }
             
-            // Update moral decay based on the upgrade
-            // For unethical upgrades (positive moral impact), increase decay more aggressively
+            // Update ethics score based on the upgrade
+            // Note: moralImpact values themselves need inversion where defined.
+            // Positive impact increases score (ethical), negative decreases it (unethical).
+            ethicsScore += upgrade.moralImpact
+            ethicsScore = max(0, min(100, ethicsScore)) // Clamp score between 0 and 100
+
+            // Track ethical choices (now based on positive moralImpact)
             if upgrade.moralImpact > 0 {
-                moralDecay += upgrade.moralImpact * 1.5 // 50% more moral decay impact for unethical choices
-            } else {
-                // For ethical upgrades (negative or zero moral impact), apply normally
-                moralDecay += upgrade.moralImpact
-            }
-            
-            // Track ethical choices
-            if upgrade.moralImpact < 0 {
                 ethicalChoicesMade += 1
                 checkForReformEnding()
             }
             
-            // Check if we've entered collapse phase
-            if moralDecay >= 100 {
+            // Check if we've entered collapse phase (score reached 0 or less)
+            if ethicsScore <= 0 {
                 isCollapsing = true
                 endingType = .collapse
             }
@@ -217,10 +214,10 @@ import Observation
     // Check if player qualifies for the Reform ending
     private func checkForReformEnding() {
         // To get the Reform ending:
-        // 1. Player must have made at least 5 ethical choices 
-        // 2. Moral decay must be under 50
+        // 1. Player must have made at least 5 ethical choices (positive impact)
+        // 2. Ethics score must be 50 or higher
         // 3. Must have earned at least $1000
-        if ethicalChoicesMade >= 5 && moralDecay < 50 && money >= 1000 {
+        if ethicalChoicesMade >= 5 && ethicsScore >= 50 && money >= 1000 {
             endingType = .reform
         }
     }
@@ -228,10 +225,10 @@ import Observation
     // Check if player qualifies for the Loop ending
     private func checkForLoopEnding() {
         // To get the Loop ending:
-        // 1. Moral decay must be between 75-85 (on the edge)
+        // 1. Ethics score must be low but not collapsed (e.g., 15-25)
         // 2. Must have earned at least $2500
         // 3. Must have shipped at least 1500 packages
-        if moralDecay >= 75 && moralDecay <= 85 && money >= 2500 && totalPackagesShipped >= 1500 {
+        if ethicsScore >= 15 && ethicsScore <= 25 && money >= 2500 && totalPackagesShipped >= 1500 {
             endingType = .loop
         }
     }
@@ -245,7 +242,7 @@ import Observation
         packageAccumulator = 0.0
         upgrades = []
         purchasedUpgradeIDs = []
-        moralDecay = 0.0
+        ethicsScore = 100.0 // Reset ethics score to 100
         isCollapsing = false
         lastUpdate = Date()
         ethicalChoicesMade = 0

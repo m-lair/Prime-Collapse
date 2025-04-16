@@ -46,7 +46,8 @@ struct GameStatsView: View {
                 )
             }
             
-            if gameState.workers > 0 || gameState.moralDecay > 0 {
+            // Show ethics if score is not perfect (100) or if workers exist
+            if gameState.workers > 0 || gameState.ethicsScore < 100 {
                 HStack(spacing: 16) {
                     // Workers info (only show if we have workers)
                     if gameState.workers > 0 {
@@ -59,8 +60,8 @@ struct GameStatsView: View {
                         )
                     }
                     
-                    // Ethics rating indicator (only show if moral decay > 0)
-                    if gameState.moralDecay > 0 {
+                    // Ethics rating indicator (only show if score is not perfect)
+                    if gameState.ethicsScore < 100 {
                         VStack(alignment: .leading, spacing: 2) {
                             HStack {
                                 Image(systemName: ethicsIcon)
@@ -78,7 +79,8 @@ struct GameStatsView: View {
                                     .foregroundColor(ethicsRating.color)
                             }
                             
-                            ProgressView(value: gameState.moralDecay, total: 100)
+                            // Progress bar shows ethics score (0-100 scale)
+                            ProgressView(value: gameState.ethicsScore / 100.0)
                                 .progressViewStyle(LinearProgressViewStyle(tint: ethicsRating.color))
                                 .frame(height: 8)
                                 .background(Color.white.opacity(0.2))
@@ -190,20 +192,20 @@ struct GameStatsView: View {
         .padding(.vertical, 12)
     }
     
-    // Ethics rating based on moral decay
+    // Ethics rating based on ethics score (inverted logic)
     private var ethicsRating: EthicsRating {
-        switch gameState.moralDecay {
-        case 0..<20:
+        switch gameState.ethicsScore {
+        case 80...100:
             return .excellent
-        case 20..<40:
+        case 60..<80:
             return .good
         case 40..<60:
             return .neutral
-        case 60..<80:
+        case 20..<40:
             return .concerning
-        case 80..<100:
+        case 1..<20: // Changed from 80..<100
             return .poor
-        default:
+        default: // 0 or less
             return .critical
         }
     }

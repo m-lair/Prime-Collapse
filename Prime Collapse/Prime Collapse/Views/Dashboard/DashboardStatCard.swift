@@ -41,7 +41,7 @@ struct DashboardStatCard: View {
                     .shadow(color: iconColor.opacity(0.5), radius: 3, x: 0, y: 2)
                 
                 Text(title)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.white.opacity(0.9))
             }
             

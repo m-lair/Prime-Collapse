@@ -25,7 +25,7 @@ A SwiftUI clicker-style satire game about capitalism gone too far
     * [x] `workers`
     * [x] `upgrades: [Upgrade]`
     * [x] `automationRate: Double`
-    * [x] `moralDecay`
+    * [x] `ethicsScore: Double`
     * [x] `isCollapsing`
     * [x] `lastUpdate`
     * [x] `packageAccumulator: Double`
@@ -63,9 +63,9 @@ A SwiftUI clicker-style satire game about capitalism gone too far
     * [x] "AI Optimization"
 
 ## 📉 Step 6: Morality & Collapse System (Completed)
-* [x] `moralDecay` increases with unethical upgrades
+* [x] `ethicsScore` decreases with unethical choices (starts at 100)
 * [x] Add visible indicators (e.g. red tint UI, warning banners)
-* [x] When `moralDecay` >= 100, start Collapse Phase:
+* [x] When `ethicsScore` <= 0, start Collapse Phase:
     * [x] Slowdowns, flashing alerts, broken UI elements
     * [x] Disabling automation
     * [x] Show "Collapse Ending" view
@@ -117,17 +117,17 @@ A SwiftUI clicker-style satire game about capitalism gone too far
 * The game uses a timer-based loop running at 0.1 second intervals
 * `GameState` is the central model with the `@Observable` macro for SwiftUI reactivity
 * Upgrades affect the game by modifying properties in `GameState`
+* Ethics score starts at 100 and decreases. Collapse occurs when score hits 0.
 * Automation follows this formula: packages shipped = automationRate × timeElapsed
 * Multiple ending types: Collapse, Reform, and Loop, each triggered by different game conditions
 
 ### SwiftData Notes for Future Developers
 * The app uses a versioned schema approach for SwiftData migrations
-* Current version is SchemaV1
+* Current version is SchemaV4 (as of ethicsScore rename)
 * When adding new properties to SavedGameState:
-  1. Create SchemaV2 in Prime_CollapseApp.swift with the updated model
-  2. Implement the migration plan as described in the comments
-  3. Always provide default values for new non-optional properties
-  4. Test migrations thoroughly before releasing
+  1. Create SchemaV5 (or next version) in Prime_CollapseApp.swift with the updated model
+  2. Implement the migration plan (lightweight or custom) as described in the comments
+  3. Always provide default values for new non-optional properties in the model's init
 * Be careful with array properties - they can cause materialization issues during migration
 
 ## 🎲 Step 12: Random Events System
@@ -169,11 +169,11 @@ A SwiftUI clicker-style satire game about capitalism gone too far
 
 ## ⚖️ Step 14: Enhanced Progression Balance
 * [ ] Rebalance the Loop ending:
-    * [ ] Add "stability features" that slow moral decay for balanced players
+    * [ ] Add "stability features" that slow ethics score decay for balanced players
     * [ ] Create specific upgrades that maintain equilibrium
 * [ ] Enhance the ethical path:
     * [ ] Add unique ethical upgrades with competitive benefits
-    * [ ] Create bonus incentives for maintaining low moral decay
+    * [ ] Create bonus incentives for maintaining high ethics score
 * [ ] Refine ending requirements:
     * [ ] Adjust thresholds for each ending type
     * [ ] Create more gradual progression toward endings

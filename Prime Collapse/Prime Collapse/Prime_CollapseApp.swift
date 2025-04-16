@@ -22,7 +22,7 @@ struct Prime_CollapseApp: App {
     init() {
         do {
             // Define the schema using the LATEST version
-            let schema = Schema(versionedSchema: SchemaV3.self)
+            let schema = Schema(versionedSchema: SchemaV4.self)
             // Create the container using the initializer that accepts a migration plan
             container = try ModelContainer(for: schema, migrationPlan: SavedGameStateMigrationPlan.self)
         } catch {
@@ -247,7 +247,68 @@ enum SchemaV3: VersionedSchema {
     static var versionIdentifier = Schema.Version(3, 0, 0)
     
     static var models: [any PersistentModel.Type] {
-        [SavedGameState.self] // References the latest model definition
+        [SavedGameStateV3.self] // Point to the explicit V3 model definition below
+    }
+    
+    // Define the model structure AS IT WAS IN V3
+    // This is crucial for the V3 -> V4 migration
+    @Model
+    final class SavedGameStateV3 {
+        var totalPackagesShipped: Int
+        var money: Double
+        var workers: Int
+        var automationRate: Double
+        var moralDecay: Double // Still moralDecay in V3
+        var isCollapsing: Bool
+        var lastUpdate: Date
+        var packageAccumulator: Double
+        var ethicalChoicesMade: Int
+        var endingType: String
+        var workerEfficiency: Double
+        var workerMorale: Double
+        var customerSatisfaction: Double
+        var packageValue: Double
+        var automationEfficiency: Double
+        var automationLevel: Int
+        var corporateEthics: Double
+        var publicPerception: Double
+        var environmentalImpact: Double
+        var purchasedUpgradeIDsString: String
+        var repeatableUpgradeIDsString: String
+        
+        init() {
+            // Default values reflecting the state in V3
+            self.totalPackagesShipped = 0
+            self.money = 0.0
+            self.workers = 0
+            self.automationRate = 0.0
+            self.moralDecay = 0.0 // Default V3 value
+            self.isCollapsing = false
+            self.lastUpdate = Date()
+            self.packageAccumulator = 0.0
+            self.ethicalChoicesMade = 0
+            self.endingType = "collapse"
+            self.workerEfficiency = 1.0
+            self.workerMorale = 0.8
+            self.customerSatisfaction = 0.9
+            self.packageValue = 1.0
+            self.automationEfficiency = 1.0
+            self.automationLevel = 0
+            self.corporateEthics = 0.5
+            self.publicPerception = 50.0 // Default V3 value
+            self.environmentalImpact = 0.0 // Default V3 value
+            self.purchasedUpgradeIDsString = "[]"
+            self.repeatableUpgradeIDsString = "[]"
+        }
+    }
+}
+
+// V4 renames moralDecay to ethicsScore and inverts its logic
+enum SchemaV4: VersionedSchema {
+    static var versionIdentifier = Schema.Version(4, 0, 0)
+    
+    static var models: [any PersistentModel.Type] {
+        [SavedGameState.self] // References the latest model definition (with ethicsScore)
     }
 }
 
@@ -256,11 +317,11 @@ enum SchemaV3: VersionedSchema {
 
 enum SavedGameStateMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        [SchemaV1.self, SchemaV2.self, SchemaV3.self] // Add V3
+        [SchemaV1.self, SchemaV2.self, SchemaV3.self, SchemaV4.self] // Add V4
     }
     
     static var stages: [MigrationStage] {
-        [migrateV1toV2, migrateV2toV3] // Add V2 -> V3 stage
+        [migrateV1toV2, migrateV2toV3, migrateV3toV4] // Add V3 -> V4 stage
     }
     
     // Migration from V1 to V2 - converting array properties to serialized strings
@@ -327,6 +388,56 @@ enum SavedGameStateMigrationPlan: SchemaMigrationPlan {
     // new properties, and the SavedGameState.init() provides default values.
     // If we were renaming or deleting properties, a custom migration like V1->V2
     // might be needed.
+    
+    // Migration from V3 to V4 - Renaming moralDecay to ethicsScore and inverting value
+    static let migrateV3toV4 = MigrationStage.custom(
+        fromVersion: SchemaV3.self,
+        toVersion: SchemaV4.self,
+        willMigrate: nil,
+        didMigrate: { context in
+            // Fetch all V3 records (schema before rename)
+            let descriptorV3 = FetchDescriptor<SchemaV3.SavedGameStateV3>()
+            guard let oldGames = try? context.fetch(descriptorV3) else { return }
+            
+            for oldGame in oldGames {
+                // Create a new SavedGameState instance (V4 schema with ethicsScore)
+                let newGame = SavedGameState() // Use the default init of the latest model
+                
+                // Manually map fields from V3 to V4
+                newGame.totalPackagesShipped = oldGame.totalPackagesShipped
+                newGame.money = oldGame.money
+                newGame.workers = oldGame.workers
+                newGame.automationRate = oldGame.automationRate
+                // *** Invert the moralDecay to ethicsScore ***
+                newGame.ethicsScore = max(0, min(100, 100.0 - oldGame.moralDecay))
+                newGame.isCollapsing = oldGame.isCollapsing // Or recalculate: newGame.ethicsScore <= 0
+                newGame.lastUpdate = oldGame.lastUpdate
+                newGame.packageAccumulator = oldGame.packageAccumulator
+                newGame.ethicalChoicesMade = oldGame.ethicalChoicesMade
+                newGame.endingType = oldGame.endingType
+                newGame.workerEfficiency = oldGame.workerEfficiency
+                newGame.workerMorale = oldGame.workerMorale
+                newGame.customerSatisfaction = oldGame.customerSatisfaction
+                newGame.packageValue = oldGame.packageValue
+                newGame.automationEfficiency = oldGame.automationEfficiency
+                newGame.automationLevel = oldGame.automationLevel
+                newGame.corporateEthics = oldGame.corporateEthics
+                newGame.publicPerception = oldGame.publicPerception
+                newGame.environmentalImpact = oldGame.environmentalImpact
+                newGame.purchasedUpgradeIDsString = oldGame.purchasedUpgradeIDsString
+                newGame.repeatableUpgradeIDsString = oldGame.repeatableUpgradeIDsString
+                
+                // Add new record
+                context.insert(newGame)
+                
+                // Delete the old record
+                context.delete(oldGame)
+            }
+            
+            // Save changes
+            try? context.save()
+        }
+    )
 }
 
 // MARK: - Migration Helper Functions
@@ -358,4 +469,5 @@ func printMigrationInfo() {
  IMPORTANT TIPS:
  - Lightweight migration relies on default values in your model's `init`.
  - Test migrations thoroughly, especially after clearing app data or using older builds.
+ - Custom migrations require defining the model structure for the `fromVersion` explicitly.
  */
