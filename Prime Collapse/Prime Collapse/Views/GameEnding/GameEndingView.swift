@@ -231,7 +231,7 @@ struct GameEndingView: View {
         case .reform:
             return "You've managed to build a successful company while maintaining ethical standards. A rare achievement!"
         case .loop:
-            return "You've mastered the art of extracting just enough value without triggering a collapse. The wheel turns on..."
+            return "You've managed to balance on the razor's edge of extraction and sustainability for a brief moment. Such a delicate balance could never last long..."
         }
     }
     

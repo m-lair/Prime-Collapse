@@ -77,8 +77,8 @@ A SwiftUI clicker-style satire game about capitalism gone too far
 * [x] Implement proper schema versioning for future migrations
 
 ## 🔐 Step 8: Game Center Integration
-* [ ] Add GameKit framework and necessary entitlements
-* [ ] Implement GKLocalPlayer authentication on app launch
+* [x] Add GameKit framework and necessary entitlements
+* [x] Implement GKLocalPlayer authentication on app launch
 * [ ] Create leaderboards for metrics like total packages shipped and money earned
 * [ ] Add achievements for game milestones (first worker hired, reaching automation thresholds)
 * [ ] Display player's Game Center profile on dashboard
@@ -137,3 +137,55 @@ A SwiftUI clicker-style satire game about capitalism gone too far
 * Add more visual polish to the upgrade cards
 * Implement a settings screen with save/reset options
 * Consider adding analytics to track player decisions and game progression patterns 
+
+## 🎲 Step 12: Random Events System
+* [ ] Create a `GameEvent` model:
+    * [ ] `id: UUID`
+    * [ ] `title: String`
+    * [ ] `description: String`
+    * [ ] `choices: [EventChoice]`
+    * [ ] `triggerCondition: (GameState) -> Bool`
+* [ ] Implement `EventChoice` model:
+    * [ ] `id: UUID`
+    * [ ] `text: String`
+    * [ ] `effect: (GameState) -> Void`
+    * [ ] `moralImpact: Double`
+    * [ ] `publicPerceptionImpact: Double`
+* [ ] Add event categories:
+    * [ ] Workplace incidents (injuries, strikes)
+    * [ ] Market opportunities (rush orders, partnerships)
+    * [ ] PR events (media coverage, customer feedback)
+    * [ ] Regulatory changes (new laws affecting business)
+* [ ] Create timer-based event trigger system
+* [ ] Design modal presentation for events with choices
+* [ ] Add visual and haptic feedback for event notifications
+
+## 📊 Step 13: Expanded Metrics System
+* [ ] Update `GameState` with new properties:
+    * [ ] `publicPerception: Double` (0-100 scale)
+    * [ ] `workerSatisfaction: Double` (0-100 scale)
+    * [ ] `environmentalImpact: Double` (0-100 scale)
+* [ ] Modify `Upgrade` model:
+    * [ ] Add impact fields for new metrics
+    * [ ] Create upgrade effects that consider multiple metrics
+* [ ] Update UI to display new metrics:
+    * [ ] Add dashboard panels for each metric
+    * [ ] Create visual indicators for critical thresholds
+* [ ] Implement effects of metrics on gameplay:
+    * [ ] Worker satisfaction affects automation efficiency
+    * [ ] Public perception influences upgrade costs
+    * [ ] Environmental impact adds regulatory consequences
+
+## ⚖️ Step 14: Enhanced Progression Balance
+* [ ] Rebalance the Loop ending:
+    * [ ] Add "stability features" that slow moral decay for balanced players
+    * [ ] Create specific upgrades that maintain equilibrium
+* [ ] Enhance the ethical path:
+    * [ ] Add unique ethical upgrades with competitive benefits
+    * [ ] Create bonus incentives for maintaining low moral decay
+* [ ] Refine ending requirements:
+    * [ ] Adjust thresholds for each ending type
+    * [ ] Create more gradual progression toward endings
+* [ ] Implement "recovery mechanics" for players approaching collapse
+    * [ ] Add special crisis-management upgrades
+    * [ ] Create temporary boosts for critical situations 
