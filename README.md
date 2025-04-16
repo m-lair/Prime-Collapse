@@ -10,6 +10,7 @@ In Prime Collapse, you start as a small package delivery operation and gradually
 
 - **Incremental Gameplay**: Ship packages manually or automatically with workers and upgrades
 - **Ethical Decision System**: Choose between ethical and unethical upgrades that affect your company's moral decay
+- **Random Events**: Face unexpected situations with multiple choices that impact your business
 - **Multiple Endings**: Discover different game outcomes based on your choices:
   - **Collapse**: Unethical decisions lead to economic collapse
   - **Reform**: Ethical choices create a sustainable business
@@ -22,6 +23,7 @@ In Prime Collapse, you start as a small package delivery operation and gradually
 - **Package Shipping**: Tap to ship packages manually, or hire workers for automation
 - **Upgrade System**: Invest in improvements with varying ethical implications
 - **Moral Decay**: Unethical decisions increase moral decay, while ethical choices decrease it
+- **Random Events**: Experience workplace issues, market opportunities, PR events, and regulatory inspections
 - **Economic Collapse**: When moral decay reaches 100, your business begins to collapse
 - **Automation**: Build a self-sustaining delivery empire with increasing automation rates
 
@@ -63,12 +65,15 @@ Prime Collapse/
 │   ├── GameState.swift          - Core game state and logic
 │   ├── SavedGameState.swift     - SwiftData persistence model
 │   ├── Upgrade.swift            - Upgrade data structure
-│   └── UpgradeManager.swift     - Available upgrades and pricing
+│   ├── UpgradeManager.swift     - Available upgrades and pricing
+│   ├── GameEvent.swift          - Random event model
+│   └── EventManager.swift       - Event generation and handling
 ├── Views/
 │   ├── Components/              - Reusable UI components
 │   ├── Dashboard/               - Analytics and statistics views
 │   ├── GameEnding/              - End-game screens and effects
-│   └── Upgrades/                - Upgrade shop and items
+│   ├── Upgrades/                - Upgrade shop and items
+│   └── EventView.swift          - Event popup and choice UI
 ├── GameCenterManager.swift      - Game Center integration
 └── Prime_CollapseApp.swift      - App entry point
 ```

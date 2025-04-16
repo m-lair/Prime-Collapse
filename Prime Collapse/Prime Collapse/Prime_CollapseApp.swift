@@ -14,12 +14,14 @@ import GameKit
 struct Prime_CollapseApp: App {
     @State var game = GameState()
     @State var gameCenterManager = GameCenterManager()
+    @State var eventManager = EventManager()
     
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(game)
                 .environment(gameCenterManager)
+                .environment(eventManager)
                 .onChange(of: game.totalPackagesShipped) {
                     // Update Game Center scores and achievements when game state changes
                     gameCenterManager.updateFromGameState(game)

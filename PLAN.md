@@ -131,26 +131,25 @@ A SwiftUI clicker-style satire game about capitalism gone too far
 * Be careful with array properties - they can cause materialization issues during migration
 
 ## 🎲 Step 12: Random Events System
-* [ ] Create a `GameEvent` model:
-    * [ ] `id: UUID`
-    * [ ] `title: String`
-    * [ ] `description: String`
-    * [ ] `choices: [EventChoice]`
-    * [ ] `triggerCondition: (GameState) -> Bool`
-* [ ] Implement `EventChoice` model:
-    * [ ] `id: UUID`
-    * [ ] `text: String`
-    * [ ] `effect: (GameState) -> Void`
-    * [ ] `moralImpact: Double`
-    * [ ] `publicPerceptionImpact: Double`
-* [ ] Add event categories:
-    * [ ] Workplace incidents (injuries, strikes)
-    * [ ] Market opportunities (rush orders, partnerships)
-    * [ ] PR events (media coverage, customer feedback)
-    * [ ] Regulatory changes (new laws affecting business)
-* [ ] Create timer-based event trigger system
-* [ ] Design modal presentation for events with choices
-* [ ] Add visual and haptic feedback for event notifications
+* [x] Create a `GameEvent` model:
+    * [x] `id: UUID`
+    * [x] `title: String`
+    * [x] `description: String`
+    * [x] `choices: [EventChoice]`
+    * [x] `triggerCondition: (GameState) -> Bool`
+* [x] Implement `EventChoice` model:
+    * [x] `id: UUID`
+    * [x] `text: String`
+    * [x] `effect: (GameState) -> Void`
+    * [x] `moralImpact: Double`
+* [x] Add event categories:
+    * [x] Workplace incidents (injuries, strikes)
+    * [x] Market opportunities (rush orders, partnerships)
+    * [x] PR events (media coverage, customer feedback)
+    * [x] Regulatory changes (new laws affecting business)
+* [x] Create timer-based event trigger system
+* [x] Design modal presentation for events with choices
+* [x] Add visual and haptic feedback for event notifications
 
 ## 📊 Step 13: Expanded Metrics System
 * [ ] Update `GameState` with new properties:

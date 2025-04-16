@@ -21,6 +21,19 @@ final class SavedGameState {
     var ethicalChoicesMade: Int
     var endingType: String // Store as string since we can't store enums directly
     
+    // Worker-related stats
+    var workerEfficiency: Double
+    var workerMorale: Double
+    var customerSatisfaction: Double
+    
+    // Package and automation stats
+    var packageValue: Double
+    var automationEfficiency: Double
+    var automationLevel: Int
+    
+    // Corporate metrics
+    var corporateEthics: Double
+    
     // Replace arrays with string storage to prevent materialization issues
     var purchasedUpgradeIDsString: String // Serialized JSON array of UUIDs
     var repeatableUpgradeIDsString: String // Serialized JSON array of UUIDs
@@ -36,7 +49,14 @@ final class SavedGameState {
         repeatableUpgradeIDs: [String] = [],
         packageAccumulator: Double = 0.0,
         ethicalChoicesMade: Int = 0,
-        endingType: String = "collapse"
+        endingType: String = "collapse",
+        workerEfficiency: Double = 1.0,
+        workerMorale: Double = 0.8,
+        customerSatisfaction: Double = 0.9,
+        packageValue: Double = 1.0,
+        automationEfficiency: Double = 1.0,
+        automationLevel: Int = 0,
+        corporateEthics: Double = 0.5
     ) {
         self.totalPackagesShipped = totalPackagesShipped
         self.money = money
@@ -45,6 +65,15 @@ final class SavedGameState {
         self.moralDecay = moralDecay
         self.isCollapsing = isCollapsing
         self.lastUpdate = Date()
+        
+        // Worker & business stats
+        self.workerEfficiency = workerEfficiency
+        self.workerMorale = workerMorale
+        self.customerSatisfaction = customerSatisfaction
+        self.packageValue = packageValue
+        self.automationEfficiency = automationEfficiency
+        self.automationLevel = automationLevel
+        self.corporateEthics = corporateEthics
         
         // Serialize arrays to JSON strings
         self.purchasedUpgradeIDsString = SavedGameState.serializeArray(purchasedUpgradeIDs)
@@ -121,7 +150,14 @@ final class SavedGameState {
             repeatableUpgradeIDs: repeatableIDs,
             packageAccumulator: gameState.packageAccumulator,
             ethicalChoicesMade: gameState.ethicalChoicesMade,
-            endingType: endingTypeString
+            endingType: endingTypeString,
+            workerEfficiency: gameState.workerEfficiency,
+            workerMorale: gameState.workerMorale,
+            customerSatisfaction: gameState.customerSatisfaction,
+            packageValue: gameState.packageValue,
+            automationEfficiency: gameState.automationEfficiency,
+            automationLevel: gameState.automationLevel,
+            corporateEthics: gameState.corporateEthics
         )
     }
     
@@ -136,6 +172,15 @@ final class SavedGameState {
         gameState.lastUpdate = Date() // Always use current date
         gameState.packageAccumulator = packageAccumulator
         gameState.ethicalChoicesMade = ethicalChoicesMade
+        
+        // Restore worker and business stats
+        gameState.workerEfficiency = workerEfficiency
+        gameState.workerMorale = workerMorale
+        gameState.customerSatisfaction = customerSatisfaction
+        gameState.packageValue = packageValue
+        gameState.automationEfficiency = automationEfficiency
+        gameState.automationLevel = automationLevel
+        gameState.corporateEthics = corporateEthics
         
         // Convert string back to enum
         switch endingType {

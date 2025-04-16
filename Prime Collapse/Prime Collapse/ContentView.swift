@@ -11,6 +11,7 @@ import SwiftData
 struct ContentView: View {
     @Environment(GameState.self) private var gameState
     @Environment(GameCenterManager.self) private var gameCenterManager
+    @Environment(EventManager.self) private var eventManager
     @State private var gameTask: Task<Void, Never>?
     @Query private var savedGames: [SavedGameState]
     @Environment(\.modelContext) private var modelContext
@@ -95,6 +96,9 @@ struct ContentView: View {
             if gameState.isCollapsing {
                 CollapseEffectsView(showCollapseAlert: $showCollapseAlert)
             }
+            
+            // Event overlay
+            EventView()
         }
         .animation(.easeInOut(duration: 0.3), value: glitchEffect)
         .animation(.easeInOut(duration: 0.5), value: gameState.isCollapsing)
@@ -168,6 +172,7 @@ struct ContentView: View {
                 // Process game updates
                 await MainActor.run {
                     gameState.processAutomation(currentTime: Date())
+                    eventManager.checkForEvents(gameState: gameState, currentTime: Date())
                 }
                 
                 // Wait for the next update interval

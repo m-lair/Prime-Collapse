@@ -19,6 +19,19 @@ import Observation
     var automationRate: Double = 0.0 // Packages per second
     var packageAccumulator: Double = 0.0 // Tracks partial packages between updates
     
+    // Worker related stats
+    var workerEfficiency: Double = 1.0 // Multiplier for worker output
+    var workerMorale: Double = 0.8 // 0.0 to 1.0 scale
+    var customerSatisfaction: Double = 0.9 // 0.0 to 1.0 scale
+    
+    // Package value & automation efficiency
+    var packageValue: Double = 1.0 // Base value per package
+    var automationEfficiency: Double = 1.0 // Multiplier for automation output
+    var automationLevel: Int = 0 // Current automation tech level
+    
+    // Corporate metrics
+    var corporateEthics: Double = 0.5 // 0.0 (unethical) to 1.0 (ethical)
+    
     // Game mechanics
     var upgrades: [Upgrade] = []
     var purchasedUpgradeIDs: [UUID] = [] // Track all purchased upgrades by ID
@@ -178,5 +191,14 @@ import Observation
         lastUpdate = Date()
         ethicalChoicesMade = 0
         endingType = .collapse
+        
+        // Reset worker and business stats
+        workerEfficiency = 1.0
+        workerMorale = 0.8
+        customerSatisfaction = 0.9
+        packageValue = 1.0
+        automationEfficiency = 1.0
+        automationLevel = 0
+        corporateEthics = 0.5
     }
 } 
