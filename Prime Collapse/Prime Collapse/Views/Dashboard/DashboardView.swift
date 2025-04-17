@@ -156,23 +156,26 @@ struct DashboardView: View {
                                     }
                                     
                                     // Morale bar
-                                    ZStack(alignment: .leading) {
-                                        // Background
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .fill(Color.white.opacity(0.2))
-                                            .frame(height: 12)
-                                        
-                                        // Fill
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .fill(
-                                                LinearGradient(
-                                                    gradient: Gradient(colors: [moraleColor.opacity(0.7), moraleColor]),
-                                                    startPoint: .leading,
-                                                    endPoint: .trailing
+                                    GeometryReader { geometry in
+                                        ZStack(alignment: .leading) {
+                                            // Background
+                                            RoundedRectangle(cornerRadius: 10)
+                                                .fill(Color.white.opacity(0.2))
+                                                .frame(height: 12)
+                                            
+                                            // Fill
+                                            RoundedRectangle(cornerRadius: 10)
+                                                .fill(
+                                                    LinearGradient(
+                                                        gradient: Gradient(colors: [moraleColor.opacity(0.7), moraleColor]),
+                                                        startPoint: .leading,
+                                                        endPoint: .trailing
+                                                    )
                                                 )
-                                            )
-                                            .frame(width: max(CGFloat(gameState.workerMorale) * UIScreen.main.bounds.width * 0.85, 10), height: 12)
+                                                .frame(width: max(CGFloat(gameState.workerMorale) * geometry.size.width, 10), height: 12)
+                                        }
                                     }
+                                    .frame(height: 12)
                                     
                                     Text(moraleEffectDescription)
                                         .font(.system(size: 14))
@@ -272,23 +275,26 @@ struct DashboardView: View {
                                     }
                                     
                                     // Satisfaction bar
-                                    ZStack(alignment: .leading) {
-                                        // Background
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .fill(Color.white.opacity(0.2))
-                                            .frame(height: 12)
-                                        
-                                        // Fill
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .fill(
-                                                LinearGradient(
-                                                    gradient: Gradient(colors: [customerSatisfactionColor.opacity(0.7), customerSatisfactionColor]),
-                                                    startPoint: .leading,
-                                                    endPoint: .trailing
+                                    GeometryReader { geometry in
+                                        ZStack(alignment: .leading) {
+                                            // Background
+                                            RoundedRectangle(cornerRadius: 10)
+                                                .fill(Color.white.opacity(0.2))
+                                                .frame(height: 12)
+                                            
+                                            // Fill
+                                            RoundedRectangle(cornerRadius: 10)
+                                                .fill(
+                                                    LinearGradient(
+                                                        gradient: Gradient(colors: [customerSatisfactionColor.opacity(0.7), customerSatisfactionColor]),
+                                                        startPoint: .leading,
+                                                        endPoint: .trailing
+                                                    )
                                                 )
-                                            )
-                                            .frame(width: max(CGFloat(gameState.customerSatisfaction) * UIScreen.main.bounds.width * 0.85, 10), height: 12)
+                                                .frame(width: max(CGFloat(gameState.customerSatisfaction) * geometry.size.width, 10), height: 12)
+                                        }
                                     }
+                                    .frame(height: 12)
                                     
                                     Text(customerSatisfactionEffect)
                                         .font(.system(size: 14))
@@ -366,33 +372,36 @@ struct DashboardView: View {
                                     }
                                     
                                     // Risk level indicator
-                                    ZStack(alignment: .leading) {
-                                        // Background
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .fill(Color.white.opacity(0.2))
-                                            .frame(height: 12)
-                                        
-                                        // Fill
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .fill(
-                                                LinearGradient(
-                                                    gradient: Gradient(colors: [ethicsScoreColor.opacity(0.7), ethicsScoreColor]),
-                                                    startPoint: .leading,
-                                                    endPoint: .trailing
+                                    GeometryReader { geometry in
+                                        ZStack(alignment: .leading) {
+                                            // Background
+                                            RoundedRectangle(cornerRadius: 10)
+                                                .fill(Color.white.opacity(0.2))
+                                                .frame(height: 12)
+                                            
+                                            // Fill
+                                            RoundedRectangle(cornerRadius: 10)
+                                                .fill(
+                                                    LinearGradient(
+                                                        gradient: Gradient(colors: [ethicsScoreColor.opacity(0.7), ethicsScoreColor]),
+                                                        startPoint: .leading,
+                                                        endPoint: .trailing
+                                                    )
                                                 )
-                                            )
-                                            .frame(width: max(CGFloat(gameState.ethicsScore) / 100.0 * UIScreen.main.bounds.width * 0.85, 10), height: 12)
-                                        
-                                        // Descriptive markers
-                                        HStack(spacing: 0) {
-                                            ForEach(0..<5) { i in
-                                                Rectangle()
-                                                    .fill(Color.white.opacity(0.5))
-                                                    .frame(width: 1, height: 8)
-                                                    .frame(maxWidth: .infinity)
+                                                .frame(width: max(CGFloat(gameState.ethicsScore) / 100.0 * geometry.size.width, 10), height: 12)
+                                            
+                                            // Descriptive markers
+                                            HStack(spacing: 0) {
+                                                ForEach(0..<5) { i in
+                                                    Rectangle()
+                                                        .fill(Color.white.opacity(0.5))
+                                                        .frame(width: 1, height: 8)
+                                                        .frame(maxWidth: .infinity)
+                                                }
                                             }
                                         }
                                     }
+                                    .frame(height: 12)
                                     
                                     // Risk level labels
                                     HStack(spacing: 0) {

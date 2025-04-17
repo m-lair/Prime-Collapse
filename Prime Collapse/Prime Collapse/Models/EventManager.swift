@@ -349,7 +349,7 @@ import SwiftUI
                     text: "Issue PR statement without changes",
                     moralImpact: -6.0, // Unethical
                     effect: { state in
-                        state.money -= 1000
+                        state.money += 0
                         state.corporateEthics -= 0.1
                     }
                 ),

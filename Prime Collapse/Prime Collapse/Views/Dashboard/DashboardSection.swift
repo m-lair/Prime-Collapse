@@ -16,6 +16,7 @@ struct DashboardSection: View {
             Text(title.uppercased())
                 .font(.system(size: 14, weight: .bold))
                 .foregroundColor(.white.opacity(0.7))
+                .padding(.horizontal)
             
             // Content
             content()
