@@ -2,7 +2,7 @@ import SwiftUI
 
 // Horizontal scrolling list of available upgrades
 struct UpgradeListView: View {
-    var gameState: GameState
+    @Environment(GameState.self) private var gameState
     @State private var showDetailedUpgrades = false
     
     // Filter available upgrades based on purchase status
@@ -84,7 +84,7 @@ struct UpgradeListView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack() {
                     ForEach(availableUpgrades, id: \.id) { upgrade in
-                        UpgradeCardView(upgrade: upgrade, gameState: gameState)
+                        UpgradeCardView(upgrade: upgrade)
                             .shadow(color: .black.opacity(0.2), radius: 3)
                     }
                 }
@@ -93,7 +93,7 @@ struct UpgradeListView: View {
             }
         }
         .sheet(isPresented: $showDetailedUpgrades) {
-            UpgradeScreenView(gameState: gameState)
+            UpgradeScreenView()
         }
     }
 }
@@ -101,6 +101,7 @@ struct UpgradeListView: View {
 #Preview {
     ZStack {
         Color.blue.opacity(0.3).ignoresSafeArea()
-        UpgradeListView(gameState: GameState())
+        UpgradeListView()
+            .environment(GameState())
     }
 } 

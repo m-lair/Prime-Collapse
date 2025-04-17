@@ -26,7 +26,19 @@ import SwiftUI
                         state.money -= Double(state.workers) * 500
                         state.workerEfficiency += 0.1
                         state.workerMorale += 0.2
-                    }
+                        state.publicPerception += 5 // Positive perception for improvement
+                    },
+                    canChoose: { $0.money >= Double($0.workers) * 500 },
+                    disabledReason: { state in
+                        let cost = Double(state.workers) * 500
+                        return "Requires $\(String(format: "%.0f", cost))"
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Money", changeDescription: "-$500 / worker", impactType: .negative),
+                        EffectDescription(metricName: "Efficiency", changeDescription: "+0.1", impactType: .positive),
+                        EffectDescription(metricName: "Morale", changeDescription: "+20%", impactType: .positive),
+                        EffectDescription(metricName: "Perception", changeDescription: "+5", impactType: .positive)
+                    ]
                 ),
                 EventChoice(
                     text: "Ignore their complaints",
@@ -34,7 +46,13 @@ import SwiftUI
                     effect: { state in
                         state.workerEfficiency -= 0.2
                         state.workerMorale -= 0.1
-                    }
+                        state.publicPerception -= 10 // Negative perception for ignoring
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Efficiency", changeDescription: "-0.2", impactType: .negative),
+                        EffectDescription(metricName: "Morale", changeDescription: "-10%", impactType: .negative),
+                        EffectDescription(metricName: "Perception", changeDescription: "-10", impactType: .negative)
+                    ]
                 )
             ],
             triggerCondition: { state in
@@ -53,19 +71,29 @@ import SwiftUI
                     moralImpact: -5.0, // Unethical
                     effect: { state in
                         state.packageValue *= 1.5
+                        state.publicPerception -= 3 // Slight negative perception for price gouging
                         
                         // Schedule price return after 30 seconds
                         DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
                             state.packageValue /= 1.5
                         }
-                    }
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Package Value", changeDescription: "+50% (Temporary)", impactType: .positive),
+                        EffectDescription(metricName: "Perception", changeDescription: "-3", impactType: .negative)
+                    ]
                 ),
                 EventChoice(
                     text: "Keep prices stable for customer loyalty",
                     moralImpact: 3.0, // Ethical
                     effect: { state in
                         state.customerSatisfaction += 0.1
-                    }
+                        state.publicPerception += 5 // Positive perception for loyalty focus
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Satisfaction", changeDescription: "+10%", impactType: .positive),
+                        EffectDescription(metricName: "Perception", changeDescription: "+5", impactType: .positive)
+                    ]
                 )
             ],
             triggerCondition: { state in
@@ -84,7 +112,11 @@ import SwiftUI
                     moralImpact: -2.0, // Slightly unethical
                     effect: { state in
                         state.automationEfficiency += 0.05
-                    }
+                        state.publicPerception += 3 // Slight boost for seeming innovative
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Perception", changeDescription: "+3", impactType: .positive)
+                    ]
                 ),
                 EventChoice(
                     text: "Highlight worker treatment",
@@ -92,7 +124,17 @@ import SwiftUI
                     effect: { state in
                         state.workerMorale += 0.2
                         state.money -= 1000
-                    }
+                        state.publicPerception += 8 // Better perception for worker focus
+                    },
+                    canChoose: { $0.money >= 1000 },
+                    disabledReason: { state in
+                        "Requires $1000"
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Morale", changeDescription: "+20%", impactType: .positive),
+                        EffectDescription(metricName: "Money", changeDescription: "-$1000", impactType: .negative),
+                        EffectDescription(metricName: "Perception", changeDescription: "+8", impactType: .positive)
+                    ]
                 )
             ],
             triggerCondition: { state in
@@ -111,9 +153,19 @@ import SwiftUI
                     moralImpact: 8.0, // Very ethical
                     effect: { state in
                         state.money -= 5000
-                        // Count this as an ethical choice for ending conditions
                         state.ethicalChoicesMade += 1
-                    }
+                        state.environmentalImpact = max(0, state.environmentalImpact - 15) // Significant improvement
+                        state.publicPerception += 5 // Positive perception
+                    },
+                    canChoose: { $0.money >= 5000 },
+                    disabledReason: { state in
+                        "Requires $5000"
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Money", changeDescription: "-$5000", impactType: .negative),
+                        EffectDescription(metricName: "Environment", changeDescription: "-15", impactType: .positive),
+                        EffectDescription(metricName: "Perception", changeDescription: "+5", impactType: .positive)
+                    ]
                 ),
                 EventChoice(
                     text: "Cut corners with minimal upgrades ($1000)",
@@ -121,7 +173,19 @@ import SwiftUI
                     effect: { state in
                         state.money -= 1000
                         state.corporateEthics -= 0.1
-                    }
+                        state.environmentalImpact = min(100, state.environmentalImpact + 5) // Slight increase
+                        state.publicPerception -= 5 // Negative perception
+                    },
+                    canChoose: { $0.money >= 1000 },
+                    disabledReason: { state in
+                        "Requires $1000"
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Money", changeDescription: "-$1000", impactType: .negative),
+                        EffectDescription(metricName: "Environment", changeDescription: "+5", impactType: .negative),
+                        EffectDescription(metricName: "Perception", changeDescription: "-5", impactType: .negative),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "-5", impactType: .negative)
+                    ]
                 ),
                 EventChoice(
                     text: "Bribe the inspector ($2000)",
@@ -129,7 +193,19 @@ import SwiftUI
                     effect: { state in
                         state.money -= 2000
                         state.corporateEthics -= 0.3
-                    }
+                        state.environmentalImpact = min(100, state.environmentalImpact + 10) // Worse impact due to neglect
+                        state.publicPerception -= 15 // Major negative perception hit
+                    },
+                    canChoose: { $0.money >= 2000 },
+                    disabledReason: { state in
+                        "Requires $2000"
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Money", changeDescription: "-$2000", impactType: .negative),
+                        EffectDescription(metricName: "Environment", changeDescription: "+10", impactType: .negative),
+                        EffectDescription(metricName: "Perception", changeDescription: "-15", impactType: .negative),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "-12", impactType: .negative)
+                    ]
                 )
             ],
             triggerCondition: { state in
@@ -150,14 +226,31 @@ import SwiftUI
                         state.money -= Double(state.workers) * 1000
                         state.workerEfficiency += 0.15
                         state.workerMorale += 0.1
-                    }
+                        state.publicPerception += 4 // Positive perception for investing in workers
+                    },
+                    canChoose: { $0.money >= Double($0.workers) * 1000 },
+                    disabledReason: { state in
+                        let cost = Double(state.workers) * 1000
+                        return "Requires $\(String(format: "%.0f", cost))"
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Money", changeDescription: "-$1000 / worker", impactType: .negative),
+                        EffectDescription(metricName: "Efficiency", changeDescription: "+0.15", impactType: .positive),
+                        EffectDescription(metricName: "Morale", changeDescription: "+10%", impactType: .positive),
+                        EffectDescription(metricName: "Perception", changeDescription: "+4", impactType: .positive)
+                    ]
                 ),
                 EventChoice(
                     text: "Skip training, focus on productivity",
                     moralImpact: -3.0, // Somewhat unethical
                     effect: { state in
                         state.workerMorale -= 0.05
-                    }
+                        state.publicPerception -= 2 // Slight negative perception
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Morale", changeDescription: "-5%", impactType: .negative),
+                        EffectDescription(metricName: "Perception", changeDescription: "-2", impactType: .negative)
+                    ]
                 )
             ],
             triggerCondition: { state in
@@ -177,7 +270,17 @@ import SwiftUI
                         state.money -= 3000
                         state.workerMorale += 0.2
                         state.ethicalChoicesMade += 1
-                    }
+                        state.publicPerception += 7 // Good perception for safety focus
+                    },
+                    canChoose: { $0.money >= 3000 },
+                    disabledReason: { state in
+                        "Requires $3000"
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Money", changeDescription: "-$3000", impactType: .negative),
+                        EffectDescription(metricName: "Morale", changeDescription: "+20%", impactType: .positive),
+                        EffectDescription(metricName: "Perception", changeDescription: "+7", impactType: .positive)
+                    ]
                 ),
                 EventChoice(
                     text: "Minimum required fixes ($800)",
@@ -185,20 +288,37 @@ import SwiftUI
                     effect: { state in
                         state.money -= 800
                         state.workerMorale -= 0.1
-                    }
+                        state.publicPerception -= 4 // Negative perception for cutting corners
+                    },
+                    canChoose: { $0.money >= 800 },
+                    disabledReason: { state in
+                        "Requires $800"
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Money", changeDescription: "-$800", impactType: .negative),
+                        EffectDescription(metricName: "Morale", changeDescription: "-10%", impactType: .negative),
+                        EffectDescription(metricName: "Perception", changeDescription: "-4", impactType: .negative),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "-4", impactType: .negative)
+                    ]
                 ),
                 EventChoice(
                     text: "Cover it up (legal risk)",
                     moralImpact: -10.0, // Very unethical
                     effect: { state in
                         state.corporateEthics -= 0.2
+                        state.publicPerception -= 18 // Major hit for cover-up
                         // Risk of future legal costs
                         if Double.random(in: 0...1) < 0.3 {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 60) {
                                 state.money -= 10000
                             }
                         }
-                    }
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Perception", changeDescription: "-18", impactType: .negative),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "-10", impactType: .negative),
+                        EffectDescription(metricName: "Money", changeDescription: "Risk of -$10000", impactType: .negative)
+                    ]
                 )
             ],
             triggerCondition: { state in
@@ -223,7 +343,16 @@ import SwiftUI
                         DispatchQueue.main.asyncAfter(deadline: .now() + 45) {
                             state.packageValue /= 0.8
                         }
-                    }
+                    },
+                    canChoose: { $0.money >= 2000 },
+                    disabledReason: { state in
+                        "Requires $2000"
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Package Value", changeDescription: "-20% (Temporary)", impactType: .negative),
+                        EffectDescription(metricName: "Money", changeDescription: "-$2000", impactType: .negative),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "-2", impactType: .negative)
+                    ]
                 ),
                 EventChoice(
                     text: "Focus on quality over price",
@@ -231,7 +360,13 @@ import SwiftUI
                     effect: { state in
                         state.customerSatisfaction += 0.15
                         state.workerMorale += 0.05
-                    }
+                        state.publicPerception += 6 // Good perception for quality focus
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Satisfaction", changeDescription: "+15%", impactType: .positive),
+                        EffectDescription(metricName: "Morale", changeDescription: "+5%", impactType: .positive),
+                        EffectDescription(metricName: "Perception", changeDescription: "+6", impactType: .positive)
+                    ]
                 ),
                 EventChoice(
                     text: "Spread rumors about competitor quality",
@@ -239,12 +374,18 @@ import SwiftUI
                     effect: { state in
                         state.packageValue *= 0.9 // Still need a small price drop
                         state.corporateEthics -= 0.2
+                        state.publicPerception -= 12 // Negative perception for dirty tactics
                         
                         // Return prices to normal after 30 seconds
                         DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
                             state.packageValue /= 0.9
                         }
-                    }
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Package Value", changeDescription: "-10% (Temporary)", impactType: .negative),
+                        EffectDescription(metricName: "Perception", changeDescription: "-12", impactType: .negative),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "-8", impactType: .negative)
+                    ]
                 )
             ],
             triggerCondition: { state in
@@ -263,7 +404,17 @@ import SwiftUI
                     effect: { state in
                         state.money -= 3000
                         state.customerSatisfaction += 0.1
-                    }
+                        state.publicPerception += 5 // Positive perception for not passing costs
+                    },
+                    canChoose: { $0.money >= 3000 },
+                    disabledReason: { state in
+                        "Requires $3000"
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Money", changeDescription: "-$3000", impactType: .negative),
+                        EffectDescription(metricName: "Satisfaction", changeDescription: "+10%", impactType: .positive),
+                        EffectDescription(metricName: "Perception", changeDescription: "+5", impactType: .positive)
+                    ]
                 ),
                 EventChoice(
                     text: "Pass costs to customers",
@@ -271,12 +422,19 @@ import SwiftUI
                     effect: { state in
                         state.packageValue *= 1.2
                         state.customerSatisfaction -= 0.15
+                        state.publicPerception -= 5 // Negative perception for price hikes
                         
                         // Return prices after 40 seconds
                         DispatchQueue.main.asyncAfter(deadline: .now() + 40) {
                             state.packageValue /= 1.2
                         }
-                    }
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Package Value", changeDescription: "+20% (Temporary)", impactType: .negative),
+                        EffectDescription(metricName: "Satisfaction", changeDescription: "-15%", impactType: .negative),
+                        EffectDescription(metricName: "Perception", changeDescription: "-5", impactType: .negative),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "-5", impactType: .negative)
+                    ]
                 ),
                 EventChoice(
                     text: "Cut worker benefits to offset costs",
@@ -284,7 +442,14 @@ import SwiftUI
                     effect: { state in
                         state.workerMorale -= 0.2
                         state.workerEfficiency -= 0.1
-                    }
+                        state.publicPerception -= 8 // Negative perception for cutting benefits
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Morale", changeDescription: "-20%", impactType: .negative),
+                        EffectDescription(metricName: "Efficiency", changeDescription: "-0.1", impactType: .negative),
+                        EffectDescription(metricName: "Perception", changeDescription: "-8", impactType: .negative),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "-7", impactType: .negative)
+                    ]
                 )
             ],
             triggerCondition: { state in
@@ -306,7 +471,18 @@ import SwiftUI
                         state.corporateEthics += 0.2
                         state.customerSatisfaction += 0.1
                         state.ethicalChoicesMade += 1
-                    }
+                        state.publicPerception += 15 // Significant perception boost
+                    },
+                    canChoose: { $0.money >= 5000 },
+                    disabledReason: { state in
+                        "Requires $5000"
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Money", changeDescription: "-$5000", impactType: .negative),
+                        EffectDescription(metricName: "Satisfaction", changeDescription: "+10%", impactType: .positive),
+                        EffectDescription(metricName: "Perception", changeDescription: "+15", impactType: .positive),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "+8", impactType: .positive)
+                    ]
                 ),
                 EventChoice(
                     text: "Minimal participation ($1000)",
@@ -314,7 +490,17 @@ import SwiftUI
                     effect: { state in
                         state.money -= 1000
                         state.corporateEthics += 0.05
-                    }
+                        state.publicPerception += 4 // Minor perception boost
+                    },
+                    canChoose: { $0.money >= 1000 },
+                    disabledReason: { state in
+                        "Requires $1000"
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Money", changeDescription: "-$1000", impactType: .negative),
+                        EffectDescription(metricName: "Perception", changeDescription: "+4", impactType: .positive),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "+2", impactType: .positive)
+                    ]
                 ),
                 EventChoice(
                     text: "Decline but use PR to claim involvement",
@@ -322,7 +508,13 @@ import SwiftUI
                     effect: { state in
                         state.customerSatisfaction += 0.05
                         state.corporateEthics -= 0.25
-                    }
+                        state.publicPerception -= 20 // Major hit for deceptive PR
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Satisfaction", changeDescription: "+5% (?)", impactType: .positive),
+                        EffectDescription(metricName: "Perception", changeDescription: "-20", impactType: .negative),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "-9", impactType: .negative)
+                    ]
                 )
             ],
             triggerCondition: { state in
@@ -343,7 +535,18 @@ import SwiftUI
                         state.corporateEthics += 0.15
                         state.customerSatisfaction += 0.05
                         state.ethicalChoicesMade += 1
-                    }
+                        state.publicPerception += 10 // Good boost for addressing issues
+                    },
+                    canChoose: { $0.money >= 4000 },
+                    disabledReason: { state in
+                        "Requires $4000"
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Money", changeDescription: "-$4000", impactType: .negative),
+                        EffectDescription(metricName: "Satisfaction", changeDescription: "+5%", impactType: .positive),
+                        EffectDescription(metricName: "Perception", changeDescription: "+10", impactType: .positive),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "+6", impactType: .positive)
+                    ]
                 ),
                 EventChoice(
                     text: "Issue PR statement without changes",
@@ -351,7 +554,12 @@ import SwiftUI
                     effect: { state in
                         state.money += 0
                         state.corporateEthics -= 0.1
-                    }
+                        state.publicPerception -= 8 // Hit for empty PR
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Perception", changeDescription: "-8", impactType: .negative),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "-6", impactType: .negative)
+                    ]
                 ),
                 EventChoice(
                     text: "Pay for positive reviews and comments",
@@ -360,15 +568,28 @@ import SwiftUI
                         state.money -= 2500
                         state.corporateEthics -= 0.2
                         state.customerSatisfaction += 0.1 // Short term boost
+                        state.publicPerception -= 15 // Initial hit for astroturfing
                         
                         // Risk of future fallout
                         DispatchQueue.main.asyncAfter(deadline: .now() + 50) {
                             if Double.random(in: 0...1) < 0.4 {
                                 state.customerSatisfaction -= 0.3
                                 state.corporateEthics -= 0.1
+                                state.publicPerception -= 10 // Further hit if caught
                             }
                         }
-                    }
+                    },
+                    canChoose: { $0.money >= 2500 },
+                    disabledReason: { state in
+                        "Requires $2500"
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Money", changeDescription: "-$2500", impactType: .negative),
+                        EffectDescription(metricName: "Satisfaction", changeDescription: "+10% (Temporary)", impactType: .positive),
+                        EffectDescription(metricName: "Perception", changeDescription: "-15", impactType: .negative),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "-10", impactType: .negative),
+                        EffectDescription(metricName: "Future Risk", changeDescription: "High", impactType: .negative)
+                    ]
                 )
             ],
             triggerCondition: { state in
@@ -390,7 +611,18 @@ import SwiftUI
                         state.workerMorale += 0.15
                         state.corporateEthics += 0.1
                         state.ethicalChoicesMade += 1
-                    }
+                        state.publicPerception += 6 // Positive perception for compliance
+                    },
+                    canChoose: { $0.money >= 6000 },
+                    disabledReason: { state in
+                        "Requires $6000"
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Money", changeDescription: "-$6000", impactType: .negative),
+                        EffectDescription(metricName: "Morale", changeDescription: "+15%", impactType: .positive),
+                        EffectDescription(metricName: "Perception", changeDescription: "+6", impactType: .positive),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "+7", impactType: .positive)
+                    ]
                 ),
                 EventChoice(
                     text: "Minimal compliance with loopholes",
@@ -399,7 +631,18 @@ import SwiftUI
                         state.money -= 1500
                         state.workerMorale -= 0.05
                         state.corporateEthics -= 0.05
-                    }
+                        state.publicPerception -= 6 // Negative perception
+                    },
+                    canChoose: { $0.money >= 1500 },
+                    disabledReason: { state in
+                        "Requires $1500"
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Money", changeDescription: "-$1500", impactType: .negative),
+                        EffectDescription(metricName: "Morale", changeDescription: "-5%", impactType: .negative),
+                        EffectDescription(metricName: "Perception", changeDescription: "-6", impactType: .negative),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "-5", impactType: .negative)
+                    ]
                 ),
                 EventChoice(
                     text: "Lobby against regulations ($8000)",
@@ -407,6 +650,7 @@ import SwiftUI
                     effect: { state in
                         state.money -= 8000
                         state.corporateEthics -= 0.2
+                        state.publicPerception -= 12 // Negative perception for lobbying
                         
                         // Risk of future investigation
                         DispatchQueue.main.asyncAfter(deadline: .now() + 70) {
@@ -415,7 +659,17 @@ import SwiftUI
                                 state.corporateEthics -= 0.1
                             }
                         }
-                    }
+                    },
+                    canChoose: { $0.money >= 8000 },
+                    disabledReason: { state in
+                        "Requires $8000"
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Money", changeDescription: "-$8000", impactType: .negative),
+                        EffectDescription(metricName: "Perception", changeDescription: "-12", impactType: .negative),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "-9", impactType: .negative),
+                        EffectDescription(metricName: "Future Risk", changeDescription: "High", impactType: .negative)
+                    ]
                 )
             ],
             triggerCondition: { state in
@@ -432,15 +686,25 @@ import SwiftUI
                     text: "Full transparency with records",
                     moralImpact: 5.0, // Ethical
                     effect: { state in
-                        // Small penalty for minor discrepancies
                         state.money -= 1000
                         state.corporateEthics += 0.1
-                    }
+                        state.publicPerception += 5 // Positive perception for transparency
+                    },
+                    canChoose: { $0.money >= 1000 },
+                    disabledReason: { state in
+                        "Requires $1000"
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Money", changeDescription: "-$1000", impactType: .negative),
+                        EffectDescription(metricName: "Perception", changeDescription: "+5", impactType: .positive),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "+5", impactType: .positive)
+                    ]
                 ),
                 EventChoice(
                     text: "Hide questionable deductions",
                     moralImpact: -7.0, // Unethical
                     effect: { state in
+                        state.publicPerception -= 8 // Negative perception for hiding
                         // Risk of larger fine if caught
                         if Double.random(in: 0...1) < 0.4 {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 40) {
@@ -448,7 +712,12 @@ import SwiftUI
                                 state.corporateEthics -= 0.15
                             }
                         }
-                    }
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Perception", changeDescription: "-8", impactType: .negative),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "-7", impactType: .negative),
+                        EffectDescription(metricName: "Future Risk", changeDescription: "Moderate", impactType: .negative)
+                    ]
                 ),
                 EventChoice(
                     text: "Bribe the auditor ($3000)",
@@ -456,16 +725,27 @@ import SwiftUI
                     effect: { state in
                         state.money -= 3000
                         state.corporateEthics -= 0.3
+                        state.publicPerception -= 18 // Major hit for bribery
                         
                         // High risk of major scandal
                         DispatchQueue.main.asyncAfter(deadline: .now() + 60) {
                             if Double.random(in: 0...1) < 0.6 {
                                 state.money -= 15000
                                 state.corporateEthics -= 0.2
-                                state.ethicalChoicesMade += 1
+                                state.publicPerception -= 15 // Scandal hits perception hard
                             }
                         }
-                    }
+                    },
+                    canChoose: { $0.money >= 3000 },
+                    disabledReason: { state in
+                        "Requires $3000"
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Money", changeDescription: "-$3000", impactType: .negative),
+                        EffectDescription(metricName: "Perception", changeDescription: "-18", impactType: .negative),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "-12", impactType: .negative),
+                        EffectDescription(metricName: "Future Risk", changeDescription: "Very High", impactType: .negative)
+                    ]
                 )
             ],
             triggerCondition: { state in
@@ -486,7 +766,20 @@ import SwiftUI
                         state.money -= 12000
                         state.automationEfficiency += 0.25
                         state.workerMorale -= 0.1
-                    }
+                        state.publicPerception -= 4 // Slight negative perception (job loss fear)
+                        state.environmentalImpact += 3 // Tech often has env cost initially
+                    },
+                    canChoose: { $0.money >= 12000 },
+                    disabledReason: { state in
+                        "Requires $12000"
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Money", changeDescription: "-$12000", impactType: .negative),
+                        EffectDescription(metricName: "Morale", changeDescription: "-10%", impactType: .negative),
+                        EffectDescription(metricName: "Perception", changeDescription: "-4", impactType: .negative),
+                        EffectDescription(metricName: "Environment", changeDescription: "+3", impactType: .negative),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "-3", impactType: .negative)
+                    ]
                 ),
                 EventChoice(
                     text: "Balanced approach with worker retraining ($8000)",
@@ -496,15 +789,34 @@ import SwiftUI
                         state.automationEfficiency += 0.15
                         state.workerEfficiency += 0.1
                         state.workerMorale += 0.05
-                    }
+                        state.publicPerception += 6 // Positive perception for retraining
+                        state.environmentalImpact += 1 // Still some impact
+                    },
+                    canChoose: { $0.money >= 8000 },
+                    disabledReason: { state in
+                        "Requires $8000"
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Money", changeDescription: "-$8000", impactType: .negative),
+                        EffectDescription(metricName: "Efficiency", changeDescription: "+0.1", impactType: .positive),
+                        EffectDescription(metricName: "Morale", changeDescription: "+5%", impactType: .positive),
+                        EffectDescription(metricName: "Perception", changeDescription: "+6", impactType: .positive),
+                        EffectDescription(metricName: "Environment", changeDescription: "+1", impactType: .negative),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "+4", impactType: .positive)
+                    ]
                 ),
                 EventChoice(
                     text: "Ignore new technology",
                     moralImpact: 1.0, // Slightly ethical
                     effect: { state in
-                        // Fall behind competition slightly
                         state.customerSatisfaction -= 0.05
-                    }
+                        state.publicPerception -= 2 // Seen as stagnant
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Satisfaction", changeDescription: "-5%", impactType: .negative),
+                        EffectDescription(metricName: "Perception", changeDescription: "-2", impactType: .negative),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "+1", impactType: .positive)
+                    ]
                 )
             ],
             triggerCondition: { state in
@@ -525,7 +837,18 @@ import SwiftUI
                         state.money -= 3000
                         state.workerMorale += 0.3
                         state.ethicalChoicesMade += 1
-                    }
+                        state.publicPerception += 12 // Strong positive perception
+                    },
+                    canChoose: { $0.money >= 3000 },
+                    disabledReason: { state in
+                        "Requires $3000"
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Money", changeDescription: "-$3000", impactType: .negative),
+                        EffectDescription(metricName: "Morale", changeDescription: "+30%", impactType: .positive),
+                        EffectDescription(metricName: "Perception", changeDescription: "+12", impactType: .positive),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "+8", impactType: .positive)
+                    ]
                 ),
                 EventChoice(
                     text: "Minimal support, focus on resuming operations",
@@ -534,7 +857,19 @@ import SwiftUI
                         state.money -= 1000
                         state.workerMorale -= 0.1
                         state.workerEfficiency -= 0.05
-                    }
+                        state.publicPerception -= 7 // Negative perception
+                    },
+                    canChoose: { $0.money >= 1000 },
+                    disabledReason: { state in
+                        "Requires $1000"
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Money", changeDescription: "-$1000", impactType: .negative),
+                        EffectDescription(metricName: "Morale", changeDescription: "-10%", impactType: .negative),
+                        EffectDescription(metricName: "Efficiency", changeDescription: "-0.05", impactType: .negative),
+                        EffectDescription(metricName: "Perception", changeDescription: "-7", impactType: .negative),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "-4", impactType: .negative)
+                    ]
                 ),
                 EventChoice(
                     text: "Use disaster to layoff underperforming workers",
@@ -544,7 +879,14 @@ import SwiftUI
                         state.workers -= workersToLayoff
                         state.workerMorale -= 0.3
                         state.corporateEthics -= 0.25
-                    }
+                        state.publicPerception -= 20 // Major negative perception
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Workers", changeDescription: "Reduced", impactType: .negative),
+                        EffectDescription(metricName: "Morale", changeDescription: "-30%", impactType: .negative),
+                        EffectDescription(metricName: "Perception", changeDescription: "-20", impactType: .negative),
+                        EffectDescription(metricName: "Ethics Score", changeDescription: "-10", impactType: .negative)
+                    ]
                 )
             ],
             triggerCondition: { state in
@@ -608,8 +950,14 @@ import SwiftUI
         gameState.ethicsScore = max(0, min(100, gameState.ethicsScore)) // Clamp score
         
         // Update corporate ethics as well (scaled down, logic inverted)
-        gameState.corporateEthics += choice.moralImpact > 0 ? 0.05 : -0.05 // Ethical improves, unethical worsens
+        let ethicsChange = choice.moralImpact / 20.0 // Scale impact to roughly -0.6 to +0.6 range
+        gameState.corporateEthics += ethicsChange
         gameState.corporateEthics = max(0, min(1, gameState.corporateEthics)) // Clamp
+        
+        // Apply perception and environment impact from the choice effect closure
+        // The effect closure now handles these directly. Ensure clamping after effect.
+        gameState.publicPerception = max(0, min(100, gameState.publicPerception))
+        gameState.environmentalImpact = max(0, min(100, gameState.environmentalImpact))
         
         // Track ethical choices for ending conditions (positive impact is now ethical)
         if choice.moralImpact > 0 {

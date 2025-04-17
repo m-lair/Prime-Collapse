@@ -3,7 +3,7 @@ import SwiftUI
 // Detailed upgrade row
 struct DetailedUpgradeRow: View {
     let upgrade: Upgrade
-    var gameState: GameState
+    @Environment(GameState.self) private var gameState
     @State private var isPressed = false
     
     // Calculate current price accounting for repeat purchases
@@ -22,20 +22,22 @@ struct DetailedUpgradeRow: View {
                             .font(.system(size: 18, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
                         
-                        // Ethics impact indicators
+                        // Ethics impact indicators - CONSISTENT LOGIC
                         HStack(spacing: 2) {
                             let (color, count) = ethicsIndicatorDetails(for: upgrade.moralImpact)
-                            if upgrade.moralImpact > 0 { // Unethical
+                            // Positive Impact = Ethical (Leaf)
+                            if upgrade.moralImpact > 0 { // ETHICAL
+                                ForEach(0..<count, id: \.self) { _ in
+                                    Image(systemName: "leaf.fill")
+                                        .font(.system(size: 10))
+                                        .foregroundColor(color)
+                                }
+                            // Negative Impact = Unethical (Triangle)
+                            } else if upgrade.moralImpact < 0 { // UNETHICAL
                                 ForEach(0..<count, id: \.self) { _ in
                                     Image(systemName: "exclamationmark.triangle.fill")
                                         .font(.system(size: 10))
                                         .foregroundColor(color)
-                                }
-                            } else if upgrade.moralImpact < 0 { // Ethical
-                                ForEach(0..<count, id: \.self) { _ in
-                                    Image(systemName: "leaf.fill")
-                                        .font(.system(size: 10))
-                                        .foregroundColor(color) // Should be green from helper
                                 }
                             }
                         }
@@ -83,6 +85,9 @@ struct DetailedUpgradeRow: View {
                     Text(upgradeEffectDescription)
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(.white.opacity(0.9))
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .layoutPriority(1)
                 }
                 
                 Spacer()
@@ -123,6 +128,8 @@ struct DetailedUpgradeRow: View {
                     }
                     .disabled(!gameState.canAfford(currentPrice))
                 }
+                .frame(minWidth: 160, alignment: .trailing)
+                .layoutPriority(2)
             }
         }
         .padding(16)
@@ -146,47 +153,94 @@ struct DetailedUpgradeRow: View {
         .animation(.easeInOut(duration: 0.1), value: isPressed)
     }
     
+    // Generate a clear description of the upgrade's effects
     private var upgradeEffectDescription: String {
+        var effects: [String] = []
+        
+        // Determine effects based on upgrade name (mirroring GameState.applyUpgrade logic)
         switch upgrade.name {
         case "Hire Worker":
-            return "+0.1 packages/sec"
+            // Assuming each worker adds 0.1 base rate
+            effects.append("+1 Worker")
+            effects.append("+0.1 Base Pkg/sec") // Clarify it's the base rate
         case "Improve Packaging":
-            return "20% automation boost"
+            effects.append("+20% Automation Eff.")
         case "Basic Training":
-            return "15% automation boost, Ethics +3"
+            effects.append("+15% Automation Eff.")
+            // Add ethics if moralImpact indicates it
+            if upgrade.moralImpact != 0 {
+                 effects.append("\(ethicsChangeText(upgrade.moralImpact)) Ethics")
+            }
         case "Rush Delivery":
-            return "40% automation boost"
+            effects.append("+40% Automation Eff.")
+             if upgrade.moralImpact != 0 { effects.append("\(ethicsChangeText(upgrade.moralImpact)) Ethics") }
         case "Extended Shifts":
-            return "60% automation boost"
+            effects.append("+60% Automation Eff.")
+             if upgrade.moralImpact != 0 { effects.append("\(ethicsChangeText(upgrade.moralImpact)) Ethics") }
         case "Automate Sorting":
-            return "30% automation boost"
+            effects.append("+30% Automation Eff.")
+            if upgrade.moralImpact != 0 { effects.append("\(ethicsChangeText(upgrade.moralImpact)) Ethics") }
         case "Child Labor Loopholes":
-            return "100% automation boost, +$200 bonus"
+            effects.append("+100% Automation Eff.")
+            effects.append("+$200 Bonus")
+            if upgrade.moralImpact != 0 { effects.append("\(ethicsChangeText(upgrade.moralImpact)) Ethics") }
         case "Employee Surveillance":
-            return "50% automation boost"
+            effects.append("+50% Automation Eff.")
+             if upgrade.moralImpact != 0 { effects.append("\(ethicsChangeText(upgrade.moralImpact)) Ethics") }
         case "AI Optimization":
-            return "100% automation boost (2x)"
+            effects.append("+100% Automation Eff.") // (2x multiplier implied)
+            if upgrade.moralImpact != 0 { effects.append("\(ethicsChangeText(upgrade.moralImpact)) Ethics") }
         case "Remove Worker Breaks":
-            return "80% automation boost"
+            effects.append("+80% Automation Eff.")
+            if upgrade.moralImpact != 0 { effects.append("\(ethicsChangeText(upgrade.moralImpact)) Ethics") }
         case "Sustainable Practices":
-            return "30% automation boost, Ethics +8"
+            effects.append("+30% Automation Eff.")
+            if upgrade.moralImpact != 0 { effects.append("\(ethicsChangeText(upgrade.moralImpact)) Ethics") }
         case "Community Investment Program":
-            return "40% automation boost, Ethics +12"
+            effects.append("+40% Automation Eff.")
+            if upgrade.moralImpact != 0 { effects.append("\(ethicsChangeText(upgrade.moralImpact)) Ethics") }
         case "Worker Replacement System":
-            return "200% automation boost (3x), reduce workers to 2"
+            effects.append("+200% Automation Eff.")
+            effects.append("Set Workers to 2") // More specific
+            if upgrade.moralImpact != 0 { effects.append("\(ethicsChangeText(upgrade.moralImpact)) Ethics") }
         case "Algorithmic Wage Suppression":
-            return "70% automation boost, +$500 bonus"
+            effects.append("+70% Automation Eff.")
+            effects.append("+$500 Bonus")
+            if upgrade.moralImpact != 0 { effects.append("\(ethicsChangeText(upgrade.moralImpact)) Ethics") }
         default:
-            return "Improves efficiency"
+            // If other effects exist but aren't named, check moral impact
+             if upgrade.moralImpact != 0 {
+                 effects.append("\(ethicsChangeText(upgrade.moralImpact)) Ethics")
+             } else {
+                 // Fallback for unknown upgrades
+                 return "Improves corporate metrics" 
+             }
         }
+        
+        // Join the effects with commas
+        return effects.joined(separator: ", ")
+    }
+    
+    // Helper to format ethics change text - CONSISTENT LOGIC
+    private func ethicsChangeText(_ impact: Double) -> String {
+        // Positive impact = ethical = positive score change
+        // Negative impact = unethical = negative score change
+        let actualEthicsChange = Int(impact) // No longer need to invert
+        return String(format: "%@%d", actualEthicsChange >= 0 ? "+" : "", actualEthicsChange)
     }
     
     private var cardBackgroundColor: Color {
-        if upgrade.moralImpact < 0 { // Ethical
+        // Use consistent logic: Positive = Ethical (Greenish), Negative = Unethical (Red/Purple)
+        let impact = upgrade.moralImpact
+        if impact > 8 { // Very Ethical
+            return Color(red: 0.1, green: 0.6, blue: 0.4).opacity(0.8) // Brighter Green
+        } else if impact > 0 { // Ethical
             return Color(red: 0.1, green: 0.5, blue: 0.3).opacity(0.8) // Greenish
-        } else if upgrade.moralImpact > 10 { // Very Unethical
+        } else if impact < -15 { // Extremely Unethical
+            return Color(red: 0.7, green: 0.1, blue: 0.4).opacity(0.8) // Darker Red/Purple
+        } else if impact < -8 { // Very Unethical
             return Color(red: 0.6, green: 0.1, blue: 0.3).opacity(0.8) // Dark Red/Purple
-        } else if upgrade.moralImpact > 0 { // Unethical
+        } else if impact < 0 { // Unethical
             return Color(red: 0.5, green: 0.2, blue: 0.5).opacity(0.8) // Purple
         } else if upgrade.isRepeatable { // Neutral & Repeatable
             return Color.blue.opacity(0.8)
@@ -195,22 +249,23 @@ struct DetailedUpgradeRow: View {
         }
     }
     
-    // Determines color and count for ethics indicators
+    // Determines color and count for ethics indicators - CONSISTENT LOGIC
     private func ethicsIndicatorDetails(for impact: Double) -> (color: Color, count: Int) {
-        if impact > 0 { // Unethical
+        if impact > 0 { // ETHICAL
             switch impact {
+            case 1...3:   return (.green, 1)
+            case 4...7:   return (.green, 2)
+            case 8...14:  return (.green, 3)
+            default:      return (.cyan, 4) // Very ethical >= 15
+            }
+        } else if impact < 0 { // UNETHICAL
+            let level = abs(impact) // Use absolute value for level calculation
+            switch level {
             case 1...3:   return (.yellow, 1)
             case 4...7:   return (.orange, 2)
             case 8...14:  return (.red, 3)
-            case 15...24: return (.red.opacity(0.8), 4) // Darker red for higher impact
-            default:      return (.purple, 5) // Max level for extreme impact >= 25
-            }
-        } else if impact < 0 { // Ethical
-            switch abs(impact) {
-            case 1...3:   return (.green, 1)
-            case 4...7:   return (.green, 2)
-            case 8...14:  return (.green.opacity(0.8), 3) // Brighter green for higher impact
-            default:      return (.cyan, 4) // Max level for very ethical >= 15
+            case 15...24: return (.red.opacity(0.8), 4)
+            default:      return (.purple, 5) // Extreme unethical >= 25
             }
         } else { // Neutral
             return (.gray, 0) // No indicator for neutral
@@ -226,7 +281,8 @@ struct DetailedUpgradeRow: View {
 #Preview {
     ZStack {
         Color.blue.opacity(0.3).ignoresSafeArea()
-        DetailedUpgradeRow(upgrade: UpgradeManager.availableUpgrades.first!, gameState: GameState())
+        DetailedUpgradeRow(upgrade: UpgradeManager.availableUpgrades.first!)
+            .environment(GameState())
             .padding()
     }
 } 

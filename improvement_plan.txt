@@ -1,0 +1,34 @@
+# EventView UI/UX Improvement Plan
+
+## 1. Choice Presentation
+
+*   **Clearer Card Structure:**
+    *   Increase background opacity of choice cards.
+    *   Add a subtle inner/outer shadow to choice cards.
+    *   Consider a thin, lighter border.
+*   **Improved Spacing:** Add more vertical padding between choice text, ethics indicator, and effects list.
+*   **Interactive Feedback:** Create a custom `ButtonStyle` with scale/highlight effect on tap.
+
+## 2. Effects Display
+
+*   **Alignment:** Use `.firstTextBaseline` alignment for the `HStack` containing the effect icon and text.
+*   **"Currently" Value:**
+    *   Increase text contrast (e.g., `.white.opacity(0.6)`).
+    *   Consider placing it on a new line below the "Metric: Change" line, possibly indented.
+*   **Visual Grouping:** Add an optional internal `Divider` separating main choice info from the effects list.
+
+## 3. Overall Layout & Aesthetics
+
+*   **Header Emphasis:** Increase title size or weight.
+*   **Description Background:** Experiment with shade/opacity for contrast.
+*   **Consistent Corner Radii:** Ensure uniformity across elements.
+*   **Material Background:** Verify content contrast against the `.ultraThinMaterial`.
+
+## 4. Ethics Indicator
+
+*   Explore alternatives (segmented bar).
+*   Adjust dot size or spacing.
+
+## 5. Disabled State
+
+*   Integrate the disabled reason more visually (e.g., overlay requirement text, dim other content). 

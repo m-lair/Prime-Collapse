@@ -13,10 +13,11 @@ import Observation
     // Core game metrics
     var totalPackagesShipped: Int = 0
     var money: Double = 0.0
-    var workers: Int = 1  // Start with 1 worker
+    var workers: Int = 0  // Start with 1 worker
     
     // Automation and efficiency
-    var automationRate: Double = 0.0 // Packages per second
+    var baseWorkerRate: Double = 0.0 // Pkgs/sec per worker base
+    var baseSystemRate: Double = 0.0 // Pkgs/sec from non-worker automation
     var packageAccumulator: Double = 0.0 // Tracks partial packages between updates
     
     // Worker related stats
@@ -43,6 +44,10 @@ import Observation
     var ethicalChoicesMade: Int = 0
     var endingType: GameEnding = .collapse
     
+    // Track loop ending state
+    var isInLoopEndingState: Bool = false
+    var loopEndingStartTime: Date? = nil
+    
     // New Step 13 Metrics
     var publicPerception: Double = 50.0 // Scale 0-100, default starting value
     var environmentalImpact: Double = 0.0 // Scale 0-100, default starting value (lower is better?)
@@ -51,8 +56,11 @@ import Observation
     func shipPackage() {
         totalPackagesShipped += 1
         
-        // Calculate the actual value based on package value and customer satisfaction
-        let actualValue = packageValue * (0.5 + (customerSatisfaction * 0.5))
+        // Calculate the actual value based on package value, customer satisfaction, and public perception
+        let perceptionFactor = 0.8 + (publicPerception / 100.0 * 0.4) // Scales 80% to 120%
+        let satisfactionFactor = 0.5 + (customerSatisfaction * 0.5) // Scales 50% to 100%
+        let actualValue = packageValue * perceptionFactor * satisfactionFactor
+        // let actualValue = packageValue * (0.5 + (customerSatisfaction * 0.5)) // OLD CALC
         earnMoney(actualValue)
     }
     
@@ -82,10 +90,25 @@ import Observation
         } else {
             moraleFactor = 1.0 // Neutral effect between 0.5 and 0.7
         }
-        let effectiveAutomationRate = automationRate * workerEfficiency * automationEfficiency * moraleFactor
         
-        // Calculate fractional packages shipped
-        let fractionalPackages = effectiveAutomationRate * timeElapsed
+        // Calculate raw contribution from workers
+        let workerContribution = baseWorkerRate * Double(workers) * workerEfficiency
+        
+        // Calculate raw contribution from automated systems
+        let systemContribution = baseSystemRate * automationEfficiency
+        
+        // Total raw automation rate
+        let totalRawRate = workerContribution + systemContribution
+        
+        // Apply morale factor (affects combined rate)
+        let moraleAdjustedRate = totalRawRate * moraleFactor
+        
+        // Apply environmental impact penalty: high impact slows automation (max penalty 50% at 100 impact)
+        let envPenaltyFactor: Double = max(0, 1.0 - environmentalImpact / 200.0)
+        let finalAdjustedRate = moraleAdjustedRate * envPenaltyFactor
+        
+        // Calculate fractional packages shipped (with environmental penalty)
+        let fractionalPackages = finalAdjustedRate * timeElapsed
         
         // Add to our accumulator
         packageAccumulator += fractionalPackages
@@ -95,8 +118,11 @@ import Observation
         if packagesShipped > 0 {
             totalPackagesShipped += packagesShipped
             
-            // Calculate package value factoring in customer satisfaction
-            let valuePerPackage = packageValue * (0.5 + (customerSatisfaction * 0.5))
+            // Calculate package value factoring in customer satisfaction and public perception
+            let perceptionFactor = 0.8 + (publicPerception / 100.0 * 0.4) // Scales 80% to 120%
+            let satisfactionFactor = 0.5 + (customerSatisfaction * 0.5) // Scales 50% to 100%
+            let valuePerPackage = packageValue * perceptionFactor * satisfactionFactor
+            // let valuePerPackage = packageValue * (0.5 + (customerSatisfaction * 0.5)) // OLD CALC
             earnMoney(Double(packagesShipped) * valuePerPackage)
             
             // Subtract the shipped packages from the accumulator
@@ -106,6 +132,40 @@ import Observation
         // Slowly decay morale if very low ethics
         if corporateEthics < 0.3 && workerMorale > 0.2 {
             workerMorale -= timeElapsed * 0.01 * (0.3 - corporateEthics)
+        }
+        
+        // Handle Loop Ending Instability
+        if isInLoopEndingState {
+            if let startTime = loopEndingStartTime {
+                let timeInLoop = currentTime.timeIntervalSince(startTime)
+                if timeInLoop > 60.0 { // After 60 seconds in loop state
+                    // Start decreasing ethics score (rate can be adjusted)
+                    let decayRate = 0.1 // Decrease score by 0.1 per second after 60s
+                    ethicsScore -= decayRate * timeElapsed
+                    ethicsScore = max(0, ethicsScore) // Prevent going below 0 this way
+                    
+                    // If score drops out of loop range or hits 0, collapse
+                    if ethicsScore < 15 {
+                        isInLoopEndingState = false
+                        loopEndingStartTime = nil
+                        isCollapsing = true
+                        endingType = .collapse
+                    }
+                }
+            } else {
+                // Should not happen if isInLoopEndingState is true, but set start time just in case
+                loopEndingStartTime = currentTime
+            }
+        }
+        
+        // Chance for workers to quit if morale is critically low
+        if workerMorale < 0.1 && workers > 1 { // Ensure morale is very low and we have more than 1 worker
+            let quitChanceBase = 0.01 // Base 1% chance per second at 0 morale
+            let quitChance = (0.1 - workerMorale) * 10.0 * quitChanceBase // Scale chance up as morale approaches 0
+            if Double.random(in: 0...1) < quitChance * timeElapsed {
+                workers -= 1
+                // Consider adding a visual/log feedback here later
+            }
         }
         
         lastUpdate = currentTime
@@ -228,8 +288,24 @@ import Observation
         // 1. Ethics score must be low but not collapsed (e.g., 15-25)
         // 2. Must have earned at least $2500
         // 3. Must have shipped at least 1500 packages
-        if ethicsScore >= 15 && ethicsScore <= 25 && money >= 2500 && totalPackagesShipped >= 1500 {
+        // 4. Must have hired at least 3 workers
+        let meetsCriteria = ethicsScore >= 15 && ethicsScore <= 25 && money >= 2500 && totalPackagesShipped >= 1500 && workers >= 3
+        
+        if meetsCriteria && !isInLoopEndingState {
+            // Enter loop state
             endingType = .loop
+            isInLoopEndingState = true
+            loopEndingStartTime = Date() // Record start time
+        } else if !meetsCriteria && isInLoopEndingState {
+            // Exit loop state if criteria are no longer met (before collapse)
+            isInLoopEndingState = false
+            loopEndingStartTime = nil
+            // Re-evaluate ending type if not collapsing
+            if !isCollapsing {
+                 checkForReformEnding() // Check if reform is met now
+                 // If neither reform nor collapse, perhaps revert to a default/ongoing state?
+                 // For now, it will stay as .loop until collapse or reform conditions are met elsewhere.
+            }
         }
     }
     
@@ -238,7 +314,8 @@ import Observation
         totalPackagesShipped = 0
         money = 0.0
         workers = 1  // Reset to 1 worker instead of 0
-        automationRate = 0.0
+        baseWorkerRate = 0.1 // Reset base worker rate
+        baseSystemRate = 0.0 // Reset base system rate
         packageAccumulator = 0.0
         upgrades = []
         purchasedUpgradeIDs = []
@@ -247,6 +324,8 @@ import Observation
         lastUpdate = Date()
         ethicalChoicesMade = 0
         endingType = .collapse
+        isInLoopEndingState = false // Reset loop state tracking
+        loopEndingStartTime = nil   // Reset loop start time
         
         // Reset worker and business stats
         workerEfficiency = 1.0

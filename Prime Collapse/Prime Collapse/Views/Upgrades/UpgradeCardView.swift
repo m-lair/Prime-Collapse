@@ -3,7 +3,7 @@ import SwiftUI
 // Card view for an individual upgrade
 struct UpgradeCardView: View {
     let upgrade: Upgrade
-    var gameState: GameState
+    @Environment(GameState.self) private var gameState
     @State private var isPressed = false
     
     // Calculate current price accounting for repeat purchases
@@ -23,21 +23,19 @@ struct UpgradeCardView: View {
                 
                 // Ethics impact indicator
                 HStack(spacing: 2) {
-                    if upgrade.moralImpact > 0 {
-                        // Unethical indicators (red/orange/yellow triangles)
+                    if upgrade.moralImpact > 0 { // ETHICAL
                         let (color, count) = ethicsIndicatorDetails(for: upgrade.moralImpact)
                         ForEach(0..<count, id: \.self) { _ in
-                            Image(systemName: "exclamationmark.triangle.fill")
+                            Image(systemName: "leaf.fill") // Ethical = Leaf
                                 .font(.system(size: 8))
                                 .foregroundColor(color)
                         }
-                    } else if upgrade.moralImpact < 0 {
-                        // Ethical indicators (green leaves)
-                        let (_, count) = ethicsIndicatorDetails(for: upgrade.moralImpact)
+                    } else if upgrade.moralImpact < 0 { // UNETHICAL
+                        let (color, count) = ethicsIndicatorDetails(for: upgrade.moralImpact)
                         ForEach(0..<count, id: \.self) { _ in
-                            Image(systemName: "leaf.fill")
+                            Image(systemName: "exclamationmark.triangle.fill") // Unethical = Triangle
                                 .font(.system(size: 8))
-                                .foregroundColor(.green)
+                                .foregroundColor(color)
                         }
                     } else {
                         // Neutral indicator (optional, could be omitted or use a gray circle)
@@ -126,38 +124,48 @@ struct UpgradeCardView: View {
     }
     
     private var cardBackgroundColor: Color {
-        if upgrade.moralImpact < 0 { // Ethical
+        // Use consistent logic: Positive = Ethical (Greenish), Negative = Unethical (Red/Purple)
+        let impact = upgrade.moralImpact
+        if impact > 8 { // Very Ethical
+            return Color(red: 0.1, green: 0.6, blue: 0.4) // Brighter Green
+        } else if impact > 0 { // Ethical
             return Color(red: 0.1, green: 0.5, blue: 0.3) // Greenish
-        } else if upgrade.moralImpact > 10 { // Very Unethical
-             return Color(red: 0.6, green: 0.1, blue: 0.3) // Dark Red/Purple
-        } else if upgrade.moralImpact > 0 { // Unethical
+        } else if impact < -15 { // Extremely Unethical
+             return Color(red: 0.7, green: 0.1, blue: 0.4) // Darker Red/Purple
+        } else if impact < -8 { // Very Unethical
+            return Color(red: 0.6, green: 0.1, blue: 0.3) // Dark Red/Purple
+        } else if impact < 0 { // Unethical
             return Color(red: 0.5, green: 0.2, blue: 0.5) // Purple
-        } else if upgrade.isRepeatable { // Neutral & Repeatable
+        } else if upgrade.isRepeatable {
+            // Neutral & repeatable
             return Color.blue
-        } else { // Neutral & Non-Repeatable
-            return Color(red: 0.3, green: 0.4, blue: 0.6) // Standard blue-ish
+        } else {
+            // Neutral & non-repeatable
+            return Color(red: 0.3, green: 0.4, blue: 0.6)
         }
     }
     
     // Determines color and count for ethics indicators
+    // Consistent logic: Positive = Ethical (Green/Cyan), Negative = Unethical (Yellow/Orange/Red/Purple)
     private func ethicsIndicatorDetails(for impact: Double) -> (color: Color, count: Int) {
-        if impact > 0 { // Unethical
+        if impact > 0 { // ETHICAL
             switch impact {
-            case 1...3:   return (.yellow, 1)
-            case 4...7:   return (.orange, 2)
-            case 8...14:  return (.red, 3)
-            case 15...24: return (.red.opacity(0.8), 4) // Darker red for higher impact
-            default:      return (.purple, 5) // Max level for extreme impact >= 25
+            case 1...3:    return (.green, 1)
+            case 4...7:    return (.green, 2)
+            case 8...14:   return (.green, 3)
+            default:       return (.cyan, 4) // Very ethical >= 15
             }
-        } else if impact < 0 { // Ethical
-            switch abs(impact) {
-            case 1...3:   return (.green, 1)
-            case 4...7:   return (.green, 2)
-            case 8...14:  return (.green.opacity(0.8), 3) // Brighter green for higher impact
-            default:      return (.cyan, 4) // Max level for very ethical >= 15
+        } else if impact < 0 { // UNETHICAL
+            let level = abs(impact) // Use absolute value for level calculation
+            switch level {
+            case 1...3:    return (.yellow, 1)
+            case 4...7:    return (.orange, 2)
+            case 8...14:   return (.red, 3)
+            case 15...24:  return (.red.opacity(0.8), 4)
+            default:       return (.purple, 5) // Extreme unethical >= 25
             }
         } else { // Neutral
-            return (.gray, 0) // No indicator for neutral
+            return (.gray, 0)
         }
     }
     
@@ -178,7 +186,8 @@ struct UpgradeCardView: View {
 }
 
 #Preview {
-    UpgradeCardView(upgrade: UpgradeManager.availableUpgrades[0], gameState: GameState())
+    UpgradeCardView(upgrade: UpgradeManager.availableUpgrades[0])
+        .environment(GameState())
         .previewLayout(.sizeThatFits)
         .padding()
         .background(Color.blue.opacity(0.3))

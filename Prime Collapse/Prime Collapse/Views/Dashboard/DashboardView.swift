@@ -2,7 +2,7 @@ import SwiftUI
 
 // Dashboard view showing game statistics and progress
 struct DashboardView: View {
-    var gameState: GameState
+    @Environment(GameState.self) private var gameState
     @Environment(\.dismiss) private var dismiss
     @Environment(GameCenterManager.self) private var gameCenterManager
     
@@ -109,11 +109,14 @@ struct DashboardView: View {
                                         iconColor: .mint
                                     )
                                     
-                                    let effectiveRate = gameState.automationRate * gameState.workerEfficiency * gameState.automationEfficiency
+                                    // Calculate effective rate (excluding morale/env factors for simplicity here)
+                                    // let workerContribution = gameState.baseWorkerRate * Double(gameState.workers) * gameState.workerEfficiency // MOVED TO COMPUTED PROPERTY
+                                    // let systemContribution = gameState.baseSystemRate * gameState.automationEfficiency // MOVED TO COMPUTED PROPERTY
+                                    // let rawEffectiveRate = workerContribution + systemContribution // MOVED TO COMPUTED PROPERTY
                                     DashboardStatCard(
                                         icon: "chart.line.uptrend.xyaxis",
                                         title: "Hourly Income",
-                                        value: "$\(String(format: "%.2f", effectiveRate * gameState.packageValue * 3600))",
+                                        value: "$\(String(format: "%.2f", rawEffectiveRate * gameState.packageValue * 3600))", // Use computed property
                                         iconColor: .orange
                                     )
                                 }
@@ -199,8 +202,9 @@ struct DashboardView: View {
                                 HStack {
                                     DashboardStatCard(
                                         icon: "speedometer",
-                                        title: "Base Rate",
-                                        value: "\(String(format: "%.1f", gameState.automationRate))/sec",
+                                        title: "Base Rate", // Title might need update - shows combined base now
+                                        value: "\(String(format: "%.2f", rawEffectiveRate))/sec", // Display combined raw rate
+                                        // value: "\(String(format: "%.1f", gameState.automationRate))/sec", // OLD
                                         iconColor: .purple
                                     )
                                     
@@ -221,15 +225,18 @@ struct DashboardView: View {
                                         
                                         Spacer()
                                         
-                                        let effectiveRate = gameState.automationRate * gameState.workerEfficiency * gameState.automationEfficiency
-                                        Text("\(String(format: "%.2f", effectiveRate)) packages/sec")
+                                        // let effectiveRate = gameState.automationRate * gameState.workerEfficiency * gameState.automationEfficiency // OLD
+                                        // Display the same raw rate used above
+                                        Text("\(String(format: "%.2f", rawEffectiveRate)) packages/sec")
                                             .font(.system(size: 16, weight: .bold))
                                             .foregroundColor(.white)
                                     }
                                     
-                                    // Factors breakdown
+                                    // Factors breakdown - update base rate display
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text("Base rate: \(String(format: "%.2f", gameState.automationRate)) packages/sec")
+                                        Text("Worker base: \(String(format: "%.2f", gameState.baseWorkerRate)) pkg/sec/worker")
+                                        Text("System base: \(String(format: "%.2f", gameState.baseSystemRate)) pkg/sec")
+                                        // Text("Base rate: \(String(format: "%.2f", gameState.automationRate)) packages/sec") // OLD
                                         Text("Worker efficiency: ×\(String(format: "%.2f", gameState.workerEfficiency))")
                                         Text("Automation efficiency: ×\(String(format: "%.2f", gameState.automationEfficiency))")
                                         Text("Package value: $\(String(format: "%.2f", gameState.packageValue))")
@@ -239,8 +246,13 @@ struct DashboardView: View {
                                             .background(Color.white.opacity(0.3))
                                             .padding(.vertical, 4)
                                         
-                                        let incomePerSec = gameState.automationRate * gameState.workerEfficiency * gameState.automationEfficiency * gameState.packageValue * (0.5 + gameState.customerSatisfaction * 0.5)
-                                        Text("Income rate: $\(String(format: "%.2f", incomePerSec))/sec")
+                                        // Calculate income using perception/satisfaction factors consistent with GameState
+                                        let perceptionFactor = 0.8 + (gameState.publicPerception / 100.0 * 0.4)
+                                        let satisfactionFactor = 0.5 + (gameState.customerSatisfaction * 0.5)
+                                        let valuePerPackage = gameState.packageValue * perceptionFactor * satisfactionFactor
+                                        let incomePerSec = rawEffectiveRate * valuePerPackage // Use raw rate for potential income display
+                                        // let incomePerSec = gameState.automationRate * gameState.workerEfficiency * gameState.automationEfficiency * gameState.packageValue * (0.5 + gameState.customerSatisfaction * 0.5) // OLD
+                                        Text("Potential Income: $\(String(format: "%.2f", incomePerSec))/sec")
                                             .font(.system(size: 16, weight: .bold))
                                     }
                                     .font(.system(size: 14))
@@ -565,6 +577,13 @@ struct DashboardView: View {
         }
     }
     
+    // Calculate the raw effective automation rate for display
+    private var rawEffectiveRate: Double {
+        let workerContribution = gameState.baseWorkerRate * Double(gameState.workers) * gameState.workerEfficiency
+        let systemContribution = gameState.baseSystemRate * gameState.automationEfficiency
+        return workerContribution + systemContribution
+    }
+    
     // Ethics rating based on ethics score (inverted logic)
     private var ethicsRating: EthicsRating {
         switch gameState.ethicsScore {
@@ -783,19 +802,3 @@ struct DashboardView: View {
     
     // --- END HELPER VARS --- 
 }
-
-#Preview {
-    DashboardView(gameState: {
-        let state = GameState()
-        state.totalPackagesShipped = 523
-        state.money = 1250
-        state.workers = 5
-        state.automationRate = 0.75
-        state.ethicsScore = 35
-        state.workerEfficiency = 1.2
-        state.automationEfficiency = 1.5
-        state.workerMorale = 0.75
-        state.customerSatisfaction = 0.85
-        return state
-    }())
-} 

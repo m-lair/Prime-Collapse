@@ -41,6 +41,10 @@ struct Prime_CollapseApp: App {
                     // Update Game Center scores and achievements when game state changes
                     gameCenterManager.updateFromGameState(game)
                 }
+                .onAppear {
+                    // Initialize Game Center authentication when app launches
+                    gameCenterManager.authenticatePlayer()
+                }
         }
         // Pass the pre-configured container to the view modifier
         .modelContainer(container)
@@ -407,7 +411,7 @@ enum SavedGameStateMigrationPlan: SchemaMigrationPlan {
                 newGame.totalPackagesShipped = oldGame.totalPackagesShipped
                 newGame.money = oldGame.money
                 newGame.workers = oldGame.workers
-                newGame.automationRate = oldGame.automationRate
+                // newGame.automationRate = oldGame.automationRate // REMOVED - V4 schema doesn't have this
                 // *** Invert the moralDecay to ethicsScore ***
                 newGame.ethicsScore = max(0, min(100, 100.0 - oldGame.moralDecay))
                 newGame.isCollapsing = oldGame.isCollapsing // Or recalculate: newGame.ethicsScore <= 0

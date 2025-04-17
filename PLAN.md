@@ -152,20 +152,20 @@ A SwiftUI clicker-style satire game about capitalism gone too far
 * [x] Add visual and haptic feedback for event notifications
 
 ## 📊 Step 13: Expanded Metrics System
-* [ ] Update `GameState` with new properties:
-    * [ ] `publicPerception: Double` (0-100 scale)
-    * [ ] `workerSatisfaction: Double` (0-100 scale)
-    * [ ] `environmentalImpact: Double` (0-100 scale)
-* [ ] Modify `Upgrade` model:
-    * [ ] Add impact fields for new metrics
-    * [ ] Create upgrade effects that consider multiple metrics
-* [ ] Update UI to display new metrics:
-    * [ ] Add dashboard panels for each metric
-    * [ ] Create visual indicators for critical thresholds
-* [ ] Implement effects of metrics on gameplay:
-    * [ ] Worker satisfaction affects automation efficiency
-    * [ ] Public perception influences upgrade costs
-    * [ ] Environmental impact adds regulatory consequences
+* [x] Update `GameState` with new properties:
+    * [x] `publicPerception: Double` (0-100 scale)
+    * [x] `workerSatisfaction: Double` (0-100 scale)
+    * [x] `environmentalImpact: Double` (0-100 scale)
+* [x] Modify `Upgrade` model:
+    * [x] Add impact fields for new metrics
+    * [x] Create upgrade effects that consider multiple metrics
+* [x] Update UI to display new metrics:
+    * [x] Add dashboard panels for each metric
+    * [x] Create visual indicators for critical thresholds
+* [x] Implement effects of metrics on gameplay:
+    * [x] Worker satisfaction affects automation efficiency
+    * [x] Public perception influences upgrade costs
+    * [x] Environmental impact adds regulatory consequences
 
 ## ⚖️ Step 14: Enhanced Progression Balance
 * [ ] Rebalance the Loop ending:

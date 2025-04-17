@@ -2,7 +2,7 @@ import SwiftUI
 
 // Main tap button for shipping packages
 struct ShipPackageButton: View {
-    var gameState: GameState
+    @Environment(GameState.self) private var gameState
     @State private var isPressed = false
     @State private var animateScale = false
     
@@ -87,6 +87,7 @@ struct ShipPackageButton: View {
 #Preview {
     ZStack {
         Color.blue.opacity(0.3).ignoresSafeArea()
-        ShipPackageButton(gameState: GameState())
+        ShipPackageButton()
+            .environment(GameState())
     }
 } 

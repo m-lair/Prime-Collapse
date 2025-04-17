@@ -16,6 +16,9 @@ struct ContentView: View {
     @Query private var savedGames: [SavedGameState]
     @Environment(\.modelContext) private var modelContext
     
+    // State for showing/hiding detailed stats overlay
+    @State private var showDetailedStatsOverlay = false
+    
     // Animation states for collapse phase
     @State private var showCollapseAlert = false
     @State private var glitchEffect = false
@@ -46,7 +49,7 @@ struct ContentView: View {
                         .padding(.top, 12)
                         .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 2)
                     
-                    GameStatsView(gameState: gameState)
+                    GameStatsView(isShowingDetails: $showDetailedStatsOverlay)
                         .padding(.horizontal)
                 }
                 .background(
@@ -58,13 +61,31 @@ struct ContentView: View {
                 Spacer()
                 
                 // Main tap button
-                ShipPackageButton(gameState: gameState)
+                ShipPackageButton()
                 
                 Spacer()
                 
                 // Upgrade section
-                UpgradeListView(gameState: gameState)
+                UpgradeListView()
                     .padding(.bottom, 16)
+            }
+            
+            // --- Detailed Stats Overlay Layer ---
+            // Positioned within the ZStack, appears when showDetailedStatsOverlay is true
+            if showDetailedStatsOverlay {
+                VStack {
+                    // Spacer to push the overlay down below the header area
+                    // Adjust the height based on the actual header height
+                    Spacer(minLength: 180) // Approximate height of header + basic GameStatsView
+                    
+                    DetailedStatsOverlayView()
+                        .padding(.horizontal) // Add horizontal padding
+                    
+                    Spacer() // Pushes the overlay towards the top spacer
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .transition(.opacity.combined(with: .move(edge: .top))) // Slide down + fade
+                .zIndex(1) // Ensure it's above the main content layer
             }
             
             // Dashboard button
@@ -100,6 +121,7 @@ struct ContentView: View {
             // Event overlay
             EventView()
         }
+        .animation(.easeInOut(duration: 0.3), value: showDetailedStatsOverlay) // Animate overlay appearance
         .animation(.easeInOut(duration: 0.3), value: glitchEffect)
         .animation(.easeInOut(duration: 0.5), value: gameState.isCollapsing)
         .onAppear {
@@ -124,6 +146,14 @@ struct ContentView: View {
             if isCollapsing {
                 playHaptic(.heavy) // Strong haptic for collapse
                 startCollapseEffects()
+            }
+        }
+        // Collapse detailed stats when an event appears
+        .onChange(of: eventManager.currentEvent) {
+            if eventManager.currentEvent != nil {
+                withAnimation {
+                    showDetailedStatsOverlay = false
+                }
             }
         }
         // Show the collapse alert dialog
@@ -155,7 +185,7 @@ struct ContentView: View {
             )
         }
         .sheet(isPresented: $showDashboard) {
-            DashboardView(gameState: gameState)
+            DashboardView()
         }
     }
     
@@ -163,20 +193,22 @@ struct ContentView: View {
         // Cancel any existing task
         gameTask?.cancel()
         
-        // Create a new Task that won't be affected by UI interactions
+        // Use Combine's Timer publisher as an AsyncSequence driving the game loop
+        let updateInterval = 0.1 // 100ms
+        let timer = Timer.publish(every: updateInterval, on: .main, in: .common).autoconnect()
         gameTask = Task {
-            // Timer loop using Task
-            let updateInterval = 0.1 // 100ms
-            
-            while !Task.isCancelled {
-                // Process game updates
-                await MainActor.run {
-                    gameState.processAutomation(currentTime: Date())
-                    eventManager.checkForEvents(gameState: gameState, currentTime: Date())
+            do {
+                for try await currentTime in timer.values {
+                    // Exit if cancelled
+                    if Task.isCancelled { break }
+                    // Process automation and events on the main actor
+                    gameState.processAutomation(currentTime: currentTime)
+                    eventManager.checkForEvents(gameState: gameState, currentTime: currentTime)
                 }
-                
-                // Wait for the next update interval
-                try? await Task.sleep(for: .seconds(updateInterval))
+            } catch is CancellationError {
+                // Task was cancelled, exit gracefully
+            } catch {
+                print("Game loop timer error: \(error)")
             }
         }
     }
@@ -257,6 +289,167 @@ struct ContentView: View {
         if let savedGame = savedGames.first {
             savedGame.apply(to: gameState)
         }
+    }
+}
+
+// MARK: - Detailed Stats Overlay View
+
+struct DetailedStatsOverlayView: View {
+    @Environment(GameState.self) private var gameState
+    
+    // Re-add helper properties/methods needed for detailed stats
+    // (Copied from the previous version of GameStatsView)
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 16) {
+                // Worker metrics
+                StatCard(
+                    icon: "gauge.medium",
+                    title: "Worker Efficiency",
+                    value: "\(String(format: "%.2f", gameState.workerEfficiency))×",
+                    secondaryText: workerEfficiencyLabel,
+                    iconColor: .indigo
+                )
+                
+                // Automation metrics
+                StatCard(
+                    icon: "gearshape.2.fill",
+                    title: "Automation",
+                    value: "\(String(format: "%.2f", gameState.automationEfficiency))×",
+                    secondaryText: "Efficiency Multiplier",
+                    iconColor: .mint
+                )
+            }
+            
+            HStack(spacing: 16) {
+                // Worker morale
+                StatCard(
+                    icon: "face.smiling.fill",
+                    title: "Worker Morale",
+                    value: moraleRatingText,
+                    secondaryText: moraleLabel,
+                    iconColor: moraleColor
+                )
+                
+                // Customer satisfaction
+                StatCard(
+                    icon: "person.crop.circle.badge.checkmark",
+                    title: "Customer Sat.",
+                    value: customerSatisfactionRatingText,
+                    secondaryText: customerSatisfactionLabel,
+                    iconColor: customerSatisfactionColor
+                )
+            }
+            
+            // Corporate ethics and effective rate
+            HStack(spacing: 16) {
+                // Corporate ethics
+                StatCard(
+                    icon: "building.2.fill",
+                    title: "Corp Virtue",
+                    value: corporateVirtueRatingText,
+                    secondaryText: corporateEthicsLabel,
+                    iconColor: corporateEthicsColor
+                )
+                
+                // Effective automation rate
+                let workerContribution = gameState.baseWorkerRate * Double(gameState.workers) * gameState.workerEfficiency
+                let systemContribution = gameState.baseSystemRate * gameState.automationEfficiency
+                let effectiveRate = workerContribution + systemContribution
+                StatCard(
+                    icon: "bolt.horizontal.fill",
+                    title: "Effective Rate",
+                    value: "\(String(format: "%.2f", effectiveRate))/sec",
+                    secondaryText: "$\(String(format: "%.2f", effectiveRate * gameState.packageValue))/sec",
+                    iconColor: .orange
+                )
+            }
+        }
+        .padding() // Add padding around the content
+        .background(.ultraThinMaterial) // Use a material background
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(radius: 5)
+    }
+    
+    // --- Helper methods for detailed stats (Copied back) --- 
+    private var workerEfficiencyLabel: String {
+        if gameState.workerEfficiency < 1.0 { return "Poor Performance" }
+        else if gameState.workerEfficiency < 1.5 { return "Standard Output" }
+        else if gameState.workerEfficiency < 2.0 { return "High Productivity" }
+        else { return "Maximum Output" }
+    }
+    
+    private var moraleLabel: String {
+        if gameState.workerMorale < 0.3 { return "Near Rebellion" }
+        else if gameState.workerMorale < 0.5 { return "Discontent" }
+        else if gameState.workerMorale < 0.7 { return "Neutral" }
+        else if gameState.workerMorale < 0.9 { return "Satisfied" }
+        else { return "Highly Motivated" }
+    }
+    
+    private var moraleRatingText: String {
+        if gameState.workerMorale < 0.3 { return "Very Low" }
+        else if gameState.workerMorale < 0.5 { return "Low" }
+        else if gameState.workerMorale < 0.7 { return "Moderate" }
+        else if gameState.workerMorale < 0.9 { return "High" }
+        else { return "Excellent" }
+    }
+    
+    private var moraleColor: Color {
+        if gameState.workerMorale < 0.3 { return .red }
+        else if gameState.workerMorale < 0.5 { return .orange }
+        else if gameState.workerMorale < 0.7 { return .yellow }
+        else if gameState.workerMorale < 0.9 { return .green }
+        else { return .mint }
+    }
+    
+    private var customerSatisfactionLabel: String {
+        if gameState.customerSatisfaction < 0.3 { return "Outraged" }
+        else if gameState.customerSatisfaction < 0.5 { return "Dissatisfied" }
+        else if gameState.customerSatisfaction < 0.7 { return "Acceptable" }
+        else if gameState.customerSatisfaction < 0.9 { return "Satisfied" }
+        else { return "Delighted" }
+    }
+    
+    private var customerSatisfactionRatingText: String {
+        if gameState.customerSatisfaction < 0.3 { return "Very Poor" }
+        else if gameState.customerSatisfaction < 0.5 { return "Poor" }
+        else if gameState.customerSatisfaction < 0.7 { return "Adequate" }
+        else if gameState.customerSatisfaction < 0.9 { return "Good" }
+        else { return "Excellent" }
+    }
+    
+    private var customerSatisfactionColor: Color {
+        if gameState.customerSatisfaction < 0.3 { return .red }
+        else if gameState.customerSatisfaction < 0.5 { return .orange }
+        else if gameState.customerSatisfaction < 0.7 { return .yellow }
+        else if gameState.customerSatisfaction < 0.9 { return .green }
+        else { return .mint }
+    }
+    
+    private var corporateEthicsLabel: String {
+        if gameState.corporateEthics < 0.3 { return "Corruption" }
+        else if gameState.corporateEthics < 0.5 { return "Shady Practices" }
+        else if gameState.corporateEthics < 0.7 { return "Standard Business" }
+        else if gameState.corporateEthics < 0.9 { return "Ethical Business" }
+        else { return "Industry Leader" }
+    }
+    
+    private var corporateVirtueRatingText: String {
+        if gameState.corporateEthics < 0.3 { return "Very Low" }
+        else if gameState.corporateEthics < 0.5 { return "Low" }
+        else if gameState.corporateEthics < 0.7 { return "Moderate" }
+        else if gameState.corporateEthics < 0.9 { return "High" }
+        else { return "Exemplary" }
+    }
+    
+    private var corporateEthicsColor: Color {
+        if gameState.corporateEthics < 0.3 { return .red }
+        else if gameState.corporateEthics < 0.5 { return .orange }
+        else if gameState.corporateEthics < 0.7 { return .yellow }
+        else if gameState.corporateEthics < 0.9 { return .green }
+        else { return .mint }
     }
 }
 

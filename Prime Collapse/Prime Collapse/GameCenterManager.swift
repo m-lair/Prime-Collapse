@@ -326,7 +326,8 @@ import GameKit
             }
             
             // Automation milestone (10 packages/sec)
-            let automationProgress = min(gameState.automationRate / 10.0 * 100.0, 100.0)
+            let effectiveAutomationRate = (gameState.baseWorkerRate * Double(gameState.workers) * gameState.workerEfficiency) + (gameState.baseSystemRate * gameState.automationEfficiency)
+            let automationProgress = min(effectiveAutomationRate / 10.0 * 100.0, 100.0)
             reportAchievement(achievementID: Self.automationMilestoneAchievementID, percentComplete: automationProgress)
             
             // Ethical choices (based on ethical choices made)

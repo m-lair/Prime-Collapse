@@ -13,7 +13,6 @@ final class SavedGameState {
     var totalPackagesShipped: Int
     var money: Double
     var workers: Int
-    var automationRate: Double
     var ethicsScore: Double
     var isCollapsing: Bool
     var lastUpdate: Date
@@ -42,11 +41,14 @@ final class SavedGameState {
     var purchasedUpgradeIDsString: String // Serialized JSON array of UUIDs
     var repeatableUpgradeIDsString: String // Serialized JSON array of UUIDs
     
+    // Automation and efficiency - Use new base rates
+    @Attribute var baseWorkerRate: Double
+    @Attribute var baseSystemRate: Double
+    
     init(
         totalPackagesShipped: Int = 0,
         money: Double = 0.0,
         workers: Int = 0,
-        automationRate: Double = 0.0,
         ethicsScore: Double = 100.0,
         isCollapsing: Bool = false,
         purchasedUpgradeIDs: [String] = [],
@@ -65,7 +67,6 @@ final class SavedGameState {
         self.totalPackagesShipped = totalPackagesShipped
         self.money = money
         self.workers = workers
-        self.automationRate = automationRate
         self.ethicsScore = ethicsScore
         self.isCollapsing = isCollapsing
         self.lastUpdate = Date()
@@ -90,6 +91,10 @@ final class SavedGameState {
         self.packageAccumulator = packageAccumulator
         self.ethicalChoicesMade = ethicalChoicesMade
         self.endingType = endingType
+        
+        // Initialize base rates (were missed before)
+        self.baseWorkerRate = 0.1 // Default starting value
+        self.baseSystemRate = 0.0 // Default starting value
     }
     
     // Static helper to serialize array to JSON string
@@ -153,7 +158,6 @@ final class SavedGameState {
             totalPackagesShipped: gameState.totalPackagesShipped,
             money: gameState.money,
             workers: gameState.workers,
-            automationRate: gameState.automationRate,
             ethicsScore: gameState.ethicsScore,
             isCollapsing: gameState.isCollapsing,
             purchasedUpgradeIDs: allPurchasedIDs,
@@ -174,6 +178,10 @@ final class SavedGameState {
         savedGame.publicPerception = gameState.publicPerception
         savedGame.environmentalImpact = gameState.environmentalImpact
         
+        // Automation and efficiency - Use new base rates
+        savedGame.baseWorkerRate = gameState.baseWorkerRate
+        savedGame.baseSystemRate = gameState.baseSystemRate
+        
         return savedGame
     }
     
@@ -182,7 +190,6 @@ final class SavedGameState {
         gameState.totalPackagesShipped = totalPackagesShipped
         gameState.money = money
         gameState.workers = workers
-        gameState.automationRate = automationRate
         gameState.ethicsScore = ethicsScore
         gameState.isCollapsing = isCollapsing
         gameState.lastUpdate = Date() // Always use current date
@@ -244,5 +251,9 @@ final class SavedGameState {
             )
             gameState.upgrades.append(uniqueUpgrade)
         }
+        
+        // Automation and efficiency - Use new base rates
+        gameState.baseWorkerRate = baseWorkerRate
+        gameState.baseSystemRate = baseSystemRate
     }
 } 

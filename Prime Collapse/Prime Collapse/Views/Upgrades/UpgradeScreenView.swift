@@ -2,7 +2,7 @@ import SwiftUI
 
 // Detailed upgrade screen
 struct UpgradeScreenView: View {
-    var gameState: GameState
+    @Environment(GameState.self) private var gameState
     @Environment(\.dismiss) private var dismiss
     
     // Filter available upgrades based on purchase status
@@ -62,7 +62,7 @@ struct UpgradeScreenView: View {
                             UpgradeSection(title: "Available Upgrades") {
                                 VStack(spacing: 12) {
                                     ForEach(availableUpgrades, id: \.id) { upgrade in
-                                        DetailedUpgradeRow(upgrade: upgrade, gameState: gameState)
+                                        DetailedUpgradeRow(upgrade: upgrade)
                                     }
                                 }
                             }
@@ -198,5 +198,6 @@ struct UpgradeScreenView: View {
 }
 
 #Preview {
-    UpgradeScreenView(gameState: GameState())
+    UpgradeScreenView()
+        .environment(GameState())
 } 
