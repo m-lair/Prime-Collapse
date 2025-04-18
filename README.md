@@ -56,32 +56,3 @@ In Prime Collapse, you start as a small package delivery operation and gradually
 3. Purchase upgrades to automate shipping and increase efficiency
 4. Balance ethical and unethical decisions to avoid economic collapse
 5. Discover different endings based on your choices
-
-## Project Structure
-
-```
-Prime Collapse/
-├── Models/
-│   ├── GameState.swift          - Core game state and logic
-│   ├── SavedGameState.swift     - SwiftData persistence model
-│   ├── Upgrade.swift            - Upgrade data structure
-│   ├── UpgradeManager.swift     - Available upgrades and pricing
-│   ├── GameEvent.swift          - Random event model
-│   └── EventManager.swift       - Event generation and handling
-├── Views/
-│   ├── Components/              - Reusable UI components
-│   ├── Dashboard/               - Analytics and statistics views
-│   ├── GameEnding/              - End-game screens and effects
-│   ├── Upgrades/                - Upgrade shop and items
-│   └── EventView.swift          - Event popup and choice UI
-├── GameCenterManager.swift      - Game Center integration
-└── Prime_CollapseApp.swift      - App entry point
-```
-
-## License
-
-[Your chosen license]
-
-## Contact
-
-[Your contact information] 
