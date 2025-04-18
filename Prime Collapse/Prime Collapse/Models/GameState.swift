@@ -9,34 +9,76 @@ import Foundation
 import SwiftUI
 import Observation
 
+// Define the structure for delayed effects
+struct DelayedEffect: Identifiable, Equatable {
+    let id = UUID()
+    let triggerTime: Date
+    let applyEffect: (GameState) -> Void
+
+    // Equatable conformance needed for removal from array
+    static func == (lhs: DelayedEffect, rhs: DelayedEffect) -> Bool {
+        lhs.id == rhs.id
+    }
+}
+
 @Observable final class GameState {
     // Core game metrics
     var totalPackagesShipped: Int = 0
-    var money: Double = 0.0
+    // Clamp money >= 0
+    private var _money: Double = 0.0
+    var money: Double {
+        get { _money }
+        set { _money = max(0, newValue) }
+    }
     var workers: Int = 0  // Start with 1 worker
+    var lifetimeTotalMoneyEarned: Double = 0.0 // Track total money earned throughout the game
     
     // Automation and efficiency
     var baseWorkerRate: Double = 0.0 // Pkgs/sec per worker base
     var baseSystemRate: Double = 0.0 // Pkgs/sec from non-worker automation
     var packageAccumulator: Double = 0.0 // Tracks partial packages between updates
     
-    // Worker related stats
-    var workerEfficiency: Double = 1.0 // Multiplier for worker output
-    var workerMorale: Double = 0.8 // 0.0 to 1.0 scale
-    var customerSatisfaction: Double = 0.9 // 0.0 to 1.0 scale
+    // Worker related stats (Clamp efficiency >= 0, others 0-1)
+    private var _workerEfficiency: Double = 1.0
+    var workerEfficiency: Double {
+        get { _workerEfficiency }
+        set { _workerEfficiency = max(0, newValue) }
+    }
+    private var _workerMorale: Double = 0.8
+    var workerMorale: Double {
+        get { _workerMorale }
+        set { _workerMorale = max(0, min(1, newValue)) }
+    }
+    private var _customerSatisfaction: Double = 0.9
+    var customerSatisfaction: Double {
+        get { _customerSatisfaction }
+        set { _customerSatisfaction = max(0, min(1, newValue)) }
+    }
     
-    // Package value & automation efficiency
+    // Package value & automation efficiency (Clamp efficiency >= 0)
     var packageValue: Double = 1.0 // Base value per package
-    var automationEfficiency: Double = 1.0 // Multiplier for automation output
+    private var _automationEfficiency: Double = 1.0
+    var automationEfficiency: Double {
+        get { _automationEfficiency }
+        set { _automationEfficiency = max(0, newValue) }
+    }
     var automationLevel: Int = 0 // Current automation tech level
     
-    // Corporate metrics
-    var corporateEthics: Double = 0.5 // 0.0 (unethical) to 1.0 (ethical)
+    // Corporate metrics (Clamp 0-1 and 0-100)
+    private var _corporateEthics: Double = 0.5
+    var corporateEthics: Double {
+        get { _corporateEthics }
+        set { _corporateEthics = max(0, min(1, newValue)) }
+    }
+    private var _ethicsScore: Double = 100.0
+    var ethicsScore: Double {
+        get { _ethicsScore }
+        set { _ethicsScore = max(0, min(100, newValue)) }
+    }
     
     // Game mechanics
     var upgrades: [Upgrade] = []
     var purchasedUpgradeIDs: [UUID] = [] // Track all purchased upgrades by ID
-    var ethicsScore: Double = 100.0 // Renamed from moralDecay, starts at 100 (good)
     var isCollapsing: Bool = false
     var lastUpdate: Date = Date()
     
@@ -48,9 +90,24 @@ import Observation
     var isInLoopEndingState: Bool = false
     var loopEndingStartTime: Date? = nil
     
-    // New Step 13 Metrics
-    var publicPerception: Double = 50.0 // Scale 0-100, default starting value
-    var environmentalImpact: Double = 0.0 // Scale 0-100, default starting value (lower is better?)
+    // New Step 13 Metrics (Clamp 0-100)
+    private var _publicPerception: Double = 50.0
+    var publicPerception: Double {
+        get { _publicPerception }
+        set { _publicPerception = max(0, min(100, newValue)) }
+    }
+    private var _environmentalImpact: Double = 0.0
+    var environmentalImpact: Double {
+        get { _environmentalImpact }
+        set { _environmentalImpact = max(0, min(100, newValue)) }
+    }
+    
+    // Worker quitting notification
+    var workersQuit: Int = 0
+    var hasWorkersQuit: Bool = false
+    
+    // List to hold pending delayed effects
+    var pendingEffects: [DelayedEffect] = []
     
     // Ship a package manually (tap action)
     func shipPackage() {
@@ -67,6 +124,9 @@ import Observation
     // Add money to the player's account
     func earnMoney(_ amount: Double) {
         money += amount
+        if amount > 0 {
+            lifetimeTotalMoneyEarned += amount
+        }
     }
     
     // Process automation (called on timer)
@@ -78,6 +138,10 @@ import Observation
             lastUpdate = currentTime
             return
         }
+        
+        // Reset worker quit notification at the start of each cycle
+        workersQuit = 0
+        hasWorkersQuit = false
         
         // Calculate effective automation rate based on worker efficiency and automation efficiency
         // Factor in worker morale: Morale below 0.5 starts reducing efficiency linearly down to 0 at 0 morale.
@@ -128,7 +192,15 @@ import Observation
             // Subtract the shipped packages from the accumulator
             packageAccumulator -= Double(packagesShipped)
         }
-        
+
+        // Process pending delayed effects
+        let effectsToApply = pendingEffects.filter { currentTime >= $0.triggerTime }
+        for effect in effectsToApply {
+            effect.applyEffect(self)
+        }
+        // Remove applied effects
+        pendingEffects.removeAll { currentTime >= $0.triggerTime }
+
         // Slowly decay morale if very low ethics
         if corporateEthics < 0.3 && workerMorale > 0.2 {
             workerMorale -= timeElapsed * 0.01 * (0.3 - corporateEthics)
@@ -163,8 +235,10 @@ import Observation
             let quitChanceBase = 0.01 // Base 1% chance per second at 0 morale
             let quitChance = (0.1 - workerMorale) * 10.0 * quitChanceBase // Scale chance up as morale approaches 0
             if Double.random(in: 0...1) < quitChance * timeElapsed {
-                workers -= 1
-                // Consider adding a visual/log feedback here later
+                let quitCount = min(workers - 1, 1 + Int(Double.random(in: 0...1) * Double(workers) * 0.1))
+                workers -= quitCount
+                workersQuit = quitCount
+                hasWorkersQuit = true
             }
         }
         
@@ -183,10 +257,16 @@ import Observation
         
         // Calculate actual cost based on purchase count for repeatable upgrades
         let actualCost = upgrade.isRepeatable && timesPurchased > 0 
-            ? UpgradeManager.calculatePrice(basePrice: upgrade.cost, timesPurchased: timesPurchased, upgradeName: upgrade.name)
+            ? UpgradeManager.calculatePrice(basePrice: upgrade.cost, timesPurchased: timesPurchased, scalingFactor: upgrade.priceScalingFactor)
             : upgrade.cost
             
         if canAfford(actualCost) {
+            // Safety check: Ensure the upgrade meets requirements before applying
+            guard isUpgradeUnlocked(upgrade) else {
+                print("Attempted to purchase locked upgrade: \(upgrade.name)")
+                return // Don't proceed if locked
+            }
+
             money -= actualCost
             upgrade.effect(self)
             
@@ -240,6 +320,16 @@ import Observation
         }
     }
     
+    // Check if an upgrade's requirements are met
+    func isUpgradeUnlocked(_ upgrade: Upgrade) -> Bool {
+        // If no requirement is defined, it's unlocked
+        guard let requirement = upgrade.requirement else {
+            return true
+        }
+        // Evaluate the requirement closure against the current game state
+        return requirement(self)
+    }
+    
     // Check if an upgrade has been purchased
     func hasBeenPurchased(_ upgrade: Upgrade) -> Bool {
         return purchasedUpgradeIDs.contains(upgrade.id)
@@ -253,7 +343,8 @@ import Observation
         
         // Calculate base cost accounting for repeatability
         let timesPurchased = purchasedUpgradeIDs.filter { $0 == upgrade.id }.count
-        let baseCost = UpgradeManager.calculatePrice(basePrice: upgrade.cost, timesPurchased: timesPurchased, upgradeName: upgrade.name)
+        // Use the upgrade's scaling factor directly
+        let baseCost = UpgradeManager.calculatePrice(basePrice: upgrade.cost, timesPurchased: timesPurchased, scalingFactor: upgrade.priceScalingFactor)
         
         // Apply modifier based on public perception (0-100 scale)
         let perceptionModifier: Double
@@ -326,6 +417,8 @@ import Observation
         endingType = .collapse
         isInLoopEndingState = false // Reset loop state tracking
         loopEndingStartTime = nil   // Reset loop start time
+        workersQuit = 0
+        hasWorkersQuit = false
         
         // Reset worker and business stats
         workerEfficiency = 1.0

@@ -11,14 +11,16 @@ struct Upgrade: Identifiable, Hashable {
     let id: UUID
     let name: String
     let description: String
-    let cost: Double
+    let cost: Double // Base cost for repeatable upgrades
     
     // Note: Since GameState is a class with @Observable, we can
     // mutate it even without using 'inout'
     let effect: (GameState) -> Void
     
     let isRepeatable: Bool
+    let priceScalingFactor: Double // Factor for price increase on repeatable upgrades
     let moralImpact: Double // Negative for unethical, positive for ethical
+    let requirement: ((GameState) -> Bool)? // Condition to unlock the upgrade
     
     // New Step 13 Impacts
     let publicPerceptionImpact: Double
@@ -32,9 +34,11 @@ struct Upgrade: Identifiable, Hashable {
         cost: Double,
         effect: @escaping (GameState) -> Void,
         isRepeatable: Bool = false,
+        priceScalingFactor: Double = 1.6, // Default scaling factor
         moralImpact: Double = 0.0,
         publicPerceptionImpact: Double = 0.0, // Default impact
-        environmentalImpactImpact: Double = 0.0 // Default impact
+        environmentalImpactImpact: Double = 0.0, // Default impact
+        requirement: ((GameState) -> Bool)? = nil // Default: no requirement
     ) {
         self.id = id
         self.name = name
@@ -42,9 +46,11 @@ struct Upgrade: Identifiable, Hashable {
         self.cost = cost
         self.effect = effect
         self.isRepeatable = isRepeatable
+        self.priceScalingFactor = isRepeatable ? priceScalingFactor : 1.0 // Ensure non-repeatable don't scale
         self.moralImpact = moralImpact
         self.publicPerceptionImpact = publicPerceptionImpact
         self.environmentalImpactImpact = environmentalImpactImpact
+        self.requirement = requirement
     }
     
     // Hashable conformance

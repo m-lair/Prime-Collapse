@@ -70,13 +70,19 @@ import SwiftUI
                     text: "Raise prices temporarily",
                     moralImpact: -5.0, // Unethical
                     effect: { state in
+                        let originalValue = state.packageValue
                         state.packageValue *= 1.5
                         state.publicPerception -= 3 // Slight negative perception for price gouging
                         
-                        // Schedule price return after 30 seconds
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
-                            state.packageValue /= 1.5
+                        // Schedule price return using DelayedEffect
+                        let triggerTime = Date().addingTimeInterval(30)
+                        let delayedEffect = DelayedEffect(triggerTime: triggerTime) { gs in
+                            // Restore only if current value matches the modified value
+                            if gs.packageValue == originalValue * 1.5 {
+                                gs.packageValue = originalValue
+                            } 
                         }
+                        state.pendingEffects.append(delayedEffect)
                     },
                     effectDescriptions: [
                         EffectDescription(metricName: "Package Value", changeDescription: "+50% (Temporary)", impactType: .positive),
@@ -115,6 +121,7 @@ import SwiftUI
                         state.publicPerception += 3 // Slight boost for seeming innovative
                     },
                     effectDescriptions: [
+                        EffectDescription(metricName: "Automation Efficiency", changeDescription: "+0.05", impactType: .positive),
                         EffectDescription(metricName: "Perception", changeDescription: "+3", impactType: .positive)
                     ]
                 ),
@@ -153,8 +160,7 @@ import SwiftUI
                     moralImpact: 8.0, // Very ethical
                     effect: { state in
                         state.money -= 5000
-                        state.ethicalChoicesMade += 1
-                        state.environmentalImpact = max(0, state.environmentalImpact - 15) // Significant improvement
+                        state.environmentalImpact -= 15 // Apply change directly
                         state.publicPerception += 5 // Positive perception
                     },
                     canChoose: { $0.money >= 5000 },
@@ -172,8 +178,7 @@ import SwiftUI
                     moralImpact: -5.0, // Unethical
                     effect: { state in
                         state.money -= 1000
-                        state.corporateEthics -= 0.1
-                        state.environmentalImpact = min(100, state.environmentalImpact + 5) // Slight increase
+                        state.environmentalImpact += 5 // Apply change directly
                         state.publicPerception -= 5 // Negative perception
                     },
                     canChoose: { $0.money >= 1000 },
@@ -192,8 +197,7 @@ import SwiftUI
                     moralImpact: -12.0, // Very unethical
                     effect: { state in
                         state.money -= 2000
-                        state.corporateEthics -= 0.3
-                        state.environmentalImpact = min(100, state.environmentalImpact + 10) // Worse impact due to neglect
+                        state.environmentalImpact += 10 // Apply change directly
                         state.publicPerception -= 15 // Major negative perception hit
                     },
                     canChoose: { $0.money >= 2000 },
@@ -269,7 +273,6 @@ import SwiftUI
                     effect: { state in
                         state.money -= 3000
                         state.workerMorale += 0.2
-                        state.ethicalChoicesMade += 1
                         state.publicPerception += 7 // Good perception for safety focus
                     },
                     canChoose: { $0.money >= 3000 },
@@ -305,13 +308,14 @@ import SwiftUI
                     text: "Cover it up (legal risk)",
                     moralImpact: -10.0, // Very unethical
                     effect: { state in
-                        state.corporateEthics -= 0.2
                         state.publicPerception -= 18 // Major hit for cover-up
                         // Risk of future legal costs
                         if Double.random(in: 0...1) < 0.3 {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 60) {
-                                state.money -= 10000
+                            let triggerTime = Date().addingTimeInterval(60)
+                            let delayedEffect = DelayedEffect(triggerTime: triggerTime) { gs in
+                                gs.money -= 10000
                             }
+                            state.pendingEffects.append(delayedEffect)
                         }
                     },
                     effectDescriptions: [
@@ -336,13 +340,18 @@ import SwiftUI
                     text: "Match their prices temporarily",
                     moralImpact: -2.0, // Slightly unethical
                     effect: { state in
+                        let originalValue = state.packageValue
                         state.packageValue *= 0.8
                         state.money -= 2000 // Cost of price adjustment campaign
                         
-                        // Return prices to normal after 45 seconds
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 45) {
-                            state.packageValue /= 0.8
+                        // Return prices to normal using DelayedEffect
+                        let triggerTime = Date().addingTimeInterval(45)
+                        let delayedEffect = DelayedEffect(triggerTime: triggerTime) { gs in
+                             if gs.packageValue == originalValue * 0.8 {
+                                gs.packageValue = originalValue
+                            }
                         }
+                        state.pendingEffects.append(delayedEffect)
                     },
                     canChoose: { $0.money >= 2000 },
                     disabledReason: { state in
@@ -372,14 +381,19 @@ import SwiftUI
                     text: "Spread rumors about competitor quality",
                     moralImpact: -8.0, // Unethical
                     effect: { state in
+                        let originalValue = state.packageValue
                         state.packageValue *= 0.9 // Still need a small price drop
                         state.corporateEthics -= 0.2
                         state.publicPerception -= 12 // Negative perception for dirty tactics
                         
-                        // Return prices to normal after 30 seconds
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
-                            state.packageValue /= 0.9
+                        // Return prices to normal using DelayedEffect
+                        let triggerTime = Date().addingTimeInterval(30)
+                         let delayedEffect = DelayedEffect(triggerTime: triggerTime) { gs in
+                             if gs.packageValue == originalValue * 0.9 {
+                                gs.packageValue = originalValue
+                            }
                         }
+                        state.pendingEffects.append(delayedEffect)
                     },
                     effectDescriptions: [
                         EffectDescription(metricName: "Package Value", changeDescription: "-10% (Temporary)", impactType: .negative),
@@ -420,14 +434,19 @@ import SwiftUI
                     text: "Pass costs to customers",
                     moralImpact: -5.0, // Somewhat unethical
                     effect: { state in
+                        let originalValue = state.packageValue
                         state.packageValue *= 1.2
                         state.customerSatisfaction -= 0.15
                         state.publicPerception -= 5 // Negative perception for price hikes
                         
-                        // Return prices after 40 seconds
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 40) {
-                            state.packageValue /= 1.2
+                        // Return prices using DelayedEffect
+                        let triggerTime = Date().addingTimeInterval(40)
+                        let delayedEffect = DelayedEffect(triggerTime: triggerTime) { gs in
+                             if gs.packageValue == originalValue * 1.2 {
+                                gs.packageValue = originalValue
+                            }
                         }
+                        state.pendingEffects.append(delayedEffect)
                     },
                     effectDescriptions: [
                         EffectDescription(metricName: "Package Value", changeDescription: "+20% (Temporary)", impactType: .negative),
@@ -468,9 +487,7 @@ import SwiftUI
                     moralImpact: 8.0, // Very ethical
                     effect: { state in
                         state.money -= 5000
-                        state.corporateEthics += 0.2
                         state.customerSatisfaction += 0.1
-                        state.ethicalChoicesMade += 1
                         state.publicPerception += 15 // Significant perception boost
                     },
                     canChoose: { $0.money >= 5000 },
@@ -489,7 +506,6 @@ import SwiftUI
                     moralImpact: 2.0, // Somewhat ethical
                     effect: { state in
                         state.money -= 1000
-                        state.corporateEthics += 0.05
                         state.publicPerception += 4 // Minor perception boost
                     },
                     canChoose: { $0.money >= 1000 },
@@ -506,12 +522,9 @@ import SwiftUI
                     text: "Decline but use PR to claim involvement",
                     moralImpact: -9.0, // Very unethical
                     effect: { state in
-                        state.customerSatisfaction += 0.05
-                        state.corporateEthics -= 0.25
                         state.publicPerception -= 20 // Major hit for deceptive PR
                     },
                     effectDescriptions: [
-                        EffectDescription(metricName: "Satisfaction", changeDescription: "+5% (?)", impactType: .positive),
                         EffectDescription(metricName: "Perception", changeDescription: "-20", impactType: .negative),
                         EffectDescription(metricName: "Ethics Score", changeDescription: "-9", impactType: .negative)
                     ]
@@ -532,9 +545,7 @@ import SwiftUI
                     moralImpact: 6.0, // Ethical
                     effect: { state in
                         state.money -= 4000
-                        state.corporateEthics += 0.15
                         state.customerSatisfaction += 0.05
-                        state.ethicalChoicesMade += 1
                         state.publicPerception += 10 // Good boost for addressing issues
                     },
                     canChoose: { $0.money >= 4000 },
@@ -553,7 +564,6 @@ import SwiftUI
                     moralImpact: -6.0, // Unethical
                     effect: { state in
                         state.money += 0
-                        state.corporateEthics -= 0.1
                         state.publicPerception -= 8 // Hit for empty PR
                     },
                     effectDescriptions: [
@@ -566,17 +576,18 @@ import SwiftUI
                     moralImpact: -10.0, // Very unethical
                     effect: { state in
                         state.money -= 2500
-                        state.corporateEthics -= 0.2
                         state.customerSatisfaction += 0.1 // Short term boost
                         state.publicPerception -= 15 // Initial hit for astroturfing
                         
-                        // Risk of future fallout
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 50) {
-                            if Double.random(in: 0...1) < 0.4 {
-                                state.customerSatisfaction -= 0.3
-                                state.corporateEthics -= 0.1
-                                state.publicPerception -= 10 // Further hit if caught
-                            }
+                        // Risk of future fallout using DelayedEffect
+                        if Double.random(in: 0...1) < 0.4 {
+                             let triggerTime = Date().addingTimeInterval(50)
+                             let delayedEffect = DelayedEffect(triggerTime: triggerTime) { gs in
+                                gs.customerSatisfaction -= 0.3
+                                gs.corporateEthics -= 0.1
+                                gs.publicPerception -= 10 // Further hit if caught
+                             }
+                            state.pendingEffects.append(delayedEffect)
                         }
                     },
                     canChoose: { $0.money >= 2500 },
@@ -609,8 +620,6 @@ import SwiftUI
                     effect: { state in
                         state.money -= 6000
                         state.workerMorale += 0.15
-                        state.corporateEthics += 0.1
-                        state.ethicalChoicesMade += 1
                         state.publicPerception += 6 // Positive perception for compliance
                     },
                     canChoose: { $0.money >= 6000 },
@@ -630,7 +639,6 @@ import SwiftUI
                     effect: { state in
                         state.money -= 1500
                         state.workerMorale -= 0.05
-                        state.corporateEthics -= 0.05
                         state.publicPerception -= 6 // Negative perception
                     },
                     canChoose: { $0.money >= 1500 },
@@ -649,15 +657,16 @@ import SwiftUI
                     moralImpact: -9.0, // Very unethical
                     effect: { state in
                         state.money -= 8000
-                        state.corporateEthics -= 0.2
                         state.publicPerception -= 12 // Negative perception for lobbying
                         
-                        // Risk of future investigation
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 70) {
-                            if Double.random(in: 0...1) < 0.5 {
-                                state.money -= 10000
-                                state.corporateEthics -= 0.1
+                        // Risk of future investigation using DelayedEffect
+                        if Double.random(in: 0...1) < 0.5 {
+                            let triggerTime = Date().addingTimeInterval(70)
+                            let delayedEffect = DelayedEffect(triggerTime: triggerTime) { gs in
+                                gs.money -= 10000
+                                gs.corporateEthics -= 0.1
                             }
+                            state.pendingEffects.append(delayedEffect)
                         }
                     },
                     canChoose: { $0.money >= 8000 },
@@ -687,7 +696,6 @@ import SwiftUI
                     moralImpact: 5.0, // Ethical
                     effect: { state in
                         state.money -= 1000
-                        state.corporateEthics += 0.1
                         state.publicPerception += 5 // Positive perception for transparency
                     },
                     canChoose: { $0.money >= 1000 },
@@ -705,12 +713,14 @@ import SwiftUI
                     moralImpact: -7.0, // Unethical
                     effect: { state in
                         state.publicPerception -= 8 // Negative perception for hiding
-                        // Risk of larger fine if caught
+                        // Risk of larger fine if caught using DelayedEffect
                         if Double.random(in: 0...1) < 0.4 {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 40) {
-                                state.money -= 8000
-                                state.corporateEthics -= 0.15
+                            let triggerTime = Date().addingTimeInterval(40)
+                            let delayedEffect = DelayedEffect(triggerTime: triggerTime) { gs in
+                                gs.money -= 8000
+                                gs.corporateEthics -= 0.15
                             }
+                             state.pendingEffects.append(delayedEffect)
                         }
                     },
                     effectDescriptions: [
@@ -724,16 +734,17 @@ import SwiftUI
                     moralImpact: -12.0, // Very unethical
                     effect: { state in
                         state.money -= 3000
-                        state.corporateEthics -= 0.3
                         state.publicPerception -= 18 // Major hit for bribery
                         
-                        // High risk of major scandal
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 60) {
-                            if Double.random(in: 0...1) < 0.6 {
-                                state.money -= 15000
-                                state.corporateEthics -= 0.2
-                                state.publicPerception -= 15 // Scandal hits perception hard
+                        // High risk of major scandal using DelayedEffect
+                        if Double.random(in: 0...1) < 0.6 {
+                            let triggerTime = Date().addingTimeInterval(60)
+                            let delayedEffect = DelayedEffect(triggerTime: triggerTime) { gs in
+                                gs.money -= 15000
+                                gs.corporateEthics -= 0.2
+                                gs.publicPerception -= 15 // Scandal hits perception hard
                             }
+                            state.pendingEffects.append(delayedEffect)
                         }
                     },
                     canChoose: { $0.money >= 3000 },
@@ -836,7 +847,6 @@ import SwiftUI
                     effect: { state in
                         state.money -= 3000
                         state.workerMorale += 0.3
-                        state.ethicalChoicesMade += 1
                         state.publicPerception += 12 // Strong positive perception
                     },
                     canChoose: { $0.money >= 3000 },
@@ -878,7 +888,6 @@ import SwiftUI
                         let workersToLayoff = min(state.workers / 4, 5)
                         state.workers -= workersToLayoff
                         state.workerMorale -= 0.3
-                        state.corporateEthics -= 0.25
                         state.publicPerception -= 20 // Major negative perception
                     },
                     effectDescriptions: [
@@ -915,7 +924,6 @@ import SwiftUI
         // Random roll to determine if an event triggers
         if Double.random(in: 0...1) < adjustedChance {
             triggerRandomEvent(gameState: gameState)
-            lastEventTime = currentTime
         }
     }
     
@@ -940,24 +948,12 @@ import SwiftUI
         // Apply the choice effect
         choice.effect(gameState)
         
-        // Ensure money doesn't go negative
-        if gameState.money < 0 {
-            gameState.money = 0
-        }
-        
-        // Update ethics score based on choice (uses inverted moralImpact)
+        // Update ethics score based on choice (uses moralImpact)
         gameState.ethicsScore += choice.moralImpact
-        gameState.ethicsScore = max(0, min(100, gameState.ethicsScore)) // Clamp score
         
         // Update corporate ethics as well (scaled down, logic inverted)
         let ethicsChange = choice.moralImpact / 20.0 // Scale impact to roughly -0.6 to +0.6 range
         gameState.corporateEthics += ethicsChange
-        gameState.corporateEthics = max(0, min(1, gameState.corporateEthics)) // Clamp
-        
-        // Apply perception and environment impact from the choice effect closure
-        // The effect closure now handles these directly. Ensure clamping after effect.
-        gameState.publicPerception = max(0, min(100, gameState.publicPerception))
-        gameState.environmentalImpact = max(0, min(100, gameState.environmentalImpact))
         
         // Track ethical choices for ending conditions (positive impact is now ethical)
         if choice.moralImpact > 0 {
@@ -976,5 +972,8 @@ import SwiftUI
         
         // Clear the current event
         currentEvent = nil
+        
+        // Start the cooldown timer now that the event is resolved
+        lastEventTime = Date()
     }
 } 

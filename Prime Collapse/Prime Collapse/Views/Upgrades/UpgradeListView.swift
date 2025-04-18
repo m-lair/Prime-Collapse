@@ -5,10 +5,11 @@ struct UpgradeListView: View {
     @Environment(GameState.self) private var gameState
     @State private var showDetailedUpgrades = false
     
-    // Filter available upgrades based on purchase status
-    private var availableUpgrades: [Upgrade] {
+    // Filter available upgrades based on purchase status (NOT lock status)
+    private var potentiallyAvailableUpgrades: [Upgrade] {
         UpgradeManager.availableUpgrades.filter { upgrade in
-            // Keep all repeatable upgrades and non-repeatable ones that haven't been purchased
+            // Keep all repeatable upgrades and non-repeatable ones that haven't been purchased yet.
+            // The lock status will be handled visually in the card view.
             upgrade.isRepeatable || !gameState.hasBeenPurchased(upgrade)
         }
     }
@@ -83,7 +84,8 @@ struct UpgradeListView: View {
             // Upgrade cards
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack() {
-                    ForEach(availableUpgrades, id: \.id) { upgrade in
+                    // Iterate over potentially available upgrades
+                    ForEach(potentiallyAvailableUpgrades, id: \.id) { upgrade in
                         UpgradeCardView(upgrade: upgrade)
                             .shadow(color: .black.opacity(0.2), radius: 3)
                     }

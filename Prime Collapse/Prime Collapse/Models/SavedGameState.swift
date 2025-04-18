@@ -232,8 +232,8 @@ final class SavedGameState {
         // Restore repeatable upgrades (based on 'Hire Worker' upgrade)
         gameState.upgrades = []
         
-        // Find the "Hire Worker" upgrade
-        let hireWorkerUpgrade = UpgradeManager.hireWorker
+        // Find the "Hire Worker" upgrade using the correct nested path
+        let hireWorkerUpgrade = UpgradeManager.EarlyGame.hireWorker
         
         // Count how many workers were hired (to recreate the correct number of worker upgrades)
         let totalWorkerUpgrades = repeatableUpgradeIDs.count

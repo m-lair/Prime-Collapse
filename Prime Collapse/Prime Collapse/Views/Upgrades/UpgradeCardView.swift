@@ -6,6 +6,11 @@ struct UpgradeCardView: View {
     @Environment(GameState.self) private var gameState
     @State private var isPressed = false
     
+    // Check if the upgrade requirements are met
+    private var isUnlocked: Bool {
+        gameState.isUpgradeUnlocked(upgrade)
+    }
+    
     // Calculate current price accounting for repeat purchases
     private var currentPrice: Double {
         return gameState.getCurrentUpgradeCost(upgrade)
@@ -100,7 +105,7 @@ struct UpgradeCardView: View {
                         )
                         .scaleEffect(isPressed ? 0.95 : 1.0)
                 }
-                .disabled(!gameState.canAfford(currentPrice))
+                .disabled(!gameState.canAfford(currentPrice) || !isUnlocked)
             }
         }
         .padding(12)
@@ -120,6 +125,19 @@ struct UpgradeCardView: View {
                 .stroke(Color.white.opacity(0.3), lineWidth: 1.5)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        // Add lock overlay if not unlocked
+        .overlay(
+            !isUnlocked ? 
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.black.opacity(0.6))
+                .overlay(
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 30))
+                        .foregroundColor(.white.opacity(0.7))
+                )
+            : nil
+        )
+        .opacity(isUnlocked ? 1.0 : 0.6) // Reduce opacity if locked
         .animation(.easeInOut(duration: 0.1), value: isPressed)
     }
     

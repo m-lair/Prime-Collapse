@@ -35,7 +35,6 @@ struct GameStatsView: View {
                             icon: "person.fill",
                             title: "Workers",
                             value: "\(gameState.workers)",
-                            secondaryText: "\(String(format: "%.2f", effectiveAutomationRate))/sec",
                             iconColor: .blue
                         )
                     }
@@ -80,6 +79,38 @@ struct GameStatsView: View {
                 }
             }
             
+            // Add morale warning when it's affecting production significantly
+            if isMoraleLowering && gameState.workers > 0 {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                    Text("Low morale: -\(String(format: "%.0f", moraleReductionPercent))% production")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.orange)
+                }
+                .padding(.vertical, 4)
+                .padding(.horizontal, 8)
+                .background(Color.orange.opacity(0.2))
+                .cornerRadius(8)
+            }
+            
+            // Customer satisfaction warning if it's affecting package value
+            if gameState.customerSatisfaction < 0.7 {
+                let satisfactionImpact = (1.0 - (0.5 + (gameState.customerSatisfaction * 0.5))) * 100
+                
+                HStack {
+                    Image(systemName: "person.fill.xmark")
+                        .foregroundColor(.red)
+                    Text("Low customer satisfaction: -\(String(format: "%.0f", satisfactionImpact))% income")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.red)
+                }
+                .padding(.vertical, 4)
+                .padding(.horizontal, 8)
+                .background(Color.red.opacity(0.2))
+                .cornerRadius(8)
+            }
+            
             // Detailed stats button
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.3)) {
@@ -108,11 +139,26 @@ struct GameStatsView: View {
         .padding(.vertical, 12)
     }
     
-    // Calculate the effective automation rate for display
-    private var effectiveAutomationRate: Double {
-        let workerContribution = gameState.baseWorkerRate * Double(gameState.workers) * gameState.workerEfficiency
-        let systemContribution = gameState.baseSystemRate * gameState.automationEfficiency
-        return workerContribution + systemContribution
+    // Calculate morale factor (matching the logic in GameState.processAutomation)
+    private func calculateMoraleFactor() -> Double {
+        if gameState.workerMorale < 0.5 {
+            return gameState.workerMorale * 2.0 // Scales from 0.0 at 0 morale to 1.0 at 0.5 morale
+        } else if gameState.workerMorale > 0.7 {
+            return 1.0 + (gameState.workerMorale - 0.7) / 3.0 // Scales from 1.0 at 0.7 morale to 1.1 at 1.0 morale
+        } else {
+            return 1.0 // Neutral effect between 0.5 and 0.7
+        }
+    }
+    
+    // Is morale significantly reducing production?
+    private var isMoraleLowering: Bool {
+        return gameState.workerMorale < 0.4 // Show warning when morale reduces production by more than 20%
+    }
+    
+    // Get percent reduction from morale for display
+    private var moraleReductionPercent: Double {
+        let moraleFactor = calculateMoraleFactor()
+        return (1.0 - moraleFactor) * 100.0
     }
     
     // Ethics rating based on ethics score (inverted logic)

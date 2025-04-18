@@ -25,10 +25,7 @@ struct DashboardView: View {
                 return "Standard business practices with no major concerns"
             case .concerning:
                 return "Some questionable practices that may attract criticism"
-            case .poor:
-                return "Significantly unethical practices damaging reputation"
-            case .critical:
-                return "Severely unethical behavior risking systemic collapse"
+            case .poor, .critical: return "Significantly unethical practices damaging reputation"
             }
         }
         
@@ -89,14 +86,16 @@ struct DashboardView: View {
                                         icon: "dollarsign.circle.fill",
                                         title: "Revenue",
                                         value: "$\(String(format: "%.2f", gameState.money))",
-                                        iconColor: .green
+                                        iconColor: .green,
+                                        tooltip: "Your company's current cash reserves, which can be used to purchase upgrades and pay workers."
                                     )
                                     
                                     DashboardStatCard(
                                         icon: "shippingbox.fill",
                                         title: "Total Packages",
                                         value: "\(gameState.totalPackagesShipped)",
-                                        iconColor: .yellow
+                                        iconColor: .yellow,
+                                        tooltip: "The total number of packages your company has shipped since the beginning."
                                     )
                                 }
                                 
@@ -106,18 +105,16 @@ struct DashboardView: View {
                                         icon: "dollarsign.square.fill",
                                         title: "Package Value",
                                         value: "$\(String(format: "%.2f", gameState.packageValue))",
-                                        iconColor: .mint
+                                        iconColor: .mint,
+                                        tooltip: "The base value earned per package shipped. This can be affected by customer satisfaction and public perception."
                                     )
                                     
-                                    // Calculate effective rate (excluding morale/env factors for simplicity here)
-                                    // let workerContribution = gameState.baseWorkerRate * Double(gameState.workers) * gameState.workerEfficiency // MOVED TO COMPUTED PROPERTY
-                                    // let systemContribution = gameState.baseSystemRate * gameState.automationEfficiency // MOVED TO COMPUTED PROPERTY
-                                    // let rawEffectiveRate = workerContribution + systemContribution // MOVED TO COMPUTED PROPERTY
                                     DashboardStatCard(
                                         icon: "chart.line.uptrend.xyaxis",
                                         title: "Hourly Income",
-                                        value: "$\(String(format: "%.2f", rawEffectiveRate * gameState.packageValue * 3600))", // Use computed property
-                                        iconColor: .orange
+                                        value: "$\(String(format: "%.2f", rawEffectiveRate * gameState.packageValue * 3600))",
+                                        iconColor: .orange,
+                                        tooltip: "Expected income per hour at current production rate and package value."
                                     )
                                 }
                             }
@@ -133,14 +130,16 @@ struct DashboardView: View {
                                         icon: "person.3.fill",
                                         title: "Workers",
                                         value: "\(gameState.workers)",
-                                        iconColor: .blue
+                                        iconColor: .blue,
+                                        tooltip: "Number of workers employed. Each worker contributes to your total package production."
                                     )
                                     
                                     DashboardStatCard(
                                         icon: "gauge.medium",
                                         title: "Worker Efficiency",
                                         value: "\(String(format: "%.2f", gameState.workerEfficiency))×",
-                                        iconColor: .indigo
+                                        iconColor: .indigo,
+                                        tooltip: "Worker efficiency multiplier. Higher efficiency means each worker produces more packages per second."
                                     )
                                 }
                                 
@@ -156,6 +155,17 @@ struct DashboardView: View {
                                         Text(moraleRatingText)
                                             .font(.system(size: 16, weight: .bold))
                                             .foregroundColor(moraleColor)
+                                        
+                                        Button {
+                                            // Toggle tooltip visibility
+                                        } label: {
+                                            Image(systemName: "info.circle")
+                                                .font(.system(size: 14))
+                                                .foregroundColor(.white.opacity(0.6))
+                                        }
+                                        .buttonStyle(.plain)
+                                        .accessibilityLabel("Worker morale info")
+                                        .accessibilityHint("Worker morale affects efficiency and turnover rate.")
                                     }
                                     
                                     // Morale bar
@@ -202,17 +212,18 @@ struct DashboardView: View {
                                 HStack {
                                     DashboardStatCard(
                                         icon: "speedometer",
-                                        title: "Base Rate", // Title might need update - shows combined base now
-                                        value: "\(String(format: "%.2f", rawEffectiveRate))/sec", // Display combined raw rate
-                                        // value: "\(String(format: "%.1f", gameState.automationRate))/sec", // OLD
-                                        iconColor: .purple
+                                        title: "Base Rate",
+                                        value: "\(String(format: "%.2f", rawEffectiveRate))/sec",
+                                        iconColor: .purple,
+                                        tooltip: "The combined base rate of package production from both workers and automation systems, before applying efficiency factors."
                                     )
                                     
                                     DashboardStatCard(
                                         icon: "gearshape.2.fill",
                                         title: "Efficiency",
                                         value: "\(String(format: "%.2f", gameState.automationEfficiency))×",
-                                        iconColor: .teal
+                                        iconColor: .teal,
+                                        tooltip: "Automation system efficiency multiplier. Higher efficiency means automation systems produce more packages per second."
                                     )
                                 }
                                 
@@ -225,38 +236,21 @@ struct DashboardView: View {
                                         
                                         Spacer()
                                         
-                                        // let effectiveRate = gameState.automationRate * gameState.workerEfficiency * gameState.automationEfficiency // OLD
-                                        // Display the same raw rate used above
                                         Text("\(String(format: "%.2f", rawEffectiveRate)) packages/sec")
                                             .font(.system(size: 16, weight: .bold))
                                             .foregroundColor(.white)
+                                            
+                                        Button {
+                                            // Toggle tooltip visibility
+                                        } label: {
+                                            Image(systemName: "info.circle")
+                                                .font(.system(size: 14))
+                                                .foregroundColor(.white.opacity(0.6))
+                                        }
+                                        .buttonStyle(.plain)
+                                        .accessibilityLabel("Effective production info")
+                                        .accessibilityHint("Your actual package production rate, considering all factors.")
                                     }
-                                    
-                                    // Factors breakdown - update base rate display
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Worker base: \(String(format: "%.2f", gameState.baseWorkerRate)) pkg/sec/worker")
-                                        Text("System base: \(String(format: "%.2f", gameState.baseSystemRate)) pkg/sec")
-                                        // Text("Base rate: \(String(format: "%.2f", gameState.automationRate)) packages/sec") // OLD
-                                        Text("Worker efficiency: ×\(String(format: "%.2f", gameState.workerEfficiency))")
-                                        Text("Automation efficiency: ×\(String(format: "%.2f", gameState.automationEfficiency))")
-                                        Text("Package value: $\(String(format: "%.2f", gameState.packageValue))")
-                                        Text("Customer satisfaction: \(Int(gameState.customerSatisfaction * 100))%")
-                                        
-                                        Divider()
-                                            .background(Color.white.opacity(0.3))
-                                            .padding(.vertical, 4)
-                                        
-                                        // Calculate income using perception/satisfaction factors consistent with GameState
-                                        let perceptionFactor = 0.8 + (gameState.publicPerception / 100.0 * 0.4)
-                                        let satisfactionFactor = 0.5 + (gameState.customerSatisfaction * 0.5)
-                                        let valuePerPackage = gameState.packageValue * perceptionFactor * satisfactionFactor
-                                        let incomePerSec = rawEffectiveRate * valuePerPackage // Use raw rate for potential income display
-                                        // let incomePerSec = gameState.automationRate * gameState.workerEfficiency * gameState.automationEfficiency * gameState.packageValue * (0.5 + gameState.customerSatisfaction * 0.5) // OLD
-                                        Text("Potential Income: $\(String(format: "%.2f", incomePerSec))/sec")
-                                            .font(.system(size: 16, weight: .bold))
-                                    }
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.white.opacity(0.8))
                                 }
                                 .padding(.horizontal)
                                 .padding(.vertical, 12)
@@ -284,6 +278,17 @@ struct DashboardView: View {
                                         Text(customerSatisfactionRatingText)
                                             .font(.system(size: 16, weight: .bold))
                                             .foregroundColor(customerSatisfactionColor)
+                                            
+                                        Button {
+                                            // Toggle tooltip visibility
+                                        } label: {
+                                            Image(systemName: "info.circle")
+                                                .font(.system(size: 14))
+                                                .foregroundColor(.white.opacity(0.6))
+                                        }
+                                        .buttonStyle(.plain)
+                                        .accessibilityLabel("Customer satisfaction info")
+                                        .accessibilityHint("Affects package value and the likelihood of attracting new customers.")
                                     }
                                     
                                     // Satisfaction bar
@@ -332,14 +337,16 @@ struct DashboardView: View {
                                         icon: "person.crop.circle.badge.checkmark",
                                         title: "Public Perception",
                                         value: "\(Int(gameState.publicPerception))/100",
-                                        iconColor: publicPerceptionColor
+                                        iconColor: publicPerceptionColor,
+                                        tooltip: "How the public perceives your company. Higher values lead to better package values and less regulatory scrutiny."
                                     )
                                     
                                     DashboardStatCard(
                                         icon: "leaf.arrow.triangle.circlepath",
                                         title: "Environmental Impact",
                                         value: "\(Int(gameState.environmentalImpact))/100",
-                                        iconColor: environmentalImpactColor
+                                        iconColor: environmentalImpactColor,
+                                        tooltip: "Your company's impact on the environment. Lower values are better and influence public perception."
                                     )
                                 }
                                 
@@ -381,6 +388,17 @@ struct DashboardView: View {
                                         Text(ethicsRating.rawValue)
                                             .font(.system(size: 16, weight: .bold))
                                             .foregroundColor(ethicsRating.color)
+                                            
+                                        Button {
+                                            // Toggle tooltip visibility
+                                        } label: {
+                                            Image(systemName: "info.circle")
+                                                .font(.system(size: 14))
+                                                .foregroundColor(.white.opacity(0.6))
+                                        }
+                                        .buttonStyle(.plain)
+                                        .accessibilityLabel("Ethics rating info")
+                                        .accessibilityHint("Your company's ethical standing. Affects game endings and available choices.")
                                     }
                                     
                                     // Risk level indicator
@@ -446,7 +464,7 @@ struct DashboardView: View {
                                 )
                                 .padding(.horizontal)
                                 
-                                // Ethical choices and corporate virtue
+                                // Ethical choices and corporate virtue -> Just ethical choices
                                 HStack {
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text("Ethical Choices Made")
@@ -463,20 +481,7 @@ struct DashboardView: View {
                                             .fill(Color.white.opacity(0.05))
                                     )
                                     
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Corporate Virtue")
-                                            .font(.system(size: 16, weight: .semibold))
-                                            .foregroundColor(.white)
-                                        
-                                        Text(corporateVirtueRatingText)
-                                            .font(.system(size: 20, weight: .bold))
-                                            .foregroundColor(corporateEthicsColor)
-                                    }
-                                    .padding()
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .fill(Color.white.opacity(0.05))
-                                    )
+                                    Spacer() // Add spacer if Corporate Virtue is removed to maintain layout
                                 }
                                 .padding(.horizontal)
                                 
@@ -632,21 +637,6 @@ struct DashboardView: View {
         }
     }
     
-    // Corporate ethics (virtue) rating text
-    private var corporateVirtueRatingText: String {
-        if gameState.corporateEthics < 0.3 {
-            return "Very Low"
-        } else if gameState.corporateEthics < 0.5 {
-            return "Low"
-        } else if gameState.corporateEthics < 0.7 {
-            return "Moderate"
-        } else if gameState.corporateEthics < 0.9 {
-            return "High"
-        } else {
-            return "Exemplary"
-        }
-    }
-    
     // Morale rating text
     private var moraleRatingText: String {
         if gameState.workerMorale < 0.3 {
@@ -744,20 +734,6 @@ struct DashboardView: View {
             return "Customers are satisfied, increased package value and referrals."
         } else {
             return "Customers are delighted, maximum package values and excellent reputation."
-        }
-    }
-    
-    private var corporateEthicsColor: Color {
-        if gameState.corporateEthics < 0.3 {
-            return .red
-        } else if gameState.corporateEthics < 0.5 {
-            return .orange
-        } else if gameState.corporateEthics < 0.7 {
-            return .yellow
-        } else if gameState.corporateEthics < 0.9 {
-            return .green
-        } else {
-            return .mint
         }
     }
     

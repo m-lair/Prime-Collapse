@@ -25,16 +25,16 @@ This document tracks the planned changes and improvements for the Prime Collapse
   * [ ] Ensure colors and symbols correctly match ethical implications
   * [ ] Add clear visual distinction between ethical categories
 
-* [ ] **Add Game Control Buttons**
-  * [ ] Implement reset/restart functionality
-  * [ ] Add quit button with confirmation dialog
-  * [ ] Consider adding these to main menu or settings panel
+* [x] **Add Game Control Buttons**
+  * [x] Implement reset/restart functionality
+  * [x] Add quit button with confirmation dialog
+  * [x] Consider adding these to main menu or settings panel
 
-* [ ] **Dashboard View Improvements**
-  * [ ] Verify all displayed metrics are accurate
-  * [ ] Ensure all stats update correctly in real-time
-  * [ ] Improve readability and information hierarchy
-  * [ ] Add tooltips or help icons for complex metrics
+* [x] **Dashboard View Improvements**
+  * [x] Verify all displayed metrics are accurate
+  * [x] Ensure all stats update correctly in real-time
+  * [x] Improve readability and information hierarchy
+  * [x] Add tooltips or help icons for complex metrics
 
 ## ⚙️ Game Mechanics Fixes
 

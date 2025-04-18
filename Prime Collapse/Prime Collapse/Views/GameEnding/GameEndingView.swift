@@ -11,8 +11,10 @@ enum GameEnding {
 struct GameEndingView: View {
     let gameEnding: GameEnding
     let packagesShipped: Int
-    let profit: Double
+    let profit: Double // This is the final cash balance
     let workerCount: Int
+    let lifetimeTotalMoneyEarned: Double // Added for lifetime stats
+    let ethicalChoicesMade: Int // Added for ethical stats
     let onReset: () -> Void
     
     @State private var showConfetti = false
@@ -103,7 +105,7 @@ struct GameEndingView: View {
                         .transition(.move(edge: .leading).combined(with: .opacity))
                         
                         EndingStatCard(
-                            title: "Final Profit",
+                            title: "Final Cash Balance",
                             value: "$\(String(format: "%.2f", profit))",
                             icon: "dollarsign.circle.fill",
                             color: .green
@@ -111,10 +113,26 @@ struct GameEndingView: View {
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                         
                         EndingStatCard(
+                            title: "Lifetime Money Earned",
+                            value: "$\(String(format: "%.2f", lifetimeTotalMoneyEarned))",
+                            icon: "banknote.fill",
+                            color: .purple
+                        )
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                        
+                        EndingStatCard(
                             title: "Final Worker Count",
                             value: "\(workerCount)",
                             icon: "person.fill",
                             color: .blue
+                        )
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                        
+                        EndingStatCard(
+                            title: "Ethical Choices Made",
+                            value: "\(ethicalChoicesMade)",
+                            icon: "heart.circle.fill",
+                            color: gameEnding == .reform ? .pink : .orange
                         )
                         .transition(.move(edge: .leading).combined(with: .opacity))
                     }
@@ -130,7 +148,6 @@ struct GameEndingView: View {
                         .italic()
                         .foregroundColor(.white.opacity(0.9))
                         .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
                         .padding(24)
                         .background(
                             RoundedRectangle(cornerRadius: 20)
@@ -249,10 +266,36 @@ struct GameEndingView: View {
 
 #Preview {
     GameEndingView(
+        gameEnding: .reform,
+        packagesShipped: 12345,
+        profit: 56789.12,
+        workerCount: 50,
+        lifetimeTotalMoneyEarned: 150000.00,
+        ethicalChoicesMade: 15,
+        onReset: { print("Reset tapped") }
+    )
+}
+
+#Preview {
+    GameEndingView(
         gameEnding: .collapse,
-        packagesShipped: 1523,
-        profit: 2450.75,
-        workerCount: 12,
-        onReset: {}
+        packagesShipped: 500,
+        profit: -1000.00,
+        workerCount: 2,
+        lifetimeTotalMoneyEarned: 10000.00,
+        ethicalChoicesMade: 2,
+        onReset: { print("Reset tapped") }
+    )
+}
+
+#Preview {
+    GameEndingView(
+        gameEnding: .loop,
+        packagesShipped: 9999,
+        profit: 10000.00,
+        workerCount: 100,
+        lifetimeTotalMoneyEarned: 200000.00,
+        ethicalChoicesMade: 8,
+        onReset: { print("Reset tapped") }
     )
 } 

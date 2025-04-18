@@ -7,6 +7,20 @@
 
 import SwiftUI
 import SwiftData
+import Observation
+import Combine
+import UIKit
+import GameKit
+
+// Value decrease animation model has been moved to Models/Animations/ValueDecrease.swift
+
+// Worker quit notification model has been moved to Models/Animations/WorkerQuitNotification.swift
+
+// Observer for value decreases has been moved to Models/Animations/DecreaseAnimator.swift
+
+// Notification system for important game alerts has been moved to Models/Notifications/GameNotification.swift
+
+// Notification manager to handle display of game notifications has been moved to Models/Notifications/NotificationManager.swift
 
 struct ContentView: View {
     @Environment(GameState.self) private var gameState
@@ -25,6 +39,21 @@ struct ContentView: View {
     @State private var slowdownFactor: Double = 1.0
     @State private var showEndingScreen = false
     @State private var showDashboard = false
+    
+    // State for settings panel presentation
+    @State private var showingSettings = false
+    
+    // Value decrease animation state
+    @State private var decreaseAnimator = DecreaseAnimator()
+    @State private var previousMoney: Double = 0
+    @State private var previousWorkers: Int = 0
+    
+    // Game notification system
+    @State private var notificationManager = NotificationManager()
+    
+    // Track UI element positions
+    @State private var moneyPosition: CGPoint = .zero
+    @State private var workersPosition: CGPoint = .zero
     
     var body: some View {
         ZStack {
@@ -51,6 +80,9 @@ struct ContentView: View {
                     
                     GameStatsView(isShowingDetails: $showDetailedStatsOverlay)
                         .padding(.horizontal)
+                        // Add position tracking for money and workers
+                        .background(MoneyPositionReader(position: $moneyPosition))
+                        .background(WorkersPositionReader(position: $workersPosition))
                 }
                 .background(
                     RoundedRectangle(cornerRadius: 0)
@@ -70,6 +102,51 @@ struct ContentView: View {
                     .padding(.bottom, 16)
             }
             
+            // Value decrease animations layer
+            TimelineView(.animation) { timeline in
+                ZStack {
+                    ForEach(decreaseAnimator.decreases) { decrease in
+                        Text("-\(formatValue(decrease.amount))")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.red)
+                            .opacity(decrease.opacity)
+                            .offset(y: decrease.offset)
+                            .position(decrease.position)
+                            .shadow(color: .black.opacity(0.3), radius: 1)
+                    }
+                    
+                    // Worker quit notifications
+                    ForEach(decreaseAnimator.workerQuitNotifications) { notification in
+                        Text("\(notification.count) worker\(notification.count > 1 ? "s" : "") quit!")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.red)
+                            .padding(6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(Color.black.opacity(0.6))
+                            )
+                            .opacity(notification.opacity)
+                            .offset(y: notification.offset)
+                            .position(notification.position)
+                            .shadow(color: .black.opacity(0.5), radius: 2)
+                    }
+                }
+            }
+            
+            // Game notifications overlay
+            VStack {
+                Spacer().frame(height: 180) // Push notifications below header
+                
+                ForEach(notificationManager.notifications) { notification in
+                    GameNotificationView(notification: notification)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+                
+                Spacer()
+            }
+            .padding(.horizontal)
+            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: notificationManager.notifications.count)
+            
             // --- Detailed Stats Overlay Layer ---
             // Positioned within the ZStack, appears when showDetailedStatsOverlay is true
             if showDetailedStatsOverlay {
@@ -88,28 +165,45 @@ struct ContentView: View {
                 .zIndex(1) // Ensure it's above the main content layer
             }
             
-            // Dashboard button
+            // Dashboard button and game controls
             VStack {
                 HStack {
+                    // Settings button (New)
+                    Button(action: {
+                        showingSettings = true
+                    }) {
+                        Image(systemName: "gearshape.fill") // Gear icon
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(8)
+                            .background(
+                                Circle()
+                                    .fill(Color.blue.opacity(0.8)) // Style like Dashboard
+                                    .shadow(color: .black.opacity(0.3), radius: 3)
+                            )
+                    }
+                    .padding(.leading)
+                    
+                    
                     Spacer()
                     
+                    // Dashboard button
                     Button(action: {
                         showDashboard = true
                     }) {
                         Image(systemName: "chart.bar.fill")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.white)
-                            .padding(12)
+                            .padding(8)
                             .background(
                                 Circle()
                                     .fill(Color.blue.opacity(0.8))
                                     .shadow(color: .black.opacity(0.3), radius: 3)
                             )
                     }
-                    .padding(.top, 10)
-                    .padding(.trailing, 20)
+                    .padding(.trailing)
                 }
-                
+                .padding(.top)
                 Spacer()
             }
             
@@ -128,6 +222,10 @@ struct ContentView: View {
             loadGameState()
             startGameLoop()
             
+            // Initialize previous values
+            previousMoney = gameState.money
+            previousWorkers = gameState.workers
+            
             // If we're already in collapse state, show effects
             if gameState.isCollapsing {
                 startCollapseEffects()
@@ -137,9 +235,43 @@ struct ContentView: View {
             saveGameState()
             stopGameLoop()
         }
-        // Save game state periodically
-        .onChange(of: gameState.totalPackagesShipped) { _, _ in
-            saveGameStateDebounced()
+        .onChange(of: gameState.money) { oldValue, newValue in
+            if newValue < oldValue {
+                // Money decreased, trigger animation
+                let decrease = oldValue - newValue
+                decreaseAnimator.addDecrease(decrease, at: moneyPosition)
+                
+                // Play subtle haptic
+                playHaptic(.light)
+            }
+            previousMoney = newValue
+        }
+        .onChange(of: gameState.workers) { oldValue, newValue in
+            if newValue < oldValue {
+                // Workers decreased, trigger animation
+                let decrease = Double(oldValue - newValue)
+                decreaseAnimator.addDecrease(decrease, at: workersPosition)
+                
+                // Play medium haptic for worker loss
+                playHaptic(.medium)
+            }
+            previousWorkers = newValue
+        }
+        // Add an observer for worker quitting notifications
+        .onChange(of: gameState.hasWorkersQuit) { _, hasQuit in
+            if hasQuit && gameState.workersQuit > 0 {
+                decreaseAnimator.addWorkerQuitNotification(gameState.workersQuit, at: workersPosition)
+                
+                // Add to notification system
+                notificationManager.addNotification(.workerQuit(count: gameState.workersQuit))
+                
+                // Play strong haptic for workers quitting
+                playHaptic(.heavy)
+            }
+        }
+        // Check for notifications periodically
+        .onReceive(Timer.publish(every: 5, on: .main, in: .common).autoconnect()) { _ in
+            notificationManager.checkGameStateForNotifications(gameState: gameState)
         }
         // Start collapse effects when entering collapse phase
         .onChange(of: gameState.isCollapsing) { _, isCollapsing in
@@ -177,6 +309,8 @@ struct ContentView: View {
                 packagesShipped: gameState.totalPackagesShipped,
                 profit: gameState.money,
                 workerCount: gameState.workers,
+                lifetimeTotalMoneyEarned: gameState.lifetimeTotalMoneyEarned,
+                ethicalChoicesMade: gameState.ethicalChoicesMade,
                 onReset: {
                     gameState.reset()
                     showEndingScreen = false
@@ -186,6 +320,18 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showDashboard) {
             DashboardView()
+        }
+        .sheet(isPresented: $showingSettings) { // Present SettingsView
+            SettingsView()
+        }
+    }
+    
+    // Helper to format value for display
+    private func formatValue(_ value: Double) -> String {
+        if value == round(value) {
+            return "\(Int(value))"
+        } else {
+            return String(format: "%.1f", value)
         }
     }
     
@@ -289,167 +435,6 @@ struct ContentView: View {
         if let savedGame = savedGames.first {
             savedGame.apply(to: gameState)
         }
-    }
-}
-
-// MARK: - Detailed Stats Overlay View
-
-struct DetailedStatsOverlayView: View {
-    @Environment(GameState.self) private var gameState
-    
-    // Re-add helper properties/methods needed for detailed stats
-    // (Copied from the previous version of GameStatsView)
-    
-    var body: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 16) {
-                // Worker metrics
-                StatCard(
-                    icon: "gauge.medium",
-                    title: "Worker Efficiency",
-                    value: "\(String(format: "%.2f", gameState.workerEfficiency))×",
-                    secondaryText: workerEfficiencyLabel,
-                    iconColor: .indigo
-                )
-                
-                // Automation metrics
-                StatCard(
-                    icon: "gearshape.2.fill",
-                    title: "Automation",
-                    value: "\(String(format: "%.2f", gameState.automationEfficiency))×",
-                    secondaryText: "Efficiency Multiplier",
-                    iconColor: .mint
-                )
-            }
-            
-            HStack(spacing: 16) {
-                // Worker morale
-                StatCard(
-                    icon: "face.smiling.fill",
-                    title: "Worker Morale",
-                    value: moraleRatingText,
-                    secondaryText: moraleLabel,
-                    iconColor: moraleColor
-                )
-                
-                // Customer satisfaction
-                StatCard(
-                    icon: "person.crop.circle.badge.checkmark",
-                    title: "Customer Sat.",
-                    value: customerSatisfactionRatingText,
-                    secondaryText: customerSatisfactionLabel,
-                    iconColor: customerSatisfactionColor
-                )
-            }
-            
-            // Corporate ethics and effective rate
-            HStack(spacing: 16) {
-                // Corporate ethics
-                StatCard(
-                    icon: "building.2.fill",
-                    title: "Corp Virtue",
-                    value: corporateVirtueRatingText,
-                    secondaryText: corporateEthicsLabel,
-                    iconColor: corporateEthicsColor
-                )
-                
-                // Effective automation rate
-                let workerContribution = gameState.baseWorkerRate * Double(gameState.workers) * gameState.workerEfficiency
-                let systemContribution = gameState.baseSystemRate * gameState.automationEfficiency
-                let effectiveRate = workerContribution + systemContribution
-                StatCard(
-                    icon: "bolt.horizontal.fill",
-                    title: "Effective Rate",
-                    value: "\(String(format: "%.2f", effectiveRate))/sec",
-                    secondaryText: "$\(String(format: "%.2f", effectiveRate * gameState.packageValue))/sec",
-                    iconColor: .orange
-                )
-            }
-        }
-        .padding() // Add padding around the content
-        .background(.ultraThinMaterial) // Use a material background
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .shadow(radius: 5)
-    }
-    
-    // --- Helper methods for detailed stats (Copied back) --- 
-    private var workerEfficiencyLabel: String {
-        if gameState.workerEfficiency < 1.0 { return "Poor Performance" }
-        else if gameState.workerEfficiency < 1.5 { return "Standard Output" }
-        else if gameState.workerEfficiency < 2.0 { return "High Productivity" }
-        else { return "Maximum Output" }
-    }
-    
-    private var moraleLabel: String {
-        if gameState.workerMorale < 0.3 { return "Near Rebellion" }
-        else if gameState.workerMorale < 0.5 { return "Discontent" }
-        else if gameState.workerMorale < 0.7 { return "Neutral" }
-        else if gameState.workerMorale < 0.9 { return "Satisfied" }
-        else { return "Highly Motivated" }
-    }
-    
-    private var moraleRatingText: String {
-        if gameState.workerMorale < 0.3 { return "Very Low" }
-        else if gameState.workerMorale < 0.5 { return "Low" }
-        else if gameState.workerMorale < 0.7 { return "Moderate" }
-        else if gameState.workerMorale < 0.9 { return "High" }
-        else { return "Excellent" }
-    }
-    
-    private var moraleColor: Color {
-        if gameState.workerMorale < 0.3 { return .red }
-        else if gameState.workerMorale < 0.5 { return .orange }
-        else if gameState.workerMorale < 0.7 { return .yellow }
-        else if gameState.workerMorale < 0.9 { return .green }
-        else { return .mint }
-    }
-    
-    private var customerSatisfactionLabel: String {
-        if gameState.customerSatisfaction < 0.3 { return "Outraged" }
-        else if gameState.customerSatisfaction < 0.5 { return "Dissatisfied" }
-        else if gameState.customerSatisfaction < 0.7 { return "Acceptable" }
-        else if gameState.customerSatisfaction < 0.9 { return "Satisfied" }
-        else { return "Delighted" }
-    }
-    
-    private var customerSatisfactionRatingText: String {
-        if gameState.customerSatisfaction < 0.3 { return "Very Poor" }
-        else if gameState.customerSatisfaction < 0.5 { return "Poor" }
-        else if gameState.customerSatisfaction < 0.7 { return "Adequate" }
-        else if gameState.customerSatisfaction < 0.9 { return "Good" }
-        else { return "Excellent" }
-    }
-    
-    private var customerSatisfactionColor: Color {
-        if gameState.customerSatisfaction < 0.3 { return .red }
-        else if gameState.customerSatisfaction < 0.5 { return .orange }
-        else if gameState.customerSatisfaction < 0.7 { return .yellow }
-        else if gameState.customerSatisfaction < 0.9 { return .green }
-        else { return .mint }
-    }
-    
-    private var corporateEthicsLabel: String {
-        if gameState.corporateEthics < 0.3 { return "Corruption" }
-        else if gameState.corporateEthics < 0.5 { return "Shady Practices" }
-        else if gameState.corporateEthics < 0.7 { return "Standard Business" }
-        else if gameState.corporateEthics < 0.9 { return "Ethical Business" }
-        else { return "Industry Leader" }
-    }
-    
-    private var corporateVirtueRatingText: String {
-        if gameState.corporateEthics < 0.3 { return "Very Low" }
-        else if gameState.corporateEthics < 0.5 { return "Low" }
-        else if gameState.corporateEthics < 0.7 { return "Moderate" }
-        else if gameState.corporateEthics < 0.9 { return "High" }
-        else { return "Exemplary" }
-    }
-    
-    private var corporateEthicsColor: Color {
-        if gameState.corporateEthics < 0.3 { return .red }
-        else if gameState.corporateEthics < 0.5 { return .orange }
-        else if gameState.corporateEthics < 0.7 { return .yellow }
-        else if gameState.corporateEthics < 0.9 { return .green }
-        else { return .mint }
     }
 }
 

@@ -8,6 +8,8 @@ struct StatCard: View {
     var secondaryText: String? = nil
     var iconColor: Color = .blue
     var valueColor: Color? = nil
+    var isHighlightSecondary: Bool = false // Highlight secondary text for emphasis
+    var secondaryTextColor: Color? = nil
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -30,10 +32,18 @@ struct StatCard: View {
             
             if let secondaryText = secondaryText {
                 Text(secondaryText)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(.white.opacity(0.7))
+                    .font(.system(size: 10, weight: isHighlightSecondary ? .bold : .medium))
+                    .foregroundColor(secondaryTextColor ?? (isHighlightSecondary ? .orange : .white.opacity(0.7)))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
+                    .padding(.vertical, isHighlightSecondary ? 2 : 0)
+                    .padding(.horizontal, isHighlightSecondary ? 4 : 0)
+                    .background(
+                        isHighlightSecondary ?
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color.orange.opacity(0.2))
+                            : nil
+                    )
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -80,6 +90,38 @@ struct StatCard: View {
     }
 }
 
+// Extension to create an animated StatCard for changing values
+extension StatCard {
+    func animatedValue(isChanging: Bool) -> some View {
+        self.modifier(AnimatedValueModifier(isChanging: isChanging))
+    }
+}
+
+// Modifier to add animation to values that are changing
+struct AnimatedValueModifier: ViewModifier {
+    let isChanging: Bool
+    @State private var isAnimating = false
+    
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(isAnimating ? 1.05 : 1.0)
+            .onChange(of: isChanging) { _, newValue in
+                if newValue {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        isAnimating = true
+                    }
+                    
+                    // Reset after animation
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        withAnimation {
+                            isAnimating = false
+                        }
+                    }
+                }
+            }
+    }
+}
+
 #Preview {
     ZStack {
         Color.blue.opacity(0.5).ignoresSafeArea()
@@ -105,6 +147,15 @@ struct StatCard: View {
                 value: "1.75×",
                 secondaryText: "High Productivity",
                 iconColor: .indigo
+            )
+            
+            StatCard(
+                icon: "person.fill",
+                title: "Workers",
+                value: "40",
+                secondaryText: "44.56 → 8.91/sec",
+                iconColor: .blue,
+                isHighlightSecondary: true
             )
         }
         .padding()
