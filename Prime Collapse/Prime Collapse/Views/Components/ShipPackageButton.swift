@@ -5,6 +5,7 @@ struct ShipPackageButton: View {
     @Environment(GameState.self) private var gameState
     @State private var isPressed = false
     @State private var animateScale = false
+    @Environment(\.accessDecreaseAnimator) private var decreaseAnimator
     
     var body: some View {
         Button {
@@ -81,6 +82,18 @@ struct ShipPackageButton: View {
     private func playHaptic(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
         let generator = UIImpactFeedbackGenerator(style: style)
         generator.impactOccurred()
+    }
+}
+
+// Environment key for accessing the DecreaseAnimator
+private struct DecreaseAnimatorKey: EnvironmentKey {
+    static let defaultValue: DecreaseAnimator? = nil
+}
+
+extension EnvironmentValues {
+    var accessDecreaseAnimator: DecreaseAnimator? {
+        get { self[DecreaseAnimatorKey.self] }
+        set { self[DecreaseAnimatorKey.self] = newValue }
     }
 }
 

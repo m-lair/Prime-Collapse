@@ -22,6 +22,26 @@ import GameKit
 
 // Notification manager to handle display of game notifications has been moved to Models/Notifications/NotificationManager.swift
 
+// Position tracker for the ship package button
+struct ShipButtonPositionReader: ViewModifier {
+    @Binding var position: CGPoint
+    
+    func body(content: Content) -> some View {
+        content
+            .background(
+                GeometryReader { geo in
+                    Color.clear
+                        .onAppear {
+                            position = CGPoint(
+                                x: geo.frame(in: .global).midX,
+                                y: geo.frame(in: .global).midY
+                            )
+                        }
+                }
+            )
+    }
+}
+
 struct ContentView: View {
     @Environment(GameState.self) private var gameState
     @Environment(GameCenterManager.self) private var gameCenterManager
@@ -54,6 +74,7 @@ struct ContentView: View {
     // Track UI element positions
     @State private var moneyPosition: CGPoint = .zero
     @State private var workersPosition: CGPoint = .zero
+    @State private var shipButtonPosition: CGPoint = .zero // Add tracking for button position
     
     var body: some View {
         ZStack {
@@ -94,6 +115,8 @@ struct ContentView: View {
                 
                 // Main tap button
                 ShipPackageButton()
+                    .modifier(ShipButtonPositionReader(position: $shipButtonPosition)) // Track button position
+                    .environment(\.accessDecreaseAnimator, decreaseAnimator) // Provide decreaseAnimator
                 
                 Spacer()
                 
@@ -103,8 +126,13 @@ struct ContentView: View {
             }
             
             // Value decrease animations layer
-            TimelineView(.animation) { timeline in
+            TimelineView(.animation(minimumInterval: 0.016, paused: false)) { timeline in // Increase frame rate to 60FPS
                 ZStack {
+                    // Package shipping animations
+                    ForEach(decreaseAnimator.packageAnimations) { animation in
+                        PackageAnimationView(animation: animation)
+                    }
+                    
                     ForEach(decreaseAnimator.decreases) { decrease in
                         Text("-\(formatValue(decrease.amount))")
                             .font(.system(size: 16, weight: .bold))
@@ -146,6 +174,25 @@ struct ContentView: View {
             }
             .padding(.horizontal)
             .animation(.spring(response: 0.4, dampingFraction: 0.8), value: notificationManager.notifications.count)
+            
+            // Observe when packages are shipped and trigger animations
+            Color.clear
+                .frame(width: 0, height: 0)
+                .onChange(of: gameState.totalPackagesShipped) { oldValue, newValue in
+                    if newValue > oldValue {
+                        // Add animation for each package shipped (limit to avoid flooding)
+                        let packagesShipped = min(newValue - oldValue, 3) // Reduce max from 5 to 3
+                        
+                        // Space out animations slightly for more natural effect
+                        for i in 0..<packagesShipped {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.1) {
+                                // Just pass the current button position - PackageAnimationView will
+                                // only use the Y component and randomize from there
+                                decreaseAnimator.addPackageAnimation(at: shipButtonPosition)
+                            }
+                        }
+                    }
+                }
             
             // --- Detailed Stats Overlay Layer ---
             // Positioned within the ZStack, appears when showDetailedStatsOverlay is true
