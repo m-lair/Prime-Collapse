@@ -18,7 +18,7 @@ struct PackageAnimation: Identifiable {
         self.emoji = packageEmojis.randomElement() ?? "📦"
         
         // Random speed variation
-        self.speed = Double.random(in: 0.85...1.15)
+        self.speed = Double.random(in: 0.35...0.85)
     }
     
     var isActive: Bool {

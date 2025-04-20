@@ -12,17 +12,6 @@ import Combine
 import UIKit
 import GameKit
 
-// Value decrease animation model has been moved to Models/Animations/ValueDecrease.swift
-
-// Worker quit notification model has been moved to Models/Animations/WorkerQuitNotification.swift
-
-// Observer for value decreases has been moved to Models/Animations/DecreaseAnimator.swift
-
-// Notification system for important game alerts has been moved to Models/Notifications/GameNotification.swift
-
-// Notification manager to handle display of game notifications has been moved to Models/Notifications/NotificationManager.swift
-
-// Position tracker for the ship package button
 struct ShipButtonPositionReader: ViewModifier {
     @Binding var position: CGPoint
     
