@@ -15,10 +15,10 @@ import SwiftUI
     // Scale monetary values and moral impacts based on game progress
     private func scaleLateGameValue(_ baseValue: Double, gameState: GameState) -> Double {
         // Scale based on packages shipped or ethics score
-        let progressFactor = min(gameState.totalPackagesShipped / 1000, 3.0) // Cap at 3x for very late game
+        let progressFactor: Double = min(Double(gameState.totalPackagesShipped / 1000), 3.0) // Cap at 3x for very late game
         
         // Apply stronger scaling for unethical paths
-        let ethicsScaling = gameState.ethicsScore < 50 ? 1.5 : 1.0
+        let ethicsScaling: Double = gameState.ethicsScore < 50 ? 1.5 : 1.0
         
         return baseValue * max(1.0, progressFactor * ethicsScaling)
     }
@@ -26,10 +26,10 @@ import SwiftUI
     // Scale moral impacts based on game progress
     private func scaleEventMoralImpact(_ baseImpact: Double, gameState: GameState) -> Double {
         // Make moral impacts more extreme as the game progresses
-        let progressFactor = min(gameState.totalPackagesShipped / 1500, 1.5) // Cap at 1.5x
+        let progressFactor: Double = min(Double(gameState.totalPackagesShipped / 1500), 1.5) // Cap at 1.5x
         
         // Apply even more scaling if already unethical
-        let ethicsFactor = baseImpact < 0 && gameState.ethicsScore < 40 ? 1.3 : 1.0
+        let ethicsFactor: Double = baseImpact < 0 && gameState.ethicsScore < 40 ? 1.3 : 1.0
         
         return baseImpact * max(1.0, progressFactor * ethicsFactor)
     }
@@ -49,8 +49,8 @@ import SwiftUI
         
         // Increase chance of event based on time since last event (caps at ~10%)
         // Increase event chance further in late game
-        let lateGameFactor = min(gameState.totalPackagesShipped / 1000, 1.5) // Up to 50% more frequent
-        let adjustedChance = min(baseEventChance * (timeSinceLastEvent / minTimeBetweenEvents) * lateGameFactor, 0.15)
+        let lateGameFactor: Double = min(Double(gameState.totalPackagesShipped / 1000), 1.5) // Up to 50% more frequent
+        let adjustedChance: Double = min(baseEventChance * (timeSinceLastEvent / minTimeBetweenEvents) * lateGameFactor, 0.15)
         
         // Random roll to determine if an event triggers
         if Double.random(in: 0...1) < adjustedChance {
@@ -99,10 +99,10 @@ import SwiftUI
         
         // Finally, apply game progression scaling
         // Scale based on packages shipped and ethics level
-        let progressFactor = min(gameState.totalPackagesShipped / 1500, 1.5) // Cap at 1.5x
+        let progressFactor: Double = min(Double(gameState.totalPackagesShipped / 1500), 1.5) // Cap at 1.5x
         
         // Apply even more scaling if already unethical (ethical choices less affected)
-        let ethicsFactor = choice.moralImpact < 0 && gameState.ethicsScore < 40 ? 1.3 : 1.0
+        let ethicsFactor: Double = choice.moralImpact < 0 && gameState.ethicsScore < 40 ? 1.3 : 1.0
         
         moralScalingFactor *= max(1.0, progressFactor * ethicsFactor)
         

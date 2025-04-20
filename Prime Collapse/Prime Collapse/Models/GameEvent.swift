@@ -16,7 +16,7 @@ struct EffectDescription: Identifiable, Hashable {
 
 struct GameEvent: Identifiable, Equatable {
     
-    let id = UUID()
+    var id = UUID()
     let title: String
     let description: String
     let choices: [EventChoice]
