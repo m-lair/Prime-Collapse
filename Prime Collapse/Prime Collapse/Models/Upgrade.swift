@@ -21,6 +21,7 @@ struct Upgrade: Identifiable, Hashable {
     let priceScalingFactor: Double // Factor for price increase on repeatable upgrades
     let moralImpact: Double // Negative for unethical, positive for ethical
     let requirement: ((GameState) -> Bool)? // Condition to unlock the upgrade
+    let requirementDescription: String? // Human-readable description of the requirement
     
     // New Step 13 Impacts
     let publicPerceptionImpact: Double
@@ -38,7 +39,8 @@ struct Upgrade: Identifiable, Hashable {
         moralImpact: Double = 0.0,
         publicPerceptionImpact: Double = 0.0, // Default impact
         environmentalImpactImpact: Double = 0.0, // Default impact
-        requirement: ((GameState) -> Bool)? = nil // Default: no requirement
+        requirement: ((GameState) -> Bool)? = nil, // Default: no requirement
+        requirementDescription: String? = nil // Default: no description
     ) {
         self.id = id
         self.name = name
@@ -51,6 +53,7 @@ struct Upgrade: Identifiable, Hashable {
         self.publicPerceptionImpact = publicPerceptionImpact
         self.environmentalImpactImpact = environmentalImpactImpact
         self.requirement = requirement
+        self.requirementDescription = requirementDescription
     }
     
     // Hashable conformance

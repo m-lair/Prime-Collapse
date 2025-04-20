@@ -330,6 +330,57 @@ struct DelayedEffect: Identifiable, Equatable {
         return requirement(self)
     }
     
+    // Get a human-readable description of what's needed to unlock an upgrade
+    func getUpgradeRequirementDescription(_ upgrade: Upgrade) -> String? {
+        // If the upgrade has an explicit requirement description, use that
+        if let explicitDescription = upgrade.requirementDescription {
+            return explicitDescription
+        }
+        
+        // If upgrade is already unlocked, no need for a description
+        if isUpgradeUnlocked(upgrade) {
+            return nil
+        }
+        
+        // No explicit description and upgrade is locked, try to generate one
+        // Use upgrade requirements to provide a helpful message
+        // These are common patterns in the UpgradeManager requirements
+        
+        // Check for automation level requirements
+        if let req = upgrade.requirement, !req(self) {
+            if automationLevel < 1 && upgrade.name.contains("AI") {
+                return "Requires Automation Level 1"
+            }
+            
+            if workers < 5 && upgrade.name.contains("Worker") {
+                return "Requires 5 Workers"
+            }
+            
+            if ethicsScore < 50 && upgrade.name.contains("Break") {
+                return "Requires Ethics Score < 50"
+            }
+            
+            if ethicsScore >= 50 && (upgrade.name.contains("Sustainable") || upgrade.name.contains("Community")) {
+                return "Requires Ethics Score ≥ 50"
+            }
+            
+            if totalPackagesShipped < 500 && upgrade.name.contains("Sustainable") {
+                return "Requires 500+ Packages Shipped"
+            }
+            
+            if money < 500 && upgrade.cost > 500 {
+                return "Requires $500+"
+            }
+            
+            if money < 1500 && upgrade.name.contains("Community") {
+                return "Requires $1500+"
+            }
+        }
+        
+        // Default generic message
+        return "Requirements not met"
+    }
+    
     // Check if an upgrade has been purchased
     func hasBeenPurchased(_ upgrade: Upgrade) -> Bool {
         return purchasedUpgradeIDs.contains(upgrade.id)

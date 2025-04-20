@@ -16,6 +16,11 @@ struct UpgradeCardView: View {
         return gameState.getCurrentUpgradeCost(upgrade)
     }
     
+    // Get the requirement description
+    private var requirementDescription: String? {
+        return gameState.getUpgradeRequirementDescription(upgrade)
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Title area with ethics indicator
@@ -129,15 +134,30 @@ struct UpgradeCardView: View {
         .overlay(
             !isUnlocked ? 
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.black.opacity(0.6))
+                .fill(Color.black.opacity(0.7))
                 .overlay(
-                    Image(systemName: "lock.fill")
-                        .font(.system(size: 30))
-                        .foregroundColor(.white.opacity(0.7))
+                    VStack(spacing: 10) {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 30))
+                            .foregroundColor(.white.opacity(0.8))
+                        
+                        if let requirementText = requirementDescription {
+                            Text(requirementText)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.white.opacity(0.9))
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 16)
+                                .lineLimit(3)
+                        } else {
+                            Text("Locked")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                    }
                 )
             : nil
         )
-        .opacity(isUnlocked ? 1.0 : 0.6) // Reduce opacity if locked
+        .opacity(isUnlocked ? 1.0 : 0.8) // Slightly increased opacity when locked for better readability
         .animation(.easeInOut(duration: 0.1), value: isPressed)
     }
     

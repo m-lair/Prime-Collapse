@@ -208,7 +208,8 @@ struct UpgradeManager {
             moralImpact: Constants.moralNegativeSmall, // -3.0
             publicPerceptionImpact: Constants.perceptionBoostMedium, // 10.0
             environmentalImpactImpact: Constants.envImpactNegativeMedium, // 5.0
-            requirement: { $0.totalPackagesShipped >= 100 } // Requires 100 packages shipped
+            requirement: { $0.totalPackagesShipped >= 100 },
+            requirementDescription: "Requires 100+ Packages Shipped"
         )
         
         // Extended shifts for workers
@@ -225,23 +226,26 @@ struct UpgradeManager {
             moralImpact: Constants.moralNegativeLarge, // -8.0
             publicPerceptionImpact: Constants.perceptionDecreaseLarge, // -10.0
             environmentalImpactImpact: 0.0,
-            requirement: { $0.workers >= 3 } // Requires at least 3 workers
+            requirement: { $0.workers >= 3 },
+            requirementDescription: "Requires 3+ Workers"
         )
         
         // Automate sorting process
         static let automateSorting = Upgrade(
             name: "Automate Sorting",
-            description: "Install conveyor systems for package sorting.",
-            cost: 350.0,
+            description: "Install automated sorting system to reduce the need for manual sorting.",
+            cost: 200.0,
             effect: { gameState in
-                gameState.baseSystemRate += Constants.baseSystemRateIncreaseSmall // 0.5
+                gameState.automationEfficiency *= Constants.automationEfficiencyBoostSmall // 1.3
                 gameState.automationLevel += Constants.automationLevelIncreaseSmall // 1
+                gameState.corporateEthics -= Constants.ethicsDecreaseSmall // 0.1
             },
             isRepeatable: false,
-            moralImpact: Constants.moralNegativeTiny, // -1.0
+            moralImpact: Constants.moralNegativeSmall, // -3.0
             publicPerceptionImpact: Constants.perceptionDecreaseSmall, // -2.0
             environmentalImpactImpact: Constants.envImpactNegativeSmall, // 3.0
-            requirement: { $0.money >= 200 } // Requires $200
+            requirement: { $0.totalPackagesShipped >= 100 },
+            requirementDescription: "Requires 100+ Packages Shipped"
         )
         
         // Child labor loopholes (new unethical upgrade)
@@ -259,7 +263,8 @@ struct UpgradeManager {
             moralImpact: Constants.moralNegativeApocalyptic, // -20.0
             publicPerceptionImpact: Constants.perceptionDecreaseApocalyptic, // -25.0
             environmentalImpactImpact: 0.0,
-            requirement: { $0.ethicsScore < 60 && $0.workers >= 2 } // Low ethics + workers
+            requirement: { $0.ethicsScore < 60 && $0.workers >= 2 },
+            requirementDescription: "Ethics Score < 60 and 2+ Workers"
         )
         
         // Employee surveillance (new unethical upgrade)
@@ -276,7 +281,8 @@ struct UpgradeManager {
             moralImpact: Constants.moralNegativeHuge, // -10.0
             publicPerceptionImpact: Constants.perceptionDecreaseHuge, // -12.0
             environmentalImpactImpact: 0.0,
-            requirement: { $0.totalPackagesShipped >= 150 } // Requires 150 packages
+            requirement: { $0.totalPackagesShipped >= 150 },
+            requirementDescription: "Requires 150+ Packages Shipped"
         )
         
         // --- New Mid Game Upgrades ---
@@ -294,7 +300,8 @@ struct UpgradeManager {
             moralImpact: Constants.moralPositiveMedium / 2.0, // Reuse/derive Medium (4.0)
             publicPerceptionImpact: Constants.perceptionBoostSmall * 1.5, // Reuse/derive Small (3.0)
             environmentalImpactImpact: 0.0,
-            requirement: { $0.workers >= 2 && $0.money >= 150 }
+            requirement: { $0.workers >= 2 && $0.money >= 150 },
+            requirementDescription: "Requires 2+ Workers and $150+"
         )
 
         static let aggressiveMarketing = Upgrade(
@@ -309,7 +316,8 @@ struct UpgradeManager {
             moralImpact: Constants.moralNegativeMedium / 1.25, // Reuse/derive Medium (-4.0)
             publicPerceptionImpact: Constants.perceptionBoostMedium * 0.8, // Reuse/derive Medium (8.0)
             environmentalImpactImpact: 0.0,
-            requirement: { $0.totalPackagesShipped >= 80 }
+            requirement: { $0.totalPackagesShipped >= 80 },
+            requirementDescription: "Requires 80+ Packages Shipped"
         )
 
         static let predictiveMaintenance = Upgrade(
@@ -323,7 +331,8 @@ struct UpgradeManager {
             moralImpact: 0.0,
             publicPerceptionImpact: 0.0,
             environmentalImpactImpact: Constants.envImpactPositiveTiny, // Reuse/add tiny positive (-1.0)
-            requirement: { $0.automationLevel >= 1 }
+            requirement: { $0.automationLevel >= 1 },
+            requirementDescription: "Requires Automation Level 1"
         )
     }
     
@@ -332,40 +341,42 @@ struct UpgradeManager {
         static let aiOptimization = Upgrade(
             name: "AI Optimization",
             description: "Use machine learning to optimize worker routes.",
-            cost: 750.0,
+            cost: 1200.0, // Increased from 750
             effect: { gameState in
                 gameState.automationEfficiency *= Constants.automationEfficiencyBoostLarge // 2.0
                 gameState.automationLevel += Constants.automationLevelIncreaseSmall // 1
             },
             isRepeatable: false,
-            moralImpact: Constants.moralNegativeMedium, // -5.0
+            moralImpact: Constants.moralNegativeMedium * 1.4, // Increased from -5.0 to -7.0
             publicPerceptionImpact: Constants.perceptionDecreaseMedium, // -7.0
             environmentalImpactImpact: Constants.envImpactNegativeMedium, // 5.0
-            requirement: { $0.automationLevel >= 1 && $0.money >= 500 } // Requires automation level 1 and $500
+            requirement: { $0.automationLevel >= 1 && $0.money >= 500 },
+            requirementDescription: "Requires Automation Level 1 and $500+"
         )
         
         // Remove worker breaks
         static let removeWorkerBreaks = Upgrade(
             name: "Remove Worker Breaks",
             description: "Increase efficiency by 80% but at what cost?",
-            cost: 800.0,
+            cost: 1500.0, // Increased from 800
             effect: { gameState in
                 gameState.workerEfficiency *= Constants.workerEfficiencyBoostMassive // 1.8
                 gameState.workerMorale -= Constants.moraleDecreaseHuge // 0.25
                 gameState.corporateEthics -= Constants.ethicsDecreaseMedium // 0.15
             },
             isRepeatable: false,
-            moralImpact: Constants.moralNegativeMassive, // -15.0
+            moralImpact: Constants.moralNegativeMassive * 1.3, // Increased from -15.0 to -19.5
             publicPerceptionImpact: Constants.perceptionDecreaseMassive, // -18.0
             environmentalImpactImpact: 0.0,
-            requirement: { $0.workers >= 5 && $0.ethicsScore < 50 } // Requires 5 workers and low ethics
+            requirement: { $0.workers >= 5 && $0.ethicsScore < 50 },
+            requirementDescription: "Requires 5+ Workers and Ethics Score < 50"
         )
         
         // Sustainable practices (ethical option)
         static let sustainablePractices = Upgrade(
             name: "Sustainable Practices",
             description: "Implement eco-friendly packaging and worker wellness programs.",
-            cost: 900.0,
+            cost: 1800.0, // Increased from 900
             effect: { gameState in
                 gameState.automationEfficiency *= Constants.automationEfficiencyBoostSmall // 1.3
                 gameState.workerMorale += Constants.moraleBoostSmall // 0.1
@@ -373,17 +384,18 @@ struct UpgradeManager {
                 gameState.corporateEthics += Constants.ethicsBoostMedium // 0.15
             },
             isRepeatable: false,
-            moralImpact: Constants.moralPositiveMedium, // 8.0
+            moralImpact: Constants.moralPositiveMedium, // 8.0 (kept the same for ethical upgrade)
             publicPerceptionImpact: Constants.perceptionBoostLarge, // 12.0
             environmentalImpactImpact: Constants.envImpactPositiveSmall, // -15.0
-            requirement: { $0.totalPackagesShipped >= 500 && $0.ethicsScore >= 50 } // High packages and ethics
+            requirement: { $0.totalPackagesShipped >= 500 && $0.ethicsScore >= 50 },
+            requirementDescription: "Requires 500+ Packages Shipped and Ethics Score ≥ 50"
         )
         
         // Community investment program (new ethical upgrade)
         static let communityInvestment = Upgrade(
             name: "Community Investment Program",
             description: "Invest in local communities and worker development programs.",
-            cost: 1000.0,
+            cost: 2200.0, // Increased from 1000
             effect: { gameState in
                 gameState.automationEfficiency *= Constants.automationEfficiencyBoostMedium // 1.4
                 gameState.workerMorale += Constants.moraleBoostMedium // 0.2
@@ -391,17 +403,18 @@ struct UpgradeManager {
                 gameState.corporateEthics += Constants.ethicsBoostLarge // 0.2
             },
             isRepeatable: false,
-            moralImpact: Constants.moralPositiveLarge, // 12.0
+            moralImpact: Constants.moralPositiveLarge, // 12.0 (kept the same for ethical upgrade)
             publicPerceptionImpact: Constants.perceptionBoostHuge, // 15.0
             environmentalImpactImpact: 0.0,
-            requirement: { $0.money >= 1500 && $0.ethicsScore >= 60 } // High money and ethics
+            requirement: { $0.money >= 1500 && $0.ethicsScore >= 60 },
+            requirementDescription: "Requires $1500+ and Ethics Score ≥ 60"
         )
         
         // Worker replacement system (new unethical upgrade)
         static let workerReplacementSystem = Upgrade(
             name: "Worker Replacement System",
             description: "Completely automate warehousing and eliminate human roles.",
-            cost: 1200.0,
+            cost: 2500.0, // Increased from 1200
             effect: { gameState in
                 gameState.automationEfficiency *= Constants.automationEfficiencyBoostHuge // 3.0
                 gameState.automationLevel += Constants.automationLevelIncreaseMedium // 2
@@ -411,17 +424,18 @@ struct UpgradeManager {
                 gameState.corporateEthics -= Constants.ethicsDecreaseHuge // 0.25
             },
             isRepeatable: false,
-            moralImpact: Constants.moralNegativeExtinction, // -25.0
+            moralImpact: Constants.moralNegativeExtinction * 1.2, // Increased from -25.0 to -30.0
             publicPerceptionImpact: Constants.perceptionDecreaseExtinction, // -30.0
             environmentalImpactImpact: 0.0,
-            requirement: { $0.automationLevel >= 2 && $0.ethicsScore < 30 } // High automation and very low ethics
+            requirement: { $0.automationLevel >= 2 && $0.ethicsScore < 30 },
+            requirementDescription: "Requires Automation Level 2 and Ethics Score < 30"
         )
         
         // Algorithmic wage suppression (new unethical upgrade)
         static let algorithmicWageSuppression = Upgrade(
             name: "Algorithmic Wage Suppression",
             description: "Use data analytics to minimize worker compensation.",
-            cost: 1500.0,
+            cost: 3000.0, // Increased from 1500
             effect: { gameState in
                 gameState.baseSystemRate *= Constants.baseSystemRateIncreaseMedium // 1.2
                 gameState.workerEfficiency *= Constants.workerEfficiencyBoostLarge // 1.5
@@ -430,10 +444,11 @@ struct UpgradeManager {
                 gameState.corporateEthics -= Constants.ethicsDecreaseLarge // 0.2
             },
             isRepeatable: false,
-            moralImpact: Constants.moralNegativeCatastrophic, // -18.0
+            moralImpact: Constants.moralNegativeCatastrophic * 1.4, // Increased from -18.0 to -25.2
             publicPerceptionImpact: Constants.perceptionDecreaseCatastrophic, // -20.0
             environmentalImpactImpact: 0.0,
-            requirement: { $0.money >= 2000 && $0.ethicsScore < 40 } // High money and low ethics
+            requirement: { $0.money >= 2000 && $0.ethicsScore < 40 },
+            requirementDescription: "Requires $2000+ and Ethics Score < 40"
         )
         
         // --- New Late Game Upgrades ---
@@ -441,7 +456,7 @@ struct UpgradeManager {
         static let carbonOffsetProgram = Upgrade(
             name: "Carbon Offset Program",
             description: "Invest heavily in projects to offset the company's environmental footprint.",
-            cost: 1100.0,
+            cost: 2000.0, // Increased from 1100
             effect: { gameState in
                 // Apply as direct reduction, ensuring it doesn't go below 0 implicitly via setter
                 gameState.environmentalImpact -= 30.0 
@@ -449,40 +464,43 @@ struct UpgradeManager {
             },
             isRepeatable: true,
             priceScalingFactor: 1.8,
-            moralImpact: Constants.moralPositiveMedium * 0.75, // Reuse/derive Medium (6.0)
-            publicPerceptionImpact: Constants.perceptionBoostMedium, // Reuse Medium (10.0)
+            moralImpact: Constants.moralPositiveMedium * 0.75, // 6.0 (kept the same for ethical upgrade)
+            publicPerceptionImpact: Constants.perceptionBoostMedium, // 10.0
             environmentalImpactImpact: -30.0, // Direct large reduction
-            requirement: { $0.ethicsScore >= 55 && $0.money >= 800 }
+            requirement: { $0.ethicsScore >= 55 && $0.money >= 800 },
+            requirementDescription: "Requires Ethics Score ≥ 55 and $800+"
         )
 
         static let offshoreTaxHavens = Upgrade(
             name: "Offshore Tax Havens",
             description: "Utilize complex legal structures to avoid taxes, boosting cash flow but damaging reputation.",
-            cost: 950.0,
+            cost: 1800.0, // Increased from 950
             effect: { gameState in
                 gameState.earnMoney(gameState.money * 0.15) // 15% of current money
                 gameState.baseSystemRate *= 1.1 // Direct value
             },
             isRepeatable: false,
-            moralImpact: Constants.moralNegativeLarge * 1.5, // Reuse/derive Large (-12.0)
-            publicPerceptionImpact: Constants.perceptionDecreaseMassive * 0.83, // Reuse/derive Massive (-15.0)
+            moralImpact: Constants.moralNegativeLarge * 1.8, // Increased from -12.0 to -14.4
+            publicPerceptionImpact: Constants.perceptionDecreaseMassive * 0.83, // -15.0
             environmentalImpactImpact: 0.0,
-            requirement: { $0.money >= 1200 && $0.ethicsScore < 45 }
+            requirement: { $0.money >= 1200 && $0.ethicsScore < 45 },
+            requirementDescription: "Requires $1200+ and Ethics Score < 45"
         )
 
         static let roboticWorkforceEnhancement = Upgrade(
             name: "Robotic Workforce Enhancement",
             description: "Upgrade existing automated systems with more advanced, faster robotics.",
-            cost: 1400.0,
+            cost: 2800.0, // Increased from 1400
             effect: { gameState in
                 gameState.automationEfficiency *= 1.8 // Direct value
                 gameState.baseSystemRate += 0.3 // Direct value
             },
             isRepeatable: false,
-            moralImpact: Constants.moralNegativeSmall / 1.5, // Reuse/derive Small (-2.0)
-            publicPerceptionImpact: Constants.perceptionDecreaseSmall * 1.5, // Reuse/derive Small (-3.0)
-            environmentalImpactImpact: Constants.envImpactNegativeSmall * 1.33, // Reuse/derive Small (4.0)
-            requirement: { $0.automationLevel >= 2 && $0.money >= 1000 }
+            moralImpact: Constants.moralNegativeSmall / 1.0, // Increased from -2.0 to -3.0
+            publicPerceptionImpact: Constants.perceptionDecreaseSmall * 1.5, // -3.0
+            environmentalImpactImpact: Constants.envImpactNegativeSmall * 1.33, // 4.0
+            requirement: { $0.automationLevel >= 2 && $0.money >= 1000 },
+            requirementDescription: "Requires Automation Level 2 and $1000+"
         )
     }
     

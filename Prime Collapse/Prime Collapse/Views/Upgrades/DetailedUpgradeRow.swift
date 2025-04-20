@@ -16,6 +16,11 @@ struct DetailedUpgradeRow: View {
         return gameState.getCurrentUpgradeCost(upgrade)
     }
     
+    // Get the requirement description
+    private var requirementDescription: String? {
+        return gameState.getUpgradeRequirementDescription(upgrade)
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header with title and cost
@@ -158,16 +163,30 @@ struct DetailedUpgradeRow: View {
                 .overlay(
                     !isUnlocked ? 
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.black.opacity(0.6)) // Dark overlay
+                        .fill(Color.black.opacity(0.7)) // Slightly increased opacity
                         .overlay(
-                            Image(systemName: "lock.fill")
-                                .font(.system(size: 40))
-                                .foregroundColor(.white.opacity(0.7))
+                            VStack(spacing: 12) {
+                                Image(systemName: "lock.fill")
+                                    .font(.system(size: 36))
+                                    .foregroundColor(.white.opacity(0.8))
+                                
+                                if let requirementText = requirementDescription {
+                                    Text(requirementText)
+                                        .font(.system(size: 16, weight: .medium))
+                                        .foregroundColor(.white.opacity(0.9))
+                                        .multilineTextAlignment(.center)
+                                        .padding(.horizontal, 24)
+                                } else {
+                                    Text("Locked")
+                                        .font(.system(size: 18, weight: .medium))
+                                        .foregroundColor(.white.opacity(0.8))
+                                }
+                            }
                         )
                     : nil
                 )
         )
-        .opacity(isUnlocked ? 1.0 : 0.6) // Reduce opacity if locked
+        .opacity(isUnlocked ? 1.0 : 0.8) // Slightly increased opacity for better readability
         .animation(.easeInOut(duration: 0.1), value: isPressed)
     }
     

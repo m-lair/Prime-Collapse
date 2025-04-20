@@ -12,6 +12,359 @@ import SwiftUI
     // Event chance parameters
     private let baseEventChance = 0.02 // 2% chance per check when eligible
     
+    // Scale monetary values and moral impacts based on game progress
+    private func scaleLateGameValue(_ baseValue: Double, gameState: GameState) -> Double {
+        // Scale based on packages shipped or ethics score
+        let progressFactor = min(gameState.totalPackagesShipped / 1000, 3.0) // Cap at 3x for very late game
+        
+        // Apply stronger scaling for unethical paths
+        let ethicsScaling = gameState.ethicsScore < 50 ? 1.5 : 1.0
+        
+        return baseValue * max(1.0, progressFactor * ethicsScaling)
+    }
+    
+    // Scale moral impacts based on game progress
+    private func scaleEventMoralImpact(_ baseImpact: Double, gameState: GameState) -> Double {
+        // Make moral impacts more extreme as the game progresses
+        let progressFactor = min(gameState.totalPackagesShipped / 1500, 1.5) // Cap at 1.5x
+        
+        // Apply even more scaling if already unethical
+        let ethicsFactor = baseImpact < 0 && gameState.ethicsScore < 40 ? 1.3 : 1.0
+        
+        return baseImpact * max(1.0, progressFactor * ethicsFactor)
+    }
+
+    // Called regularly from game loop to determine if an event should trigger
+    func checkForEvents(gameState: GameState, currentTime: Date) {
+        // Don't trigger events if one is already active or if we're in collapse mode
+        guard currentEvent == nil && !gameState.isCollapsing else {
+            return
+        }
+        
+        // Don't trigger events too frequently
+        let timeSinceLastEvent = currentTime.timeIntervalSince(lastEventTime)
+        guard timeSinceLastEvent >= minTimeBetweenEvents else {
+            return
+        }
+        
+        // Increase chance of event based on time since last event (caps at ~10%)
+        // Increase event chance further in late game
+        let lateGameFactor = min(gameState.totalPackagesShipped / 1000, 1.5) // Up to 50% more frequent
+        let adjustedChance = min(baseEventChance * (timeSinceLastEvent / minTimeBetweenEvents) * lateGameFactor, 0.15)
+        
+        // Random roll to determine if an event triggers
+        if Double.random(in: 0...1) < adjustedChance {
+            triggerRandomEvent(gameState: gameState)
+        }
+    }
+    
+    // Select an eligible random event
+    private func triggerRandomEvent(gameState: GameState) {
+        // Filter for eligible events based on trigger conditions
+        let eligibleEvents = allEvents.filter { $0.triggerCondition(gameState) }
+        
+        // Only proceed if there are eligible events
+        guard !eligibleEvents.isEmpty else {
+            return
+        }
+        
+        // Select a random event from eligible ones
+        if let selectedEvent = eligibleEvents.randomElement() {
+            currentEvent = selectedEvent
+        }
+    }
+    
+    // Handle player's choice for the current event
+    func processChoice(choice: EventChoice, gameState: GameState) {
+        // Get the current event - we need its importance
+        guard let event = currentEvent else {
+            // Fallback to base choice effect if no event is present (shouldn't happen)
+            choice.effect(gameState)
+            return
+        }
+        
+        // Apply the choice effect - this stays the same
+        choice.effect(gameState)
+        
+        // Determine how much to scale the moral impact based on game progress and choice/event properties
+        var moralScalingFactor = 1.0
+        
+        // First incorporate event importance
+        moralScalingFactor *= event.importance.baseScalingFactor
+        
+        // Next, add any choice-specific scaling factors
+        if let scalingFactors = choice.scalingFactors {
+            moralScalingFactor *= scalingFactors.moralImpactScaling
+        }
+        
+        // Finally, apply game progression scaling
+        // Scale based on packages shipped and ethics level
+        let progressFactor = min(gameState.totalPackagesShipped / 1500, 1.5) // Cap at 1.5x
+        
+        // Apply even more scaling if already unethical (ethical choices less affected)
+        let ethicsFactor = choice.moralImpact < 0 && gameState.ethicsScore < 40 ? 1.3 : 1.0
+        
+        moralScalingFactor *= max(1.0, progressFactor * ethicsFactor)
+        
+        // Calculate the final moral impact with scaling
+        let scaledMoralImpact = choice.moralImpact * moralScalingFactor
+        
+        // Update ethics score based on the scaled moral impact
+        gameState.ethicsScore += scaledMoralImpact
+        
+        // Update corporate ethics as well (scaled down, logic inverted)
+        let ethicsChange = scaledMoralImpact / 20.0 // Scale impact to roughly -0.6 to +0.6 range
+        gameState.corporateEthics += ethicsChange
+        
+        // Track ethical choices for ending conditions (positive impact is now ethical)
+        if scaledMoralImpact > 0 {
+            gameState.ethicalChoicesMade += 1
+            // Check for potential reform ending (uses ethicsScore)
+            if gameState.ethicsScore >= 50 && gameState.money >= 1000 && gameState.ethicalChoicesMade >= 5 {
+                gameState.endingType = .reform
+            }
+        }
+        
+        // Check if we've entered collapse phase (uses ethicsScore)
+        if gameState.ethicsScore <= 0 {
+            gameState.isCollapsing = true
+            gameState.endingType = .collapse
+        }
+        
+        // Clear the current event
+        currentEvent = nil
+        
+        // Start the cooldown timer now that the event is resolved
+        lastEventTime = Date()
+    }
+    
+    // Add a new late-game crisis event
+    private let lateGameEvent = GameEvent(
+        title: "Corporate Espionage Opportunity",
+        description: "You've been approached by someone offering competitor secrets for a price.",
+        choices: [
+            EventChoice(
+                text: "Pay for the information ($20,000)",
+                moralImpact: -15.0, // Very unethical
+                effect: { state in
+                    state.money -= 20000
+                    state.automationEfficiency *= 1.4
+                    state.packageValue *= 1.3
+                    state.publicPerception -= 25 // Major hit if discovered
+                    
+                    // Risk of future scandal
+                    if Double.random(in: 0...1) < 0.5 {
+                        let triggerTime = Date().addingTimeInterval(90)
+                        let delayedEffect = DelayedEffect(triggerTime: triggerTime) { gs in
+                            gs.money -= 50000
+                            gs.corporateEthics -= 0.3
+                            gs.publicPerception -= 30
+                        }
+                        state.pendingEffects.append(delayedEffect)
+                    }
+                },
+                canChoose: { $0.money >= 20000 },
+                disabledReason: { state in
+                    "Requires $20,000"
+                },
+                effectDescriptions: [
+                    EffectDescription(metricName: "Money", changeDescription: "-$20,000", impactType: .negative),
+                    EffectDescription(metricName: "Automation", changeDescription: "+40%", impactType: .positive),
+                    EffectDescription(metricName: "Package Value", changeDescription: "+30%", impactType: .positive),
+                    EffectDescription(metricName: "Perception", changeDescription: "-25", impactType: .negative),
+                    EffectDescription(metricName: "Ethics Score", changeDescription: "-15", impactType: .negative),
+                    EffectDescription(metricName: "Future Risk", changeDescription: "Very High", impactType: .negative)
+                ]
+            ),
+            EventChoice(
+                text: "Inform authorities",
+                moralImpact: 10.0, // Very ethical
+                effect: { state in
+                    state.publicPerception += 15
+                    state.corporateEthics += 0.15
+                    // Small efficiency penalty as competitors might retaliate
+                    state.automationEfficiency *= 0.95
+                },
+                effectDescriptions: [
+                    EffectDescription(metricName: "Perception", changeDescription: "+15", impactType: .positive),
+                    EffectDescription(metricName: "Corporate Ethics", changeDescription: "+15%", impactType: .positive),
+                    EffectDescription(metricName: "Automation", changeDescription: "-5%", impactType: .negative),
+                    EffectDescription(metricName: "Ethics Score", changeDescription: "+10", impactType: .positive)
+                ]
+            ),
+            EventChoice(
+                text: "Decline the offer",
+                moralImpact: 3.0, // Ethical
+                effect: { state in
+                    state.publicPerception += 2
+                },
+                effectDescriptions: [
+                    EffectDescription(metricName: "Perception", changeDescription: "+2", impactType: .positive),
+                    EffectDescription(metricName: "Ethics Score", changeDescription: "+3", impactType: .positive)
+                ]
+            )
+        ],
+        triggerCondition: { state in
+            state.money >= 15000 && state.totalPackagesShipped >= 800
+        },
+        category: .crisis
+    )
+    
+    // Add another extreme late-game event
+    private let systemicCollapseEvent = GameEvent(
+        title: "Systemic Industry Crisis",
+        description: "The entire shipping industry is facing a major downturn that threatens all companies.",
+        choices: [
+            EventChoice(
+                text: "Collaborate with competitors on solutions",
+                moralImpact: 12.0, // Very ethical
+                effect: { state in
+                    state.money -= 15000
+                    state.packageValue *= 0.8 // Industry-wide price drop
+                    state.publicPerception += 20
+                    state.workerMorale += 0.2
+                },
+                canChoose: { $0.money >= 15000 },
+                disabledReason: { state in
+                    "Requires $15,000"
+                },
+                effectDescriptions: [
+                    EffectDescription(metricName: "Money", changeDescription: "-$15,000", impactType: .negative),
+                    EffectDescription(metricName: "Package Value", changeDescription: "-20%", impactType: .negative),
+                    EffectDescription(metricName: "Perception", changeDescription: "+20", impactType: .positive),
+                    EffectDescription(metricName: "Morale", changeDescription: "+20%", impactType: .positive),
+                    EffectDescription(metricName: "Ethics Score", changeDescription: "+12", impactType: .positive)
+                ]
+            ),
+            EventChoice(
+                text: "Exploit crisis to eliminate competition",
+                moralImpact: -18.0, // Extremely unethical
+                effect: { state in
+                    state.money -= 30000
+                    state.packageValue *= 1.6 // Major price increase
+                    state.publicPerception -= 35
+                    state.environmentalImpact += 20
+                    state.workerMorale -= 0.3
+                },
+                canChoose: { $0.money >= 30000 },
+                disabledReason: { state in
+                    "Requires $30,000"
+                },
+                effectDescriptions: [
+                    EffectDescription(metricName: "Money", changeDescription: "-$30,000", impactType: .negative),
+                    EffectDescription(metricName: "Package Value", changeDescription: "+60%", impactType: .positive),
+                    EffectDescription(metricName: "Perception", changeDescription: "-35", impactType: .negative),
+                    EffectDescription(metricName: "Environment", changeDescription: "+20", impactType: .negative),
+                    EffectDescription(metricName: "Morale", changeDescription: "-30%", impactType: .negative),
+                    EffectDescription(metricName: "Ethics Score", changeDescription: "-18", impactType: .negative)
+                ]
+            ),
+            EventChoice(
+                text: "Weather the storm independently",
+                moralImpact: 0.0, // Neutral
+                effect: { state in
+                    state.packageValue *= 0.9
+                    state.workerEfficiency *= 0.9
+                    state.customerSatisfaction -= 0.1
+                },
+                effectDescriptions: [
+                    EffectDescription(metricName: "Package Value", changeDescription: "-10%", impactType: .negative),
+                    EffectDescription(metricName: "Efficiency", changeDescription: "-10%", impactType: .negative),
+                    EffectDescription(metricName: "Satisfaction", changeDescription: "-10%", impactType: .negative)
+                ]
+            )
+        ],
+        triggerCondition: { state in
+            state.totalPackagesShipped >= 1200 && state.money >= 15000
+        },
+        category: .crisis
+    )
+    
+    // Add a new critical late-game event with the highest importance level
+    private let corporateTakeoverEvent = GameEvent(
+        title: "Hostile Takeover Attempt",
+        description: "A large corporate conglomerate is attempting to acquire your company.",
+        choices: [
+            EventChoice(
+                text: "Fight the takeover with all resources ($50,000)",
+                moralImpact: 5.0, // Somewhat ethical
+                effect: { state in
+                    state.money -= 50000
+                    state.workerMorale += 0.15
+                    state.publicPerception += 10
+                    
+                    // Small chance of still losing control
+                    if Double.random(in: 0...1) < 0.3 {
+                        let triggerTime = Date().addingTimeInterval(120)
+                        let delayedEffect = DelayedEffect(triggerTime: triggerTime) { gs in
+                            gs.money -= 20000
+                            gs.publicPerception -= 15
+                            gs.workerMorale -= 0.2
+                        }
+                        state.pendingEffects.append(delayedEffect)
+                    }
+                },
+                canChoose: { $0.money >= 50000 },
+                disabledReason: { state in
+                    "Requires $50,000"
+                },
+                effectDescriptions: [
+                    EffectDescription(metricName: "Money", changeDescription: "-$50,000", impactType: .negative),
+                    EffectDescription(metricName: "Morale", changeDescription: "+15%", impactType: .positive),
+                    EffectDescription(metricName: "Perception", changeDescription: "+10", impactType: .positive),
+                    EffectDescription(metricName: "Ethics Score", changeDescription: "+5", impactType: .positive),
+                    EffectDescription(metricName: "Future Risk", changeDescription: "30% chance of failure", impactType: .negative)
+                ],
+                scalingFactors: EventChoice.EventScalingFactors.extreme
+            ),
+            EventChoice(
+                text: "Merge with terms favorable to workers",
+                moralImpact: 15.0, // Very ethical
+                effect: { state in
+                    state.money += 25000 // Cash infusion from merger
+                    state.workerMorale += 0.25
+                    state.publicPerception += 20
+                    state.packageValue *= 0.9 // Small decrease in value due to corporate oversight
+                    state.automationEfficiency *= 0.9 // Small efficiency hit
+                },
+                effectDescriptions: [
+                    EffectDescription(metricName: "Money", changeDescription: "+$25,000", impactType: .positive),
+                    EffectDescription(metricName: "Morale", changeDescription: "+25%", impactType: .positive),
+                    EffectDescription(metricName: "Perception", changeDescription: "+20", impactType: .positive),
+                    EffectDescription(metricName: "Package Value", changeDescription: "-10%", impactType: .negative),
+                    EffectDescription(metricName: "Efficiency", changeDescription: "-10%", impactType: .negative),
+                    EffectDescription(metricName: "Ethics Score", changeDescription: "+15", impactType: .positive)
+                ],
+                scalingFactors: EventChoice.EventScalingFactors.extreme
+            ),
+            EventChoice(
+                text: "Sabotage company assets before selling",
+                moralImpact: -25.0, // Extremely unethical
+                effect: { state in
+                    state.money += 100000 // Massive personal profit
+                    state.workerMorale -= 0.5 // Devastated morale
+                    state.publicPerception -= 50 // Catastrophic perception hit
+                    state.environmentalImpact += 30 // Environmental damage from sabotage
+                    state.workers = max(1, state.workers / 2) // Major layoffs
+                },
+                effectDescriptions: [
+                    EffectDescription(metricName: "Money", changeDescription: "+$100,000", impactType: .positive),
+                    EffectDescription(metricName: "Morale", changeDescription: "-50%", impactType: .negative),
+                    EffectDescription(metricName: "Perception", changeDescription: "-50", impactType: .negative),
+                    EffectDescription(metricName: "Environment", changeDescription: "+30", impactType: .negative),
+                    EffectDescription(metricName: "Workers", changeDescription: "Cut by 50%", impactType: .negative),
+                    EffectDescription(metricName: "Ethics Score", changeDescription: "-25", impactType: .negative)
+                ],
+                scalingFactors: EventChoice.EventScalingFactors.extreme
+            )
+        ],
+        triggerCondition: { state in
+            state.totalPackagesShipped >= 1500 && state.money >= 40000
+        },
+        category: .crisis,
+        importance: .critical
+    )
+    
     // Predefined catalog of possible events
     private let eventCatalog: [GameEvent] = [
         // Workplace events
@@ -905,75 +1258,8 @@ import SwiftUI
         )
     ]
     
-    // Called regularly from game loop to determine if an event should trigger
-    func checkForEvents(gameState: GameState, currentTime: Date) {
-        // Don't trigger events if one is already active or if we're in collapse mode
-        guard currentEvent == nil && !gameState.isCollapsing else {
-            return
-        }
-        
-        // Don't trigger events too frequently
-        let timeSinceLastEvent = currentTime.timeIntervalSince(lastEventTime)
-        guard timeSinceLastEvent >= minTimeBetweenEvents else {
-            return
-        }
-        
-        // Increase chance of event based on time since last event (caps at ~10%)
-        let adjustedChance = min(baseEventChance * (timeSinceLastEvent / minTimeBetweenEvents), 0.1)
-        
-        // Random roll to determine if an event triggers
-        if Double.random(in: 0...1) < adjustedChance {
-            triggerRandomEvent(gameState: gameState)
-        }
-    }
-    
-    // Select an eligible random event
-    private func triggerRandomEvent(gameState: GameState) {
-        // Filter for eligible events based on trigger conditions
-        let eligibleEvents = eventCatalog.filter { $0.triggerCondition(gameState) }
-        
-        // Only proceed if there are eligible events
-        guard !eligibleEvents.isEmpty else {
-            return
-        }
-        
-        // Select a random event from eligible ones
-        if let selectedEvent = eligibleEvents.randomElement() {
-            currentEvent = selectedEvent
-        }
-    }
-    
-    // Handle player's choice for the current event
-    func processChoice(choice: EventChoice, gameState: GameState) {
-        // Apply the choice effect
-        choice.effect(gameState)
-        
-        // Update ethics score based on choice (uses moralImpact)
-        gameState.ethicsScore += choice.moralImpact
-        
-        // Update corporate ethics as well (scaled down, logic inverted)
-        let ethicsChange = choice.moralImpact / 20.0 // Scale impact to roughly -0.6 to +0.6 range
-        gameState.corporateEthics += ethicsChange
-        
-        // Track ethical choices for ending conditions (positive impact is now ethical)
-        if choice.moralImpact > 0 {
-            gameState.ethicalChoicesMade += 1
-            // Check for potential reform ending (uses ethicsScore)
-            if gameState.ethicsScore >= 50 && gameState.money >= 1000 && gameState.ethicalChoicesMade >= 5 {
-                gameState.endingType = .reform
-            }
-        }
-        
-        // Check if we've entered collapse phase (uses ethicsScore)
-        if gameState.ethicsScore <= 0 {
-            gameState.isCollapsing = true
-            gameState.endingType = .collapse
-        }
-        
-        // Clear the current event
-        currentEvent = nil
-        
-        // Start the cooldown timer now that the event is resolved
-        lastEventTime = Date()
+    // Include the new events in the event catalog
+    private var allEvents: [GameEvent] {
+        return eventCatalog + [lateGameEvent, systemicCollapseEvent, corporateTakeoverEvent]
     }
 } 
