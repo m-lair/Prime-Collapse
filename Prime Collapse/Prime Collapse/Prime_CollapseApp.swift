@@ -19,15 +19,75 @@ struct Prime_CollapseApp: App {
     // Manually create the ModelContainer with the migration plan
     let container: ModelContainer
     
+    // Add SaveManager
+    @State var saveManager: SaveManager?
+    
     init() {
         do {
             // Define the schema using the LATEST version
             let schema = Schema(versionedSchema: SchemaV4.self)
-            // Create the container using the initializer that accepts a migration plan
-            container = try ModelContainer(for: schema, migrationPlan: SavedGameStateMigrationPlan.self)
+            
+            // Diagnose store status before attempting migration
+            print("Diagnosing store status before migration...")
+            Prime_CollapseApp.diagnoseStoreStatus()
+            
+            // First try with a lightweight migration approach
+            do {
+                print("Attempting lightweight migration...")
+                let config = ModelConfiguration()
+                // Try to create the container without specifying a complex migration plan
+                container = try ModelContainer(for: schema, configurations: config)
+                print("Successfully created ModelContainer with lightweight migration")
+            } catch {
+                print("Lightweight migration failed: \(error.localizedDescription)")
+                print("Migration error details: \(error)")
+                
+                // If we detect the specific checksum error, clean up the database
+                if error.localizedDescription.contains("Duplicate version checksums") {
+                    print("Detected checksum issue - attempting recovery by recreating store...")
+                    
+                    // Only in case of this specific error, we delete the store
+                    Prime_CollapseApp.deleteSwiftDataStores()
+                    
+                    // After deletion, try with a clean store
+                    do {
+                        container = try ModelContainer(for: schema)
+                        print("Recovery successful: Created fresh ModelContainer")
+                    } catch {
+                        print("Recovery failed: \(error.localizedDescription)")
+                        print("Error details: \(error)")
+                        
+                        // Last resort - in-memory container
+                        print("Creating in-memory container as last resort")
+                        do {
+                            let memoryConfig = ModelConfiguration(isStoredInMemoryOnly: true)
+                            container = try ModelContainer(for: schema, configurations: memoryConfig)
+                            print("Created in-memory container (progress won't be saved)")
+                        } catch {
+                            fatalError("Failed to create any container: \(error)")
+                        }
+                    }
+                } else {
+                    // For other errors, try one more time with simplified migration
+                    do {
+                        print("Attempting with simplified migration plan...")
+                        container = try ModelContainer(
+                            for: schema,
+                            migrationPlan: SimplifiedMigrationPlan.self
+                        )
+                        print("Simplified migration successful")
+                    } catch {
+                        // If that still fails, use in-memory as last resort
+                        print("Simplified migration also failed: \(error)")
+                        
+                        let memoryConfig = ModelConfiguration(isStoredInMemoryOnly: true)
+                        container = try ModelContainer(for: schema, configurations: memoryConfig)
+                        print("Created in-memory container (progress won't be saved)")
+                    }
+                }
+            }
         } catch {
-            // Handle error appropriately - perhaps fatalError for now, or more robust error handling
-            fatalError("Failed to create ModelContainer: \(error)")
+            fatalError("Fatal error in container setup: \(error)")
         }
     }
 
@@ -37,100 +97,172 @@ struct Prime_CollapseApp: App {
                 .environment(game)
                 .environment(gameCenterManager)
                 .environment(eventManager)
-                .onChange(of: game.totalPackagesShipped) {
-                    // Update Game Center scores and achievements when game state changes
-                    gameCenterManager.updateFromGameState(game)
-                }
+                .environment(saveManager ?? SaveManager(modelContext: container.mainContext, gameState: game, gameCenterManager: gameCenterManager))
                 .onAppear {
                     // Initialize Game Center authentication when app launches
                     gameCenterManager.authenticatePlayer()
+                    
+                    // Initialize save manager if not already done
+                    if saveManager == nil {
+                        let manager = SaveManager(
+                            modelContext: container.mainContext,
+                            gameState: game,
+                            gameCenterManager: gameCenterManager
+                        )
+                        saveManager = manager
+                        
+                        // Load game state when app first appears
+                        manager.loadGameState()
+                    }
+                }
+                .onChange(of: game.totalPackagesShipped) { oldValue, newValue in
+                    // Save on milestone package shipping amounts
+                    saveManager?.saveOnEvent(.milestone(newValue))
                 }
         }
         // Pass the pre-configured container to the view modifier
         .modelContainer(container)
     }
     
-    // Create a model container with error handling
-    // NOTE: This function is no longer directly used when a migration plan is active,
-    // but keep it for potential future use or fallback logic.
-    private func createModelContainer() -> ModelContainer {
+    // MARK: - Static Helper Methods
+    
+    // Attempt to create a container with migration
+    static func createModelContainerWithMigration(schema: Schema) throws -> ModelContainer {
+        // Standard configuration with migration plan
+        let config = ModelConfiguration()
         do {
-            // Try the simplest form first
-            let container = try ModelContainer(for: SavedGameState.self)
-            print("Successfully created model container")
-            return container
+            return try ModelContainer(
+                for: schema,
+                migrationPlan: SavedGameStateMigrationPlan.self,
+                configurations: config
+            )
         } catch {
-            print("❌ Error creating model container: \(error)")
-            
-            // Try with memory-only configuration as an emergency fallback
-            print("⚠️ Attempting with memory-only configuration...")
-            do {
-                let memoryOnlyConfig = ModelConfiguration(isStoredInMemoryOnly: true)
-                let container = try ModelContainer(for: SavedGameState.self, configurations: memoryOnlyConfig)
-                print("✅ Created memory-only container (data won't be saved)")
-                return container
-            } catch {
-                print("❌ Memory-only container also failed: \(error)")
+            // Check specifically for the unknown model version error
+            let errorString = error.localizedDescription
+            if errorString.contains("unknown model version") ||
+               errorString.contains("Cannot use staged migration") {
+                print("Detected unknown model version error, forcing clean recovery")
                 
-                // Last resort: delete the database files and start fresh
-                print("🔥 EMERGENCY RECOVERY: Deleting database files and starting fresh...")
-                if deleteSwiftDataStores() {
-                    do {
-                        // Try again with default configuration after deleting files
-                        let container = try ModelContainer(for: SavedGameState.self)
-                        print("✅ Successfully created container after deleting database")
-                        return container
-                    } catch {
-                        print("❌❌ Complete failure even after deleting database: \(error)")
-                    }
-                }
+                // Force delete the store - this is a specialized case
+                _ = Prime_CollapseApp.deleteSwiftDataStores()
                 
-                // If we reach this point, nothing worked - create an in-memory container
-                print("⚠️ Last resort: Creating minimal in-memory container")
-                do {
-                    let memConfig = ModelConfiguration(isStoredInMemoryOnly: true)
-                    return try ModelContainer(for: Schema([]), configurations: memConfig)
-                } catch {
-                    fatalError("Catastrophic failure: \(error)")
-                }
+                // Try to create a fresh container without migration plan
+                return try ModelContainer(for: schema, configurations: config)
             }
+            
+            // Re-throw other errors
+            throw error
         }
     }
     
+    // Create a fresh container without migration
+    static func createFreshModelContainer(schema: Schema) throws -> ModelContainer {
+        // Fresh configuration
+        let config = ModelConfiguration()
+        return try ModelContainer(for: schema, configurations: config)
+    }
+    
     // Helper function to delete SwiftData stores
-    private func deleteSwiftDataStores() -> Bool {
+    static func deleteSwiftDataStores() -> Bool {
         do {
+            var success = false
+            let fileManager = FileManager.default
+            
             // Get the application support directory
-            let appSupportDir = try FileManager.default.url(
+            let appSupportDir = try fileManager.url(
                 for: .applicationSupportDirectory,
                 in: .userDomainMask,
                 appropriateFor: nil,
                 create: false
             )
             
-            // Look for SwiftData/default.store directory
-            let storeDir = appSupportDir.appendingPathComponent("SwiftData", isDirectory: true)
-                                        .appendingPathComponent("default.store", isDirectory: true)
+            // Try looking in multiple possible locations
+            let possibleStorePaths = [
+                // Standard path
+                appSupportDir.appendingPathComponent("SwiftData", isDirectory: true)
+                            .appendingPathComponent("default.store", isDirectory: true),
+                
+                // Sometimes might be directly in app support
+                appSupportDir.appendingPathComponent("default.store", isDirectory: true),
+                
+                // App bundle identifier path (more likely on newer iOS)
+                appSupportDir.appendingPathComponent("com.primegames.primecollapse", isDirectory: true)
+                            .appendingPathComponent("default.store", isDirectory: true),
+                            
+                // Documents directory version as fallback
+                try fileManager.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+                            .appendingPathComponent("default.store", isDirectory: true)
+            ]
             
-            if FileManager.default.fileExists(atPath: storeDir.path) {
-                try FileManager.default.removeItem(at: storeDir)
-                print("✅ Successfully deleted SwiftData store directory")
-                return true
-            } else {
-                print("⚠️ SwiftData store directory not found at expected path: \(storeDir.path)")
-                
-                // Try to find and list all directories in Application Support
-                let contents = try? FileManager.default.contentsOfDirectory(
-                    at: appSupportDir,
-                    includingPropertiesForKeys: nil
-                )
-                print("📂 App Support contents: \(contents?.map { $0.lastPathComponent } ?? [])")
-                
-                return false
+            // Try to delete from each possible location
+            for storePath in possibleStorePaths {
+                if fileManager.fileExists(atPath: storePath.path) {
+                    try fileManager.removeItem(at: storePath)
+                    print("✅ Successfully deleted SwiftData store at: \(storePath.path)")
+                    success = true
+                }
             }
+            
+            // If we didn't find any standard paths, try to search for any .store directories
+            if !success {
+                print("⚠️ No standard SwiftData store found, searching for any .store directories...")
+                
+                // List contents of Application Support directory
+                if let contents = try? fileManager.contentsOfDirectory(at: appSupportDir, includingPropertiesForKeys: nil) {
+                    for item in contents {
+                        if item.lastPathComponent.hasSuffix(".store") ||
+                           item.lastPathComponent.contains("SwiftData") {
+                            try fileManager.removeItem(at: item)
+                            print("🔍 Found and deleted possible store at: \(item.path)")
+                            success = true
+                        }
+                    }
+                }
+            }
+            
+            return success
         } catch {
             print("❌ Error deleting SwiftData stores: \(error)")
             return false
+        }
+    }
+    
+    // Diagnostic helper to check store status and log information
+    static func diagnoseStoreStatus() {
+        do {
+            let fileManager = FileManager.default
+            
+            // Get the application support directory
+            let appSupportDir = try fileManager.url(
+                for: .applicationSupportDirectory,
+                in: .userDomainMask,
+                appropriateFor: nil,
+                create: false
+            )
+            
+            // Try to list contents
+            print("📂 Application Support directory: \(appSupportDir.path)")
+            if let contents = try? fileManager.contentsOfDirectory(at: appSupportDir, includingPropertiesForKeys: nil) {
+                for item in contents {
+                    let isDirectory = (try? item.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
+                    print("  - \(item.lastPathComponent) \(isDirectory ? "(directory)" : "(file)")")
+                    
+                    // If it's a directory, try to look inside for .store files
+                    if isDirectory {
+                        if let subContents = try? fileManager.contentsOfDirectory(at: item, includingPropertiesForKeys: nil) {
+                            for subItem in subContents {
+                                if subItem.lastPathComponent.hasSuffix(".store") {
+                                    print("    - 🔍 Found potential store: \(subItem.lastPathComponent)")
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                print("❌ Could not list directory contents")
+            }
+        } catch {
+            print("❌ Error diagnosing store status: \(error)")
         }
     }
 }
@@ -255,7 +387,6 @@ enum SchemaV3: VersionedSchema {
     }
     
     // Define the model structure AS IT WAS IN V3
-    // This is crucial for the V3 -> V4 migration
     @Model
     final class SavedGameStateV3 {
         var totalPackagesShipped: Int
@@ -307,25 +438,25 @@ enum SchemaV3: VersionedSchema {
     }
 }
 
-// V4 renames moralDecay to ethicsScore and inverts its logic
+// V4 adds metadata fields
 enum SchemaV4: VersionedSchema {
     static var versionIdentifier = Schema.Version(4, 0, 0)
     
     static var models: [any PersistentModel.Type] {
-        [SavedGameState.self] // References the latest model definition (with ethicsScore)
+        [SavedGameState.self]
     }
 }
 
 // MARK: - Migration Plans
-// This defines how to migrate between schema versions
+// We're simplifying the migration plan to avoid checksum conflicts
 
 enum SavedGameStateMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        [SchemaV1.self, SchemaV2.self, SchemaV3.self, SchemaV4.self] // Add V4
+        [SchemaV1.self, SchemaV2.self, SchemaV3.self, SchemaV4.self]
     }
     
     static var stages: [MigrationStage] {
-        [migrateV1toV2, migrateV2toV3, migrateV3toV4] // Add V3 -> V4 stage
+        [migrateV1toV2, migrateV2toV3, migrateV3toV4]
     }
     
     // Migration from V1 to V2 - converting array properties to serialized strings
@@ -349,27 +480,23 @@ enum SavedGameStateMigrationPlan: SchemaMigrationPlan {
                 newGame.automationRate = oldGame.automationRate
                 newGame.moralDecay = oldGame.moralDecay
                 newGame.isCollapsing = oldGame.isCollapsing
-                newGame.lastUpdate = oldGame.lastUpdate // Keep original date?
+                newGame.lastUpdate = oldGame.lastUpdate
                 newGame.packageAccumulator = oldGame.packageAccumulator
                 newGame.ethicalChoicesMade = oldGame.ethicalChoicesMade
                 newGame.endingType = oldGame.endingType
                 
                 // Handle the array migration (V1 array -> V2 string)
-                // We need the serializeArray helper - might need to make it accessible
-                // For now, assume it's accessible or redefine it locally if needed.
-                // Let's assume SavedGameState.serializeArray is usable for now.
                 newGame.purchasedUpgradeIDsString = SavedGameState.serializeArray(oldGame.purchasedUpgradeIDs)
                 newGame.repeatableUpgradeIDsString = SavedGameState.serializeArray(oldGame.repeatableUpgradeIDs)
                 
-                // Set default values for fields added between V1 and V2 (if any)
-                // Based on SavedGameStateV2 definition, these were added:
-                newGame.workerEfficiency = 1.0 // Default value
-                newGame.workerMorale = 0.8 // Default value
-                newGame.customerSatisfaction = 0.9 // Default value
-                newGame.packageValue = 1.0 // Default value
-                newGame.automationEfficiency = 1.0 // Default value
-                newGame.automationLevel = 0 // Default value
-                newGame.corporateEthics = 0.5 // Default value
+                // Set default values for fields added between V1 and V2
+                newGame.workerEfficiency = 1.0
+                newGame.workerMorale = 0.8
+                newGame.customerSatisfaction = 0.9
+                newGame.packageValue = 1.0
+                newGame.automationEfficiency = 1.0
+                newGame.automationLevel = 0
+                newGame.corporateEthics = 0.5
                 
                 // Add new record
                 context.insert(newGame)
@@ -388,59 +515,44 @@ enum SavedGameStateMigrationPlan: SchemaMigrationPlan {
         fromVersion: SchemaV2.self,
         toVersion: SchemaV3.self
     )
-    // NOTE: Lightweight migration works here because we are only *adding*
-    // new properties, and the SavedGameState.init() provides default values.
-    // If we were renaming or deleting properties, a custom migration like V1->V2
-    // might be needed.
     
-    // Migration from V3 to V4 - Renaming moralDecay to ethicsScore and inverting value
+    // Migration from V3 to V4 - adding metadata fields
     static let migrateV3toV4 = MigrationStage.custom(
         fromVersion: SchemaV3.self,
         toVersion: SchemaV4.self,
         willMigrate: nil,
         didMigrate: { context in
-            // Fetch all V3 records (schema before rename)
-            let descriptorV3 = FetchDescriptor<SchemaV3.SavedGameStateV3>()
-            guard let oldGames = try? context.fetch(descriptorV3) else { return }
+            // Fetch all V3 records
+            let descriptor = FetchDescriptor<SavedGameState>()
+            guard let savedGames = try? context.fetch(descriptor) else { return }
             
-            for oldGame in oldGames {
-                // Create a new SavedGameState instance (V4 schema with ethicsScore)
-                let newGame = SavedGameState() // Use the default init of the latest model
-                
-                // Manually map fields from V3 to V4
-                newGame.totalPackagesShipped = oldGame.totalPackagesShipped
-                newGame.money = oldGame.money
-                newGame.workers = oldGame.workers
-                // newGame.automationRate = oldGame.automationRate // REMOVED - V4 schema doesn't have this
-                // *** Invert the moralDecay to ethicsScore ***
-                newGame.ethicsScore = max(0, min(100, 100.0 - oldGame.moralDecay))
-                newGame.isCollapsing = oldGame.isCollapsing // Or recalculate: newGame.ethicsScore <= 0
-                newGame.lastUpdate = oldGame.lastUpdate
-                newGame.packageAccumulator = oldGame.packageAccumulator
-                newGame.ethicalChoicesMade = oldGame.ethicalChoicesMade
-                newGame.endingType = oldGame.endingType
-                newGame.workerEfficiency = oldGame.workerEfficiency
-                newGame.workerMorale = oldGame.workerMorale
-                newGame.customerSatisfaction = oldGame.customerSatisfaction
-                newGame.packageValue = oldGame.packageValue
-                newGame.automationEfficiency = oldGame.automationEfficiency
-                newGame.automationLevel = oldGame.automationLevel
-                newGame.corporateEthics = oldGame.corporateEthics
-                newGame.publicPerception = oldGame.publicPerception
-                newGame.environmentalImpact = oldGame.environmentalImpact
-                newGame.purchasedUpgradeIDsString = oldGame.purchasedUpgradeIDsString
-                newGame.repeatableUpgradeIDsString = oldGame.repeatableUpgradeIDsString
-                
-                // Add new record
-                context.insert(newGame)
-                
-                // Delete the old record
-                context.delete(oldGame)
+            // Add metadata to all saved games
+            for savedGame in savedGames {
+                savedGame.saveVersion = 4
+                savedGame.savedAt = Date()
+                savedGame.appVersionString = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
             }
             
             // Save changes
             try? context.save()
         }
+    )
+}
+
+// A simplified migration plan that only does lightweight migrations
+enum SimplifiedMigrationPlan: SchemaMigrationPlan {
+    static var schemas: [any VersionedSchema.Type] {
+        [SchemaV1.self, SchemaV4.self]
+    }
+    
+    static var stages: [MigrationStage] {
+        [directMigration]
+    }
+    
+    // Single stage that tries to go directly from any version to V4
+    static let directMigration = MigrationStage.lightweight(
+        fromVersion: SchemaV1.self,
+        toVersion: SchemaV4.self
     )
 }
 

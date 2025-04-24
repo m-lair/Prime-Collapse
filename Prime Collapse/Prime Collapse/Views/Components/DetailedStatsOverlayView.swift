@@ -4,9 +4,21 @@ import SwiftUI
 
 struct DetailedStatsOverlayView: View {
     @Environment(GameState.self) private var gameState
+    @Binding var isPresented: Bool
+    
+    // State for handling drag gesture
+    @State private var dragOffset: CGFloat = 0
+    private let dismissThreshold: CGFloat = 100
     
     var body: some View {
         VStack(spacing: 8) {
+            // Drag indicator
+            Rectangle()
+                .fill(Color.gray.opacity(0.5))
+                .frame(width: 40, height: 5)
+                .cornerRadius(2.5)
+                .padding(.vertical, 8)
+            
             HStack(spacing: 16) {
                 // Worker metrics
                 StatCard(
@@ -75,6 +87,37 @@ struct DetailedStatsOverlayView: View {
         .background(.ultraThinMaterial) // Use a material background
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(radius: 5)
+        .offset(y: dragOffset)
+        .gesture(
+            DragGesture()
+                .onChanged { value in
+                    // Only track upward drag movement
+                    if value.translation.height > 0 {
+                        dragOffset = value.translation.height
+                    }
+                }
+                .onEnded { value in
+                    // If dragged past threshold, dismiss the view
+                    if dragOffset > dismissThreshold {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            dragOffset = UIScreen.main.bounds.height
+                        }
+                        
+                        // Dismiss after animation completes
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            isPresented = false
+                            dragOffset = 0 // Reset for next time
+                        }
+                    } else {
+                        // Spring back to original position
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                            dragOffset = 0
+                        }
+                    }
+                }
+        )
+        .transition(.move(edge: .bottom))
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isPresented)
     }
     
     // Helper methods for detailed stats

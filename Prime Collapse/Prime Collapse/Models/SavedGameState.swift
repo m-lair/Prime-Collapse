@@ -45,6 +45,15 @@ final class SavedGameState {
     @Attribute var baseWorkerRate: Double
     @Attribute var baseSystemRate: Double
     
+    // Metadata for save game
+    @Attribute var saveVersion: Int = 4
+    @Attribute var savedAt: Date = Date()
+    @Attribute var appVersionString: String = {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
+        return "\(version) (\(build))"
+    }()
+    
     init(
         totalPackagesShipped: Int = 0,
         money: Double = 0.0,
@@ -99,20 +108,32 @@ final class SavedGameState {
     
     // Static helper to serialize array to JSON string
     static func serializeArray(_ array: [String]) -> String {
-        guard let data = try? JSONSerialization.data(withJSONObject: array),
-              let jsonString = String(data: data, encoding: .utf8) else {
-            return "[]" // Empty array as fallback
+        do {
+            let data = try JSONSerialization.data(withJSONObject: array)
+            if let jsonString = String(data: data, encoding: .utf8) {
+                return jsonString
+            }
+        } catch {
+            print("Error serializing array: \(error)")
         }
-        return jsonString
+            return "[]" // Empty array as fallback
     }
     
     // Helper to deserialize JSON string to array
     static func deserializeArray(_ jsonString: String) -> [String] {
-        guard let data = jsonString.data(using: .utf8),
-              let array = try? JSONSerialization.jsonObject(with: data) as? [String] else {
-            return [] // Empty array as fallback
+        do {
+            guard !jsonString.isEmpty, jsonString != "[]",
+                  let data = jsonString.data(using: .utf8) else {
+                return []
+            }
+            
+            if let array = try JSONSerialization.jsonObject(with: data) as? [String] {
+                return array
+            }
+        } catch {
+            print("Error deserializing array from string '\(jsonString)': \(error)")
         }
-        return array
+            return [] // Empty array as fallback
     }
     
     // Computed property to access purchasedUpgradeIDs safely
@@ -182,11 +203,21 @@ final class SavedGameState {
         savedGame.baseWorkerRate = gameState.baseWorkerRate
         savedGame.baseSystemRate = gameState.baseSystemRate
         
+        // Set metadata
+        savedGame.savedAt = Date()
+        savedGame.saveVersion = 4 // Current schema version
+        savedGame.appVersionString = {
+            let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+            let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
+            return "\(version) (\(build))"
+        }()
+        
         return savedGame
     }
     
     // Apply saved state to a game state
     func apply(to gameState: GameState) {
+        // Basic properties
         gameState.totalPackagesShipped = totalPackagesShipped
         gameState.money = money
         gameState.workers = workers
@@ -221,7 +252,7 @@ final class SavedGameState {
             gameState.endingType = .collapse
         }
         
-        // Restore purchased upgrade IDs
+        // Restore purchased upgrade IDs with error handling
         gameState.purchasedUpgradeIDs = []
         for idString in purchasedUpgradeIDs {
             if let uuid = UUID(uuidString: idString) {
@@ -229,14 +260,14 @@ final class SavedGameState {
             }
         }
         
-        // Restore repeatable upgrades (based on 'Hire Worker' upgrade)
+        // Restore repeatable upgrades with error handling
         gameState.upgrades = []
-        
+        do {
         // Find the "Hire Worker" upgrade using the correct nested path
         let hireWorkerUpgrade = UpgradeManager.EarlyGame.hireWorker
         
-        // Count how many workers were hired (to recreate the correct number of worker upgrades)
-        let totalWorkerUpgrades = repeatableUpgradeIDs.count
+            // Count how many workers were hired safely
+            let totalWorkerUpgrades = min(repeatableUpgradeIDs.count, 100) // Set a reasonable upper limit
         
         // Recreate each worker upgrade with a unique ID
         for _ in 0..<totalWorkerUpgrades {
@@ -250,10 +281,22 @@ final class SavedGameState {
                 moralImpact: hireWorkerUpgrade.moralImpact
             )
             gameState.upgrades.append(uniqueUpgrade)
+            }
+            
+            // Ensure workers count matches upgrades
+            if gameState.workers != totalWorkerUpgrades {
+                print("Warning: Worker count (\(gameState.workers)) doesn't match upgrade count (\(totalWorkerUpgrades)). Adjusting.")
+                gameState.workers = min(totalWorkerUpgrades, gameState.workers)
+            }
+        } catch {
+            print("Error restoring upgrades: \(error)")
+            // Fallback to a sane default if upgrade restoration fails
+            gameState.upgrades = []
+            gameState.workers = min(gameState.workers, 1) // Ensure we don't have more workers than upgrades
         }
         
         // Automation and efficiency - Use new base rates
-        gameState.baseWorkerRate = baseWorkerRate
-        gameState.baseSystemRate = baseSystemRate
+        gameState.baseWorkerRate = max(0.1, baseWorkerRate) // Ensure minimum value
+        gameState.baseSystemRate = max(0, baseSystemRate)   // Ensure minimum value
     }
 } 

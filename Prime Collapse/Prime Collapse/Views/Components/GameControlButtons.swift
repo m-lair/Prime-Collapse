@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 struct GameControlButtons: View {
     @Environment(GameState.self) private var gameState
@@ -124,10 +125,17 @@ struct SettingsView: View {
     @Environment(GameState.self) private var gameState
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openURL) private var openURL
+    @Environment(SaveManager.self) private var saveManager
     
-    // State variables for dialog confirmation (Moved from GameControlButtons)
+    // State variables for dialog confirmation
     @State private var showingResetConfirmation = false
     @State private var showingQuitConfirmation = false
+    @State private var showingResetSaveConfirmation = false
+    @State private var showingSaveDataInfo = false
+    
+    // State to hold save data information
+    @State private var saveDataInfo: String = "No save data found"
+    @Query private var savedGames: [SavedGameState]
     
     var body: some View {
         NavigationStack {
@@ -159,6 +167,19 @@ struct SettingsView: View {
                         }
                         .buttonStyle(PlainButtonStyle())
                         
+                        // Reset Save Data Button (new)
+                        Button(action: {
+                            showingResetSaveConfirmation = true
+                            playHaptic(.medium)
+                        }) {
+                            settingsButtonView(
+                                icon: "trash",
+                                title: "Delete Save Data",
+                                iconColor: .orange
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        
                         // Quit Game Button
                         Button(action: { 
                             showingQuitConfirmation = true
@@ -168,6 +189,20 @@ struct SettingsView: View {
                                 icon: "xmark.circle",
                                 title: "Quit Game",
                                 iconColor: .red
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        
+                        // Save Data Info Button (new)
+                        Button(action: {
+                            loadSaveDataInfo()
+                            showingSaveDataInfo = true
+                            playHaptic(.light)
+                        }) {
+                            settingsButtonView(
+                                icon: "info.circle",
+                                title: "Save Data Info",
+                                iconColor: .blue
                             )
                         }
                         .buttonStyle(PlainButtonStyle())
@@ -211,42 +246,37 @@ struct SettingsView: View {
                 .navigationTitle("Settings")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
+                    ToolbarItem(placement: .topBarLeading) {
                         Button(action: {
                             dismiss()
-                            playHaptic(.light)
                         }) {
                             Text("Done")
                                 .fontWeight(.medium)
                                 .foregroundColor(.white)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(
-                                    Capsule()
-                                        .fill(
-                                            LinearGradient(
-                                                gradient: Gradient(colors: [Color.blue, Color.blue.opacity(0.7)]),
-                                                startPoint: .top,
-                                                endPoint: .bottom
-                                            )
-                                        )
-                                        .shadow(color: Color.black.opacity(0.3), radius: 3)
-                                )
                         }
                     }
                 }
             }
         }
-        .accentColor(.white)
-        // Alerts moved here from GameControlButtons
+        .preferredColorScheme(.dark)
+        .tint(.white)
         .alert("Reset Game", isPresented: $showingResetConfirmation) {
             Button("Cancel", role: .cancel) {}
             Button("Reset", role: .destructive) {
                 resetGame()
-                dismiss() // Dismiss settings after resetting
+                dismiss()
             }
         } message: {
-            Text("Are you sure you want to reset the game? All progress will be lost.")
+            Text("Are you sure you want to reset the game? All progress will be lost but your saved data will remain intact.")
+        }
+        .alert("Delete Save Data", isPresented: $showingResetSaveConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                resetSaveData()
+                dismiss()
+            }
+        } message: {
+            Text("This will permanently delete all saved game data. This action cannot be undone.")
         }
         .alert("Quit Game", isPresented: $showingQuitConfirmation) {
             Button("Cancel", role: .cancel) {}
@@ -257,6 +287,11 @@ struct SettingsView: View {
             }
         } message: {
             Text("Are you sure you want to quit the game? All unsaved progress will be lost.")
+        }
+        .alert("Save Data Info", isPresented: $showingSaveDataInfo) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(saveDataInfo)
         }
     }
     
@@ -408,40 +443,62 @@ struct SettingsView: View {
         .padding(.vertical, 8)
     }
     
-    // --- Helper Functions (Moved from GameControlButtons) ---
-    
-    // Reset game state
+    // Action to reset the game
     private func resetGame() {
         gameState.reset()
         playHaptic(.medium)
     }
     
-    // Quit game (return to home screen)
-    private func quitGame() {
-        // In a real app, you might want to save the game before quitting
-        // or navigate to a main menu view
-        
-        // For iOS, there's no direct API to quit an app, so we'll just reset 
-        // the game state and provide feedback that user would need to use 
-        // system gestures to actually close the app
-        gameState.reset() // Resetting state as a proxy for quitting
-        playHaptic(.medium)
-        
-        // We can use openURL to open a URL scheme that doesn't exist,
-        // which will briefly take the user out of the app, though this is not
-        // a recommended practice for production apps
-        #if DEBUG
-        // Attempt to open a non-existent URL scheme to simulate quitting in DEBUG
-        // openURL(URL(string: "primecollapse://quit")!)
-        // Note: This might not always work reliably and isn't user-friendly.
-        // Consider navigating to a main menu instead for a better UX.
-        #endif
+    // Action to reset save data
+    private func resetSaveData() {
+        saveManager.resetDatabase()
+        playHaptic(.heavy)
     }
     
-    // Haptic feedback helper
+    // Action to quit the game
+    private func quitGame() {
+        // Save before quitting
+        saveManager.saveGameState()
+        
+        // Exit the app - note this may be rejected in App Store review
+        // Consider alternative approaches like returning to a main menu
+        exit(0)
+    }
+    
+    // Play haptic feedback
     private func playHaptic(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
         let generator = UIImpactFeedbackGenerator(style: style)
         generator.impactOccurred()
+    }
+    
+    // Load save data information
+    private func loadSaveDataInfo() {
+        if savedGames.isEmpty {
+            saveDataInfo = "No save data found."
+            return
+        }
+        
+        let savedGame = savedGames.first!
+        
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .medium
+        dateFormatter.timeStyle = .short
+        
+        let saveDate = dateFormatter.string(from: savedGame.savedAt)
+        let saveVersion = savedGame.saveVersion
+        let appVersion = savedGame.appVersionString
+        
+        saveDataInfo = """
+        Save Date: \(saveDate)
+        Schema Version: \(saveVersion)
+        App Version: \(appVersion)
+        
+        Game Stats:
+        Money: \(String(format: "%.2f", savedGame.money))
+        Packages: \(savedGame.totalPackagesShipped)
+        Workers: \(savedGame.workers)
+        Ethics Score: \(String(format: "%.1f", savedGame.ethicsScore))
+        """
     }
 }
 
