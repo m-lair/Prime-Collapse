@@ -445,7 +445,8 @@ struct SettingsView: View {
     
     // Action to reset the game
     private func resetGame() {
-        gameState.reset()
+        // Use the new method in SaveManager to handle game restarts
+        saveManager.handleGameEnding(type: .restart)
         playHaptic(.medium)
     }
     

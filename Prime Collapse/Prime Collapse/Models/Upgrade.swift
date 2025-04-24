@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CryptoKit
 
 struct Upgrade: Identifiable, Hashable {
     let id: UUID
@@ -42,7 +43,22 @@ struct Upgrade: Identifiable, Hashable {
         requirement: ((GameState) -> Bool)? = nil, // Default: no requirement
         requirementDescription: String? = nil // Default: no description
     ) {
-        self.id = id
+        // For non-repeatable upgrades, generate a deterministic UUID based on the name
+        // This ensures the same upgrade always has the same ID across app restarts
+        if !isRepeatable && id == UUID() {  // Only if default ID was used
+            // Create a deterministic UUID from the upgrade name
+            let nameData = name.data(using: .utf8) ?? Data()
+            let md5 = Insecure.MD5.hash(data: nameData)
+            let md5String = md5.map { String(format: "%02hhx", $0) }.joined()
+            
+            // Convert the first 16 bytes to a UUID
+            let uuid = UUID(uuidString: "\(md5String.prefix(8))-\(md5String.prefix(12).suffix(4))-\(md5String.prefix(16).suffix(4))-\(md5String.prefix(20).suffix(4))-\(md5String.suffix(12))") ?? UUID()
+            self.id = uuid
+            print("Created stable ID for \(name): \(uuid)")
+        } else {
+            self.id = id
+        }
+        
         self.name = name
         self.description = description
         self.cost = cost
@@ -62,6 +78,11 @@ struct Upgrade: Identifiable, Hashable {
     }
     
     static func == (lhs: Upgrade, rhs: Upgrade) -> Bool {
-        lhs.id == rhs.id
+        // For non-repeatable upgrades, compare by name
+        if !lhs.isRepeatable && !rhs.isRepeatable {
+            return lhs.name == rhs.name
+        }
+        // Otherwise, compare by ID
+        return lhs.id == rhs.id
     }
 } 

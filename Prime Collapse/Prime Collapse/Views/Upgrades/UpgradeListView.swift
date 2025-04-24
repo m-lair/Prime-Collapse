@@ -4,6 +4,7 @@ import SwiftUI
 struct UpgradeListView: View {
     @Environment(GameState.self) private var gameState
     @State private var showDetailedUpgrades = false
+    @State private var hasPerformedLogging = false
     
     // Filter available upgrades based on purchase status (NOT lock status)
     private var potentiallyAvailableUpgrades: [Upgrade] {
@@ -14,16 +15,14 @@ struct UpgradeListView: View {
             } else {
                 // For non-repeatable upgrades, only include if not purchased
                 let purchased = gameState.hasBeenPurchased(upgrade)
-                if purchased {
-                    // Log filtered out upgrades for debugging
-                    print("Filtering out purchased upgrade: \(upgrade.name)")
+                if purchased && !hasPerformedLogging {
+                    // Log filtered out upgrades for debugging - but don't modify state here
+                    print("UpgradeListView - Filtering out purchased upgrade: \(upgrade.name) with ID \(upgrade.id)")
                 }
                 return !purchased
             }
         }
         
-        // Debug log the number of available upgrades
-        print("Showing \(upgrades.count) available upgrades in list")
         return upgrades
     }
     
@@ -68,9 +67,9 @@ struct UpgradeListView: View {
                     
                     Spacer()
                     
-                    Button(action: {
+                    Button {
                         showDetailedUpgrades = true
-                    }) {
+                    } label: {
                         Text("MORE")
                             .font(.system(size: 12, weight: .bold))
                             .foregroundColor(.white)
@@ -109,6 +108,32 @@ struct UpgradeListView: View {
         }
         .sheet(isPresented: $showDetailedUpgrades) {
             UpgradeScreenView()
+        }
+        .onAppear {
+            // Do the logging here instead of in the computed property
+            performLogging()
+        }
+    }
+    
+    // Separate method for logging to avoid state modification during view rendering
+    private func performLogging() {
+        if !hasPerformedLogging {
+            // Set state before logging to prevent multiple logs
+            hasPerformedLogging = true
+            
+            // Get the upgrades that will be shown
+            let upgrades = potentiallyAvailableUpgrades
+            
+            // Log the count
+            print("UpgradeListView - Showing \(upgrades.count) available upgrades in list")
+            
+            // Log all purchasedUpgradeIDs for debugging
+            print("UpgradeListView - Current purchasedUpgradeIDs count: \(gameState.purchasedUpgradeIDs.count)")
+            for (index, id) in gameState.purchasedUpgradeIDs.enumerated() {
+                // Try to find the matching upgrade
+                let upgradeName = UpgradeManager.availableUpgrades.first(where: { $0.id == id })?.name ?? "Unknown"
+                print("  ID \(index): \(id) (\(upgradeName))")
+            }
         }
     }
 }

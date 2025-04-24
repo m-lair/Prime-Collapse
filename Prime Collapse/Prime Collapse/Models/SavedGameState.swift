@@ -301,111 +301,124 @@ final class SavedGameState {
         
         // ENHANCED UPGRADE RESTORATION WITH SAFETY LIMITS
         
-        print("Restoring saved game with \(purchasedUpgradeIDs.count) purchased upgrades")
+        print("Restoring saved game. Saved purchased IDs count: \(self.purchasedUpgradeIDs.count)")
         
-        // Clear existing arrays
-        gameState.purchasedUpgradeIDs = []
-        gameState.upgrades = []
+        // IMPORTANT: First ensure we start with completely clean arrays
+        gameState.purchasedUpgradeIDs.removeAll()
+        gameState.upgrades.removeAll() // Assuming this holds active repeatable upgrades like workers
         
-        // Create a mapping of upgrade names to UUIDs - critical for persistence
-        var upgradeNameToUUID: [String: UUID] = [:]
-        for upgrade in UpgradeManager.availableUpgrades {
-            upgradeNameToUUID[upgrade.name] = upgrade.id
-        }
-        
-        // Restore purchased upgrade IDs with error handling and deduplication
-        // Extract names from saved IDs for verification
-        var purchasedNames = Set<String>()
-        var uniqueIDsAdded = Set<UUID>() // Track which IDs we've already added
-        
-        // First, process up to maxPurchasedIDs from the saved data
-        let cappedPurchasedIDs = purchasedUpgradeIDs.prefix(maxPurchasedIDs)
-        for idString in cappedPurchasedIDs {
-            if let uuid = UUID(uuidString: idString), !uniqueIDsAdded.contains(uuid) {
-                gameState.purchasedUpgradeIDs.append(uuid)
-                uniqueIDsAdded.insert(uuid)
-                
-                // Try to find the name of this upgrade
-                for upgrade in UpgradeManager.availableUpgrades {
-                    if upgrade.id.uuidString == idString {
-                        purchasedNames.insert(upgrade.name)
-                        print("Added known upgrade: \(upgrade.name)")
-                        break
-                    }
+        // Restore all purchased upgrade IDs (both repeatable and non-repeatable)
+        var restoredPurchasedIDs = Set<UUID>()
+        for idString in self.purchasedUpgradeIDs.prefix(maxPurchasedIDs) { // Use the saved IDs
+            if let uuid = UUID(uuidString: idString) {
+                // Check if this ID corresponds to a known upgrade in the current game version
+                if UpgradeManager.availableUpgrades.contains(where: { $0.id == uuid }) {
+                     if restoredPurchasedIDs.insert(uuid).inserted {
+                         //print("Restored purchased ID: \(uuid)") // Verbose logging
+                     } else {
+                         //print("Warning: Duplicate purchased ID found in save data: \(uuid)")
+                     }
+                } else {
+                    print("Warning: Saved purchased ID \(uuid) not found in current UpgradeManager. Ignoring.")
                 }
             } else {
-                print("Warning: Invalid or duplicate upgrade ID in saved data: \(idString)")
+                print("Warning: Invalid UUID string found in saved purchasedUpgradeIDs: \(idString)")
             }
         }
-        
-        // Restore repeatable upgrades with robust error handling
-        do {
-            // First, find all available base upgrades from the upgrade manager
-            let workerUpgrade = UpgradeManager.EarlyGame.hireWorker
-            
-            // Get worker count with safety cap
-            let safeWorkerCount = min(gameState.workers, maxWorkers)
-            
-            // Check repeatableUpgradeIDs for worker upgrades, but respect our cap
-            let workerUpgradeCount: Int
-            if !repeatableUpgradeIDs.isEmpty {
-                // If we have data, use it (with safety cap)
-                workerUpgradeCount = min(repeatableUpgradeIDs.count, maxWorkers)
-                print("Restoring \(workerUpgradeCount) worker upgrades from save data (capped from \(repeatableUpgradeIDs.count))")
-            } else {
-                // Fallback to using the worker count directly if no repeatable IDs
-                workerUpgradeCount = safeWorkerCount
-                print("No repeatable upgrade IDs found, using capped worker count (\(workerUpgradeCount)) instead")
-            }
-            
-            // Update game state worker count to match
-            gameState.workers = workerUpgradeCount
-            
-            // Recreate each worker upgrade with a unique ID
-            for _ in 0..<workerUpgradeCount {
-                let uniqueUpgrade = Upgrade(
-                    id: UUID(), // New unique ID
-                    name: workerUpgrade.name,
-                    description: workerUpgrade.description,
-                    cost: workerUpgrade.cost,
-                    effect: workerUpgrade.effect,
-                    isRepeatable: workerUpgrade.isRepeatable,
-                    priceScalingFactor: workerUpgrade.priceScalingFactor,
-                    moralImpact: workerUpgrade.moralImpact,
-                    publicPerceptionImpact: workerUpgrade.publicPerceptionImpact,
-                    environmentalImpactImpact: workerUpgrade.environmentalImpactImpact
+        gameState.purchasedUpgradeIDs = Array(restoredPurchasedIDs)
+        print("Loaded \(gameState.purchasedUpgradeIDs.count) unique purchased upgrade IDs into GameState.")
+
+
+        // Restore active *repeatable* upgrades (like workers) into the 'upgrades' array
+        // This assumes 'gameState.upgrades' holds instances of active repeatable upgrades.
+        var restoredRepeatableInstances = [Upgrade]()
+        var workerCountFromUpgrades = 0
+        let workerUpgradeTemplate = UpgradeManager.EarlyGame.hireWorker // Assuming this is the template
+
+        // We potentially stored specific instances in repeatableUpgradeIDsString, but let's reconstruct based on purchased count for now.
+        // Find all purchased "Hire Worker" upgrades
+        let purchasedWorkerIDs = gameState.purchasedUpgradeIDs.filter { id in
+            UpgradeManager.availableUpgrades.first { $0.id == id }?.name == workerUpgradeTemplate.name
+        }
+
+        workerCountFromUpgrades = purchasedWorkerIDs.count
+        print("Found \(workerCountFromUpgrades) 'Hire Worker' upgrades among purchased IDs.")
+
+        // Ensure worker count matches the number of worker upgrades found
+        // Use the MINIMUM of saved worker count and calculated count to prevent exploits? Or trust saved count? Let's trust saved count for now.
+        let finalWorkerCount = min(self.workers, maxWorkers) // Use saved worker count, capped
+        gameState.workers = finalWorkerCount
+        print("Setting worker count to \(finalWorkerCount) (from saved data, capped).")
+
+        // Recreate worker upgrade instances up to the finalWorkerCount
+         if finalWorkerCount > 0 {
+            for i in 0..<finalWorkerCount {
+                // Find a corresponding purchased ID if available (though it might not matter which specific one)
+                // Or just create new instances
+                let workerInstance = Upgrade(
+                    id: purchasedWorkerIDs.indices.contains(i) ? purchasedWorkerIDs[i] : UUID(), // Reuse ID if possible, else new
+                    name: workerUpgradeTemplate.name,
+                    description: workerUpgradeTemplate.description,
+                    cost: workerUpgradeTemplate.cost, // Cost might need recalculation based on count
+                    effect: workerUpgradeTemplate.effect,
+                    isRepeatable: workerUpgradeTemplate.isRepeatable,
+                    priceScalingFactor: workerUpgradeTemplate.priceScalingFactor,
+                    moralImpact: workerUpgradeTemplate.moralImpact,
+                    publicPerceptionImpact: workerUpgradeTemplate.publicPerceptionImpact,
+                    environmentalImpactImpact: workerUpgradeTemplate.environmentalImpactImpact
                 )
-                gameState.upgrades.append(uniqueUpgrade)
+                restoredRepeatableInstances.append(workerInstance)
             }
-            
-            // CRITICAL FIX: Ensure all purchasedUpgradeIDs contain the current version's IDs
-            for upgrade in UpgradeManager.availableUpgrades {
-                // For any upgrade that should be considered purchased
-                if purchasedNames.contains(upgrade.name) || (!upgrade.isRepeatable && gameState.hasBeenPurchased(upgrade)) {
-                    // Ensure it's added to purchasedUpgradeIDs if not already there
-                    if !uniqueIDsAdded.contains(upgrade.id) {
-                        gameState.purchasedUpgradeIDs.append(upgrade.id)
-                        uniqueIDsAdded.insert(upgrade.id)
-                        print("CRITICAL FIX: Added current version ID for: \(upgrade.name)")
-                    }
-                }
-            }
-            
-            print("Game state successfully restored with \(gameState.workers) workers and \(gameState.upgrades.count) active upgrades")
-            print("Tracking \(gameState.purchasedUpgradeIDs.count) unique purchased upgrade IDs")
-            
-        } catch {
-            print("Error restoring upgrades: \(error)")
-            // Fallback to a sane default if upgrade restoration fails
-            gameState.upgrades = []
-            gameState.workers = min(1, gameState.workers) // Ensure we don't have more workers than upgrades
         }
+
+        gameState.upgrades = restoredRepeatableInstances // Assign the restored workers
+        print("Restored \(gameState.upgrades.count) active worker upgrades.")
+
+        // Restore other repeatable upgrades like "Performance Bonuses" and "Carbon Offset Program"
+        let otherRepeatableUpgradeNames = ["Performance Bonuses", "Carbon Offset Program"]
         
+        for upgradeName in otherRepeatableUpgradeNames {
+            // Find the template for this upgrade
+            if let upgradeTemplate = UpgradeManager.availableUpgrades.first(where: { $0.name == upgradeName && $0.isRepeatable }) {
+                // Find how many of these upgrades have been purchased
+                let purchasedIDs = gameState.purchasedUpgradeIDs.filter { id in
+                    UpgradeManager.availableUpgrades.first { $0.id == id }?.name == upgradeName
+                }
+                
+                let purchasedCount = purchasedIDs.count
+                print("Found \(purchasedCount) '\(upgradeName)' upgrades among purchased IDs.")
+                
+                // Create instances for each purchased upgrade
+                for i in 0..<purchasedCount {
+                    let upgradeInstance = Upgrade(
+                        id: purchasedIDs.indices.contains(i) ? purchasedIDs[i] : UUID(), // Reuse ID if possible, else new
+                        name: upgradeTemplate.name,
+                        description: upgradeTemplate.description,
+                        cost: upgradeTemplate.cost,
+                        effect: upgradeTemplate.effect,
+                        isRepeatable: upgradeTemplate.isRepeatable,
+                        priceScalingFactor: upgradeTemplate.priceScalingFactor,
+                        moralImpact: upgradeTemplate.moralImpact,
+                        publicPerceptionImpact: upgradeTemplate.publicPerceptionImpact,
+                        environmentalImpactImpact: upgradeTemplate.environmentalImpactImpact
+                    )
+                    gameState.upgrades.append(upgradeInstance)
+                }
+                
+                print("Restored \(purchasedCount) active '\(upgradeName)' upgrades.")
+            }
+        }
+
+        // Original worker restoration logic is now replaced by the above.
+
         // Automation and efficiency - Use new base rates with safe defaults
         gameState.baseWorkerRate = max(0.1, baseWorkerRate) // Ensure minimum value
         gameState.baseSystemRate = max(0, baseSystemRate)   // Ensure minimum value
         
         // Final validation to fix any remaining issues
         gameState.validateGameState()
+        
+        // Additional verification to make sure upgrade integrity is maintained
+        gameState.verifyUpgradeIntegrity()
     }
 } 

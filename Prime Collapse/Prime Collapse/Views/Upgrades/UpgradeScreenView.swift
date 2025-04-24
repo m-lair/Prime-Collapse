@@ -4,25 +4,35 @@ import SwiftUI
 struct UpgradeScreenView: View {
     @Environment(GameState.self) private var gameState
     @Environment(\.dismiss) private var dismiss
+    @State private var hasPerformedLogging = false
     
     // Filter available upgrades based on purchase status (NOT lock status)
     private var potentiallyAvailableUpgrades: [Upgrade] {
-        UpgradeManager.availableUpgrades.filter { upgrade in
+        let upgrades = UpgradeManager.availableUpgrades.filter { upgrade in
             // Keep all repeatable upgrades and non-repeatable ones that haven't been purchased yet.
             // Lock status handled in DetailedUpgradeRow.
             if upgrade.isRepeatable {
                 return true
             } else {
-                return !gameState.hasBeenPurchased(upgrade)
+                let purchased = gameState.hasBeenPurchased(upgrade)
+                if purchased && !hasPerformedLogging {
+                    print("UpgradeScreenView - Filtering out purchased upgrade: \(upgrade.name) with ID \(upgrade.id)")
+                }
+                return !purchased
             }
         }
+        
+        return upgrades
     }
     
     // Filter to show only purchased non-repeatable upgrades
     private var purchasedNonRepeatableUpgrades: [Upgrade] {
-        UpgradeManager.availableUpgrades.filter { upgrade in
-            !upgrade.isRepeatable && gameState.hasBeenPurchased(upgrade)
+        let upgrades = UpgradeManager.availableUpgrades.filter { upgrade in
+            let purchased = !upgrade.isRepeatable && gameState.hasBeenPurchased(upgrade)
+            return purchased
         }
+        
+        return upgrades
     }
     
     var body: some View {
@@ -172,6 +182,31 @@ struct UpgradeScreenView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 20)
                 }
+            }
+        }
+        .onAppear {
+            // Perform logging when the view appears
+            performLogging()
+        }
+    }
+    
+    // Separate method for logging to avoid state modification during view rendering
+    private func performLogging() {
+        if !hasPerformedLogging {
+            // Set state before logging to prevent multiple logs
+            hasPerformedLogging = true
+            
+            // Log available upgrades
+            let availableCount = potentiallyAvailableUpgrades.count
+            print("UpgradeScreenView - Available upgrades: \(availableCount)")
+            
+            // Log purchased non-repeatable upgrades
+            let purchasedCount = purchasedNonRepeatableUpgrades.count
+            print("UpgradeScreenView - Purchased non-repeatable upgrades: \(purchasedCount)")
+            
+            // Log found purchased upgrades
+            for upgrade in purchasedNonRepeatableUpgrades {
+                print("UpgradeScreenView - Found purchased upgrade: \(upgrade.name) with ID \(upgrade.id)")
             }
         }
     }

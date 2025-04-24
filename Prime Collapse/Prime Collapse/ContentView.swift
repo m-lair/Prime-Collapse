@@ -184,7 +184,8 @@ struct ContentView: View {
                 }
             }
             Button("Reset", role: .cancel) {
-                gameState.reset()
+                // Use SaveManager instead of direct reset
+                saveManager.handleGameEnding(type: .restart)
             }
         } message: {
             Text("Your corporate ethics have reached an unsustainable level. The economy is collapsing!")
@@ -198,7 +199,9 @@ struct ContentView: View {
                 lifetimeTotalMoneyEarned: gameState.lifetimeTotalMoneyEarned,
                 ethicalChoicesMade: gameState.ethicalChoicesMade,
                 onReset: {
-                    gameState.reset()
+                    // Use SaveManager to properly handle game ending
+                    let endingType: GameEndingType = gameState.endingType == .collapse ? .lose : .win
+                    saveManager.handleGameEnding(type: endingType)
                     showEndingScreen = false
                     startGameLoop()
                 }

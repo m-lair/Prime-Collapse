@@ -394,56 +394,61 @@ struct DelayedEffect: Identifiable, Equatable {
     
     // Check if an upgrade has been purchased
     func hasBeenPurchased(_ upgrade: Upgrade) -> Bool {
+        // Add special debug for problem upgrades
+        let trackedUpgrades = ["Improve Packaging", "Basic Training"]
+        let isTrackedUpgrade = trackedUpgrades.contains(upgrade.name)
+        
+        // Log the beginning of check for tracked upgrades
+        if isTrackedUpgrade {
+            print("TRACKING: Checking if \(upgrade.name) with ID \(upgrade.id) has been purchased")
+        }
+        
         // For repeatable upgrades, we need to check by specific ID
         if upgrade.isRepeatable {
             let contains = purchasedUpgradeIDs.contains(upgrade.id)
             return contains
         } 
         
-        // For non-repeatable upgrades, do a more thorough check
-        
-        // 1. Direct ID check (best case)
+        // For non-repeatable upgrades, first try a direct match
+        // This is the most efficient path and should work with our stable IDs
         if purchasedUpgradeIDs.contains(upgrade.id) {
-            print("Direct ID match for \(upgrade.name)")
+            if isTrackedUpgrade {
+                print("TRACKING: Direct ID match for \(upgrade.name)")
+            }
             return true
         }
         
-        // 2. Name matching (for cross-session persistence)
-        let upgradeNames = purchasedUpgradeIDs.compactMap { id -> String? in
-            // Find upgrades from the UpgradeManager
+        // Fallback to name-based matching for backward compatibility
+        // Check if ANY upgrade with this name is in the purchased list
+        for purchasedID in purchasedUpgradeIDs {
+            // Find this ID in available upgrades
             for availableUpgrade in UpgradeManager.availableUpgrades {
-                if availableUpgrade.id == id || availableUpgrade.id.uuidString == id.uuidString {
-                    // If IDs match, return the name
-                    return availableUpgrade.name
+                if availableUpgrade.id == purchasedID && 
+                   !availableUpgrade.isRepeatable && 
+                   availableUpgrade.name == upgrade.name {
+                    
+                    if isTrackedUpgrade {
+                        print("TRACKING: Name match found for \(upgrade.name) through ID lookup")
+                    }
+                    
+                    // Auto-fix: Add this upgrade's ID to the purchased list for future checks
+                    if !purchasedUpgradeIDs.contains(upgrade.id) {
+                        purchasedUpgradeIDs.append(upgrade.id)
+                        if isTrackedUpgrade {
+                            print("TRACKING: Added current ID for \(upgrade.name) to purchasedUpgradeIDs")
+                        }
+                    }
+                    
+                    return true
                 }
-            }
-            return nil
-        }
-        
-        // Check if the current upgrade name exists in our purchased names
-        let nameMatch = upgradeNames.contains(upgrade.name)
-        if nameMatch {
-            print("Name match found for \(upgrade.name)")
-            
-            // Auto-fix: Add this upgrade's ID to the purchased list
-            if !purchasedUpgradeIDs.contains(upgrade.id) {
-                purchasedUpgradeIDs.append(upgrade.id)
-                print("Added missing ID for \(upgrade.name) to purchasedUpgradeIDs")
-            }
-            
-            return true
-        }
-        
-        // New exact string-based matching as fallback for cross-instance ID safety
-        let currentIdString = upgrade.id.uuidString
-        for purchasedId in purchasedUpgradeIDs {
-            if purchasedId.uuidString == currentIdString {
-                print("String-based UUID match for \(upgrade.name)")
-                return true
             }
         }
         
         // Not found by any method
+        if isTrackedUpgrade {
+            print("TRACKING: No match found for \(upgrade.name) with ID \(upgrade.id)")
+        }
+        
         return false
     }
     
@@ -686,16 +691,136 @@ struct DelayedEffect: Identifiable, Equatable {
         }
     }
     
+    // Fix for upgrades after loading - this should be called right after loading saved game
+    func verifyUpgradeIntegrity() {
+        print("Verifying upgrade integrity after load...")
+        
+        // Get all non-repeatable upgrades from UpgradeManager
+        let nonRepeatableUpgrades = UpgradeManager.availableUpgrades.filter { !$0.isRepeatable }
+        
+        // Collect all upgrade names that should be considered purchased
+        var shouldBePurchasedNames = Set<String>()
+        var shouldBePurchasedIDs = Set<UUID>()
+        
+        // Examine purchased upgrade IDs to extract names
+        for id in purchasedUpgradeIDs {
+            for upgrade in UpgradeManager.availableUpgrades {
+                if upgrade.id == id || upgrade.id.uuidString == id.uuidString {
+                    shouldBePurchasedNames.insert(upgrade.name)
+                    shouldBePurchasedIDs.insert(upgrade.id)
+                    break
+                }
+            }
+        }
+        
+        print("Found \(shouldBePurchasedNames.count) purchased upgrade names")
+        print("Current unique purchased IDs: \(shouldBePurchasedIDs.count)")
+        
+        // Ensure we have all current IDs for these names
+        var fixedCount = 0
+        var currentIDs = purchasedUpgradeIDs
+        
+        // For each purchased name, ensure we have the current ID in our list
+        for name in shouldBePurchasedNames {
+            if let upgrade = UpgradeManager.availableUpgrades.first(where: { $0.name == name && !$0.isRepeatable }) {
+                if !currentIDs.contains(upgrade.id) {
+                    currentIDs.append(upgrade.id)
+                    fixedCount += 1
+                    print("INTEGRITY: Added missing current ID for \(name)")
+                }
+            }
+        }
+        
+        // Update the list with our fixed version if changes were made
+        if fixedCount > 0 {
+            print("INTEGRITY: Fixed \(fixedCount) missing upgrade IDs")
+            purchasedUpgradeIDs = currentIDs
+        }
+        
+        // ENHANCED INTEGRITY CHECK: Verify critical upgrades are correctly applied
+        let criticalUpgradeNames = [
+            "Improve Packaging", 
+            "Basic Training", 
+            "Automation Level 1",
+            "Efficiency Training",
+            "Better Morale",
+            "Quality Control"
+        ]
+        
+        // Track which critical upgrades are in purchased list vs in visual upgrades list
+        var missingVisualCriticalUpgrades = Set<String>()
+        var missingPurchasedCriticalUpgrades = Set<String>()
+        
+        // Find critical upgrades that should be purchased but aren't in the visual list
+        for name in shouldBePurchasedNames.filter({ criticalUpgradeNames.contains($0) }) {
+            let hasVisualUpgrade = upgrades.contains(where: { $0.name == name })
+            if !hasVisualUpgrade {
+                missingVisualCriticalUpgrades.insert(name)
+            }
+        }
+        
+        // Find critical upgrades in the visual list but not in purchased IDs
+        for upgrade in upgrades.filter({ criticalUpgradeNames.contains($0.name) }) {
+            let isPurchased = purchasedUpgradeIDs.contains(upgrade.id)
+            if !isPurchased {
+                missingPurchasedCriticalUpgrades.insert(upgrade.name)
+            }
+        }
+        
+        // Fix missing visual upgrades (upgrades that are purchased but don't show up)
+        if !missingVisualCriticalUpgrades.isEmpty {
+            print("CRITICAL INTEGRITY: Found \(missingVisualCriticalUpgrades.count) critical upgrades missing from visual list")
+            
+            for name in missingVisualCriticalUpgrades {
+                if let template = UpgradeManager.availableUpgrades.first(where: { $0.name == name }) {
+                    // Create new visual upgrade with proper ID
+                    let visualUpgrade = Upgrade(
+                        id: template.id, // Use the stable ID
+                        name: template.name,
+                        description: template.description,
+                        cost: template.cost,
+                        effect: template.effect,
+                        isRepeatable: template.isRepeatable,
+                        priceScalingFactor: template.priceScalingFactor,
+                        moralImpact: template.moralImpact,
+                        publicPerceptionImpact: template.publicPerceptionImpact,
+                        environmentalImpactImpact: template.environmentalImpactImpact
+                    )
+                    upgrades.append(visualUpgrade)
+                    print("CRITICAL INTEGRITY: Added missing visual upgrade: \(name)")
+                }
+            }
+        }
+        
+        // Fix missing purchased IDs (visual upgrades that aren't in purchased list)
+        if !missingPurchasedCriticalUpgrades.isEmpty {
+            print("CRITICAL INTEGRITY: Found \(missingPurchasedCriticalUpgrades.count) critical upgrades missing from purchased list")
+            
+            for name in missingPurchasedCriticalUpgrades {
+                for upgrade in upgrades.filter({ $0.name == name }) {
+                    if !purchasedUpgradeIDs.contains(upgrade.id) {
+                        purchasedUpgradeIDs.append(upgrade.id)
+                        print("CRITICAL INTEGRITY: Added missing purchased ID for: \(name)")
+                    }
+                }
+            }
+        }
+        
+        print("Upgrade integrity verification complete")
+        print("Final state: \(upgrades.count) visual upgrades, \(purchasedUpgradeIDs.count) purchased IDs")
+    }
+    
     // Reset game state (used for new games or after collapse)
     func reset() {
+        print("Performing complete game reset...")
+        
+        // Basic stats reset
         totalPackagesShipped = 0
         money = 0.0
         workers = 1  // Reset to 1 worker instead of 0
         baseWorkerRate = 0.1 // Reset base worker rate
         baseSystemRate = 0.0 // Reset base system rate
         packageAccumulator = 0.0
-        upgrades = []
-        purchasedUpgradeIDs = []
         ethicsScore = 100.0 // Reset ethics score to 100
         isCollapsing = false
         lastUpdate = Date()
@@ -718,5 +843,28 @@ struct DelayedEffect: Identifiable, Equatable {
         // Reset new metrics
         publicPerception = 50.0
         environmentalImpact = 0.0
+        
+        // CRITICAL: Complete reset of all upgrades tracking
+        print("Clearing all upgrade tracking data...")
+        upgrades.removeAll()
+        purchasedUpgradeIDs.removeAll()
+        
+        // Create the initial worker upgrade
+        let workerUpgrade = UpgradeManager.EarlyGame.hireWorker
+        let initialWorker = Upgrade(
+            id: UUID(),  // New unique ID for this worker
+            name: workerUpgrade.name,
+            description: workerUpgrade.description,
+            cost: workerUpgrade.cost,
+            effect: workerUpgrade.effect,
+            isRepeatable: workerUpgrade.isRepeatable,
+            priceScalingFactor: workerUpgrade.priceScalingFactor,
+            moralImpact: workerUpgrade.moralImpact,
+            publicPerceptionImpact: workerUpgrade.publicPerceptionImpact,
+            environmentalImpactImpact: workerUpgrade.environmentalImpactImpact
+        )
+        upgrades.append(initialWorker)
+        
+        print("Game has been completely reset with 1 worker and 0 purchased upgrades")
     }
 } 

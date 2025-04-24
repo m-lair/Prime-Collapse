@@ -65,6 +65,9 @@ import Observation
                         savedGame.apply(to: gameState)
                         print("Game loaded successfully. Last saved at \(savedGame.savedAt)")
                         
+                        // Call upgrade verification after applying saved state
+                        gameState.verifyUpgradeIntegrity()
+                        
                         // Verify upgrade restoration
                         print("Game state now has \(gameState.upgrades.count) upgrades and \(gameState.purchasedUpgradeIDs.count) purchased upgrade IDs")
                         
@@ -286,6 +289,12 @@ import Observation
     // Reset the database asynchronously
     private func resetDatabaseAsync() async {
         do {
+            // Explicitly reset the game state first
+            await MainActor.run {
+                print("Resetting game state before clearing database...")
+                gameState.reset()
+            }
+            
             // Delete all saved games on background thread
             try await Task.detached(priority: .userInitiated) {
                 let descriptor = FetchDescriptor<SavedGameState>()
@@ -309,9 +318,16 @@ import Observation
                 }
             }.value
             
-            // Reset the game state to defaults on main thread
+            // Force update the UI state on main thread
             await MainActor.run {
-                gameState.reset()
+                // Update flags and show indicator
+                lastSaveTime = Date()
+                showSaveIndicator()
+                
+                // Update Game Center with the reset stats
+                updateGameCenter()
+                
+                print("Game has been fully reset")
             }
             
         } catch {
@@ -395,6 +411,38 @@ import Observation
         }
     }
     
+    // New method for handling game endings (win, lose, restart)
+    func handleGameEnding(type: GameEndingType) {
+        Task {
+            print("Handling game ending of type: \(type)")
+            
+            // If it's a restart, clear everything
+            if type == .restart {
+                await resetDatabaseAsync()
+            } else {
+                // For win/lose scenarios, reset the game state but optionally save high scores first
+                
+                // Optionally record high scores or achievements before resetting
+                if type == .win || type == .lose {
+                    // Update Game Center with final stats
+                    await MainActor.run {
+                        gameCenterManager?.forceRefreshScores(gameState)
+                    }
+                }
+                
+                // Reset the game
+                await MainActor.run {
+                    gameState.reset()
+                }
+                
+                // Save the reset state to database
+                await performBackgroundSave()
+                
+                print("Game ended (\(type)) and state has been reset")
+            }
+        }
+    }
+    
     // Event types that can trigger a save
     enum SaveEvent {
         case upgrade
@@ -402,6 +450,13 @@ import Observation
         case moneyGain(Double)
         case backgrounding
     }
+}
+
+// Enum to track different game ending types
+enum GameEndingType {
+    case win
+    case lose
+    case restart
 }
 
 // SwiftUI extension for easily showing the save indicator
