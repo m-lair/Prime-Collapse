@@ -65,18 +65,6 @@ struct GameCenterView: View {
                             .foregroundColor(.white.opacity(0.9))
                         
                         Spacer()
-                        
-                        // Force submit button
-                        Button(action: {
-                            forceSubmitScores()
-                        }) {
-                            Label("Submit", systemImage: "arrow.up.circle")
-                                .font(.caption)
-                                .foregroundColor(.blue)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(RoundedRectangle(cornerRadius: 4).fill(Color.white.opacity(0.2)))
-                        }
                     }
                     
                     HStack {
@@ -189,9 +177,8 @@ struct GameCenterView: View {
                         forceSubmitScores()
                         
                         // Show leaderboards after a short delay
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                            gameCenterManager.showLeaderboards()
-                        }
+                        gameCenterManager.showLeaderboards()
+                        
                     }) {
                         HStack {
                             Image(systemName: "list.star")

@@ -10,7 +10,11 @@ struct UpgradeScreenView: View {
         UpgradeManager.availableUpgrades.filter { upgrade in
             // Keep all repeatable upgrades and non-repeatable ones that haven't been purchased yet.
             // Lock status handled in DetailedUpgradeRow.
-            upgrade.isRepeatable || !gameState.hasBeenPurchased(upgrade)
+            if upgrade.isRepeatable {
+                return true
+            } else {
+                return !gameState.hasBeenPurchased(upgrade)
+            }
         }
     }
     

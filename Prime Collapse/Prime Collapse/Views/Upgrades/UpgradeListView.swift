@@ -7,11 +7,24 @@ struct UpgradeListView: View {
     
     // Filter available upgrades based on purchase status (NOT lock status)
     private var potentiallyAvailableUpgrades: [Upgrade] {
-        UpgradeManager.availableUpgrades.filter { upgrade in
-            // Keep all repeatable upgrades and non-repeatable ones that haven't been purchased yet.
-            // The lock status will be handled visually in the card view.
-            upgrade.isRepeatable || !gameState.hasBeenPurchased(upgrade)
+        let upgrades = UpgradeManager.availableUpgrades.filter { upgrade in
+            // Always include repeatable upgrades
+            if upgrade.isRepeatable {
+                return true
+            } else {
+                // For non-repeatable upgrades, only include if not purchased
+                let purchased = gameState.hasBeenPurchased(upgrade)
+                if purchased {
+                    // Log filtered out upgrades for debugging
+                    print("Filtering out purchased upgrade: \(upgrade.name)")
+                }
+                return !purchased
+            }
         }
+        
+        // Debug log the number of available upgrades
+        print("Showing \(upgrades.count) available upgrades in list")
+        return upgrades
     }
     
     var body: some View {

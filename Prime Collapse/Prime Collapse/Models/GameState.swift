@@ -252,6 +252,12 @@ struct DelayedEffect: Identifiable, Equatable {
     
     // Apply an upgrade
     func applyUpgrade(_ upgrade: Upgrade) {
+        // First verify if upgrade has already been purchased (safer check)
+        if !upgrade.isRepeatable && hasBeenPurchased(upgrade) {
+            print("Upgrade \(upgrade.name) has already been purchased. Ignoring.")
+            return
+        }
+        
         // Count how many times this upgrade has been purchased if repeatable
         let timesPurchased = purchasedUpgradeIDs.filter { $0 == upgrade.id }.count
         
@@ -287,7 +293,12 @@ struct DelayedEffect: Identifiable, Equatable {
                     cost: upgrade.cost,
                     effect: upgrade.effect,
                     isRepeatable: upgrade.isRepeatable,
-                    moralImpact: upgrade.moralImpact
+                    priceScalingFactor: upgrade.priceScalingFactor,
+                    moralImpact: upgrade.moralImpact,
+                    publicPerceptionImpact: upgrade.publicPerceptionImpact,
+                    environmentalImpactImpact: upgrade.environmentalImpactImpact,
+                    requirement: upgrade.requirement,
+                    requirementDescription: upgrade.requirementDescription
                 )
                 upgrades.append(uniqueUpgrade)
             }
@@ -383,34 +394,258 @@ struct DelayedEffect: Identifiable, Equatable {
     
     // Check if an upgrade has been purchased
     func hasBeenPurchased(_ upgrade: Upgrade) -> Bool {
-        return purchasedUpgradeIDs.contains(upgrade.id)
+        // For repeatable upgrades, we need to check by specific ID
+        if upgrade.isRepeatable {
+            let contains = purchasedUpgradeIDs.contains(upgrade.id)
+            return contains
+        } 
+        
+        // For non-repeatable upgrades, do a more thorough check
+        
+        // 1. Direct ID check (best case)
+        if purchasedUpgradeIDs.contains(upgrade.id) {
+            print("Direct ID match for \(upgrade.name)")
+            return true
+        }
+        
+        // 2. Name matching (for cross-session persistence)
+        let upgradeNames = purchasedUpgradeIDs.compactMap { id -> String? in
+            // Find upgrades from the UpgradeManager
+            for availableUpgrade in UpgradeManager.availableUpgrades {
+                if availableUpgrade.id == id || availableUpgrade.id.uuidString == id.uuidString {
+                    // If IDs match, return the name
+                    return availableUpgrade.name
+                }
+            }
+            return nil
+        }
+        
+        // Check if the current upgrade name exists in our purchased names
+        let nameMatch = upgradeNames.contains(upgrade.name)
+        if nameMatch {
+            print("Name match found for \(upgrade.name)")
+            
+            // Auto-fix: Add this upgrade's ID to the purchased list
+            if !purchasedUpgradeIDs.contains(upgrade.id) {
+                purchasedUpgradeIDs.append(upgrade.id)
+                print("Added missing ID for \(upgrade.name) to purchasedUpgradeIDs")
+            }
+            
+            return true
+        }
+        
+        // New exact string-based matching as fallback for cross-instance ID safety
+        let currentIdString = upgrade.id.uuidString
+        for purchasedId in purchasedUpgradeIDs {
+            if purchasedId.uuidString == currentIdString {
+                print("String-based UUID match for \(upgrade.name)")
+                return true
+            }
+        }
+        
+        // Not found by any method
+        return false
     }
     
     // Get the current cost of an upgrade accounting for price increases
     func getCurrentUpgradeCost(_ upgrade: Upgrade) -> Double {
+        // First validate upgraded state
+        validateGameState()
+        
         if !upgrade.isRepeatable {
             return upgrade.cost
         }
         
-        // Calculate base cost accounting for repeatability
-        let timesPurchased = purchasedUpgradeIDs.filter { $0 == upgrade.id }.count
-        // Use the upgrade's scaling factor directly
-        let baseCost = UpgradeManager.calculatePrice(basePrice: upgrade.cost, timesPurchased: timesPurchased, scalingFactor: upgrade.priceScalingFactor)
-        
-        // Apply modifier based on public perception (0-100 scale)
-        let perceptionModifier: Double
-        if publicPerception < 30 {
-            // Increase cost significantly for low perception (up to +50% cost at 0 perception)
-            perceptionModifier = 1.0 + (30.0 - publicPerception) / 30.0 * 0.5 
-        } else if publicPerception > 70 {
-            // Decrease cost slightly for high perception (down to -10% cost at 100 perception)
-            perceptionModifier = 1.0 - (publicPerception - 70.0) / 30.0 * 0.1
-        } else {
-            // No modifier for neutral perception (30-70)
-            perceptionModifier = 1.0
+        // For worker upgrades, base cost on worker count for safety
+        if upgrade.name == "Hire Worker" {
+            // Count worker upgrades to validate
+            let workerUpgradeCount = upgrades.filter { $0.name == "Hire Worker" }.count
+            
+            // Count how many worker upgrades we've purchased - with safety cap
+            let safeWorkerCount = min(1000, max(workers, workerUpgradeCount)) 
+            
+            // Use a safer calculation method that avoids Int overflow
+            let baseCost = safeCalculateWorkerPrice(basePrice: upgrade.cost, 
+                                                  workerCount: safeWorkerCount, 
+                                                  scalingFactor: upgrade.priceScalingFactor)
+            
+            // Apply perception modifier
+            let perceptionModifier = calculatePerceptionModifier()
+            return baseCost * perceptionModifier
         }
         
+        // Standard calculation for other repeatable upgrades
+        // Calculate base cost accounting for repeatability
+        let safeTimesPurchased = min(1000, purchasedUpgradeIDs.filter { $0 == upgrade.id }.count)
+        
+        // Use the upgrade's scaling factor directly with safety bounds
+        let baseCost = safeCalculatePrice(basePrice: upgrade.cost, 
+                                       timesPurchased: safeTimesPurchased, 
+                                       scalingFactor: upgrade.priceScalingFactor)
+        
+        // Apply modifier based on public perception (0-100 scale)
+        let perceptionModifier = calculatePerceptionModifier()
+        
         return baseCost * perceptionModifier
+    }
+    
+    // Safe calculation function that avoids Int overflow
+    private func safeCalculatePrice(basePrice: Double, timesPurchased: Int, scalingFactor: Double) -> Double {
+        // Cap to prevent overflow
+        let maxFactor = 10000.0
+        
+        // For 0 purchases, return base price
+        if timesPurchased <= 0 {
+            return basePrice
+        }
+        
+        // Use a safer calculation that avoids potential overflow
+        // Calculate growth factor with safety bounds
+        let growthFactor = min(maxFactor, pow(scalingFactor, Double(min(50, timesPurchased))))
+        
+        // Apply maximum price cap to prevent excessive costs
+        let calculatedPrice = basePrice * growthFactor
+        let maxPrice = 1000000000.0 // One billion maximum price
+        
+        return min(maxPrice, calculatedPrice)
+    }
+    
+    // Special calculation just for worker upgrades to handle larger numbers
+    private func safeCalculateWorkerPrice(basePrice: Double, workerCount: Int, scalingFactor: Double) -> Double {
+        // Apply a more gradual scaling for large worker counts
+        let effectiveCount: Double
+        if workerCount <= 20 {
+            // Normal scaling for first 20 workers
+            effectiveCount = Double(workerCount)
+        } else if workerCount <= 50 {
+            // Slower scaling from 20-50
+            effectiveCount = 20.0 + (Double(workerCount - 20) * 0.8)
+        } else if workerCount <= 100 {
+            // Even slower scaling from 50-100
+            effectiveCount = 20.0 + (30.0 * 0.8) + (Double(workerCount - 50) * 0.5)
+        } else {
+            // Very slow scaling beyond 100
+            effectiveCount = 20.0 + (30.0 * 0.8) + (50.0 * 0.5) + (Double(workerCount - 100) * 0.3)
+        }
+        
+        // Use a gentler exponential growth
+        let softScalingFactor = 1.0 + ((scalingFactor - 1.0) * 0.7)
+        
+        // Calculate with safety bounds
+        let growthFactor = min(10000.0, pow(softScalingFactor, effectiveCount))
+        
+        // Apply maximum price cap
+        let calculatedPrice = basePrice * growthFactor
+        let maxWorkerPrice = 1000000.0 // Cap worker price at 1 million
+        
+        return min(maxWorkerPrice, calculatedPrice)
+    }
+    
+    // Helper to calculate perception modifier
+    private func calculatePerceptionModifier() -> Double {
+        if publicPerception < 30 {
+            // Increase cost significantly for low perception (up to +50% cost at 0 perception)
+            return 1.0 + (30.0 - publicPerception) / 30.0 * 0.5 
+        } else if publicPerception > 70 {
+            // Decrease cost slightly for high perception (down to -10% cost at 100 perception)
+            return 1.0 - (publicPerception - 70.0) / 30.0 * 0.1
+        } else {
+            // No modifier for neutral perception (30-70)
+            return 1.0
+        }
+    }
+    
+    // Validate game state integrity
+    func validateGameState() {
+        // Safety cap for excess values
+        let maxWorkers = 150
+        
+        // 0. Fix excessive worker count first
+        if workers > maxWorkers {
+            print("DATA INTEGRITY: Excessive worker count (\(workers)). Capping at \(maxWorkers).")
+            workers = maxWorkers
+        }
+        
+        // 1. Check and fix worker counts
+        let workerUpgradeCount = upgrades.filter { $0.name == "Hire Worker" }.count
+        
+        // Cap worker upgrade count too
+        if workerUpgradeCount > maxWorkers {
+            print("DATA INTEGRITY: Excessive worker upgrade count (\(workerUpgradeCount)). Capping at \(maxWorkers).")
+            
+            // Remove excess worker upgrades
+            let excess = workerUpgradeCount - maxWorkers
+            var removed = 0
+            
+            // Remove upgrades from the end of the list
+            upgrades.removeAll { upgrade in
+                if upgrade.name == "Hire Worker" && removed < excess {
+                    removed += 1
+                    return true
+                }
+                return false
+            }
+        }
+        
+        // Now balance worker count and upgrade count
+        let safeWorkerUpgradeCount = upgrades.filter { $0.name == "Hire Worker" }.count
+        if safeWorkerUpgradeCount != workers {
+            print("DATA INTEGRITY: Worker count (\(workers)) doesn't match worker upgrade count (\(safeWorkerUpgradeCount)). Fixing...")
+            
+            // Use the smaller value to avoid issues
+            let targetCount = min(workers, safeWorkerUpgradeCount)
+            
+            // Reset the worker upgrades
+            let workerUpgrade = UpgradeManager.EarlyGame.hireWorker
+            upgrades.removeAll { $0.name == "Hire Worker" }
+            
+            // Recreate the correct number of worker upgrades
+            for _ in 0..<targetCount {
+                let uniqueUpgrade = Upgrade(
+                    id: UUID(),
+                    name: workerUpgrade.name,
+                    description: workerUpgrade.description,
+                    cost: workerUpgrade.cost,
+                    effect: workerUpgrade.effect,
+                    isRepeatable: workerUpgrade.isRepeatable,
+                    priceScalingFactor: workerUpgrade.priceScalingFactor,
+                    moralImpact: workerUpgrade.moralImpact,
+                    publicPerceptionImpact: workerUpgrade.publicPerceptionImpact,
+                    environmentalImpactImpact: workerUpgrade.environmentalImpactImpact
+                )
+                upgrades.append(uniqueUpgrade)
+            }
+            
+            // Update worker count
+            workers = targetCount
+            print("DATA INTEGRITY: Fixed - worker count now \(workers), upgrade count now \(upgrades.count)")
+        }
+        
+        // 2. Check for duplicate upgrade IDs in purchasedUpgradeIDs
+        var uniqueIDs = Set<UUID>()
+        var duplicates = 0
+        
+        var newPurchasedUpgradeIDs: [UUID] = []
+        for id in purchasedUpgradeIDs {
+            if uniqueIDs.contains(id) {
+                duplicates += 1
+            } else {
+                uniqueIDs.insert(id)
+                newPurchasedUpgradeIDs.append(id)
+            }
+        }
+        
+        if duplicates > 0 {
+            print("DATA INTEGRITY: Found \(duplicates) duplicate IDs in purchasedUpgradeIDs. Fixing...")
+            purchasedUpgradeIDs = newPurchasedUpgradeIDs
+        }
+        
+        // 3. Cap total purchasedUpgradeIDs to a reasonable number if needed
+        let maxPurchasedIDs = 500
+        if purchasedUpgradeIDs.count > maxPurchasedIDs {
+            print("DATA INTEGRITY: Excessive purchased upgrade IDs (\(purchasedUpgradeIDs.count)). Capping at \(maxPurchasedIDs).")
+            purchasedUpgradeIDs = Array(purchasedUpgradeIDs.prefix(maxPurchasedIDs))
+        }
     }
     
     // Check if player qualifies for the Reform ending

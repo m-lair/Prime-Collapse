@@ -546,10 +546,34 @@ struct UpgradeManager {
             print("Warning: Upgrade scaling factor is not positive (\(scalingFactor)). Price will not increase.")
             return basePrice // Avoid NaN/crash with non-positive scaling factor
         }
+        
         guard timesPurchased >= 0 else {
             print("Warning: timesPurchased is negative (\(timesPurchased)). Using 0.")
             return basePrice
         }
-        return basePrice * pow(scalingFactor, Double(timesPurchased))
+        
+        // Apply safety checks to prevent overflow
+        if timesPurchased == 0 {
+            return basePrice
+        }
+        
+        // For large purchase counts, use a safer calculation approach
+        if timesPurchased > 50 {
+            // Cap the maximum price multiplier to avoid overflow
+            let maxMultiplier = 1000000.0 // One million max multiplier
+            let safeResult = basePrice * min(maxMultiplier, pow(scalingFactor, 50.0)) * (1.0 + (Double(timesPurchased - 50) * 0.1))
+            return min(Double.greatestFiniteMagnitude / 100.0, safeResult) // Additional safety cap
+        }
+        
+        // Standard calculation for reasonable purchase counts
+        let result = basePrice * pow(scalingFactor, Double(timesPurchased))
+        
+        // Handle potential infinity or overflow
+        if result.isInfinite || result.isNaN || result > Double.greatestFiniteMagnitude / 100.0 {
+            print("Warning: Price calculation overflow detected. Capping price.")
+            return Double.greatestFiniteMagnitude / 100.0 // Cap at a safe maximum
+        }
+        
+        return result
     }
 } 

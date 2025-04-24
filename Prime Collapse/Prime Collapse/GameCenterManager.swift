@@ -60,6 +60,15 @@ import GameKit
     /// Leaderboard for total money earned
     static let totalMoneyLeaderboardID = "total_money_earned"
     
+    /// Leaderboard for highest ethics score achieved
+    static let highestEthicsScoreLeaderboardID = "highest_ethics_score"
+    
+    /// Leaderboard for packages per second rate
+    static let packagesPerSecondLeaderboardID = "packages_per_second"
+    
+    /// Leaderboard for total workers hired
+    static let totalWorkersLeaderboardID = "total_workers_hired"
+    
     // MARK: - Achievement IDs
     
     /// Achievement for hiring first worker
@@ -76,6 +85,39 @@ import GameKit
     
     /// Achievement for reaching the reform ending
     static let reformEndingAchievementID = "reform_ending"
+    
+    /// Achievement for reaching the loop ending
+    static let loopEndingAchievementID = "loop_ending"
+    
+    /// Achievement for shipping 100 packages
+    static let packages100AchievementID = "packages_100"
+    
+    /// Achievement for shipping 1,000 packages
+    static let packages1000AchievementID = "packages_1000"
+    
+    /// Achievement for shipping 10,000 packages
+    static let packages10000AchievementID = "packages_10000"
+    
+    /// Achievement for earning $1,000
+    static let money1000AchievementID = "money_1000"
+    
+    /// Achievement for earning $10,000
+    static let money10000AchievementID = "money_10000"
+    
+    /// Achievement for earning $100,000
+    static let money100000AchievementID = "money_100000"
+    
+    /// Achievement for hiring 10 workers
+    static let workers10AchievementID = "workers_10"
+    
+    /// Achievement for hiring 50 workers
+    static let workers50AchievementID = "workers_50"
+    
+    /// Achievement for reaching maximum automation efficiency
+    static let maxAutomationAchievementID = "max_automation"
+    
+    /// Achievement for maintaining perfect ethics
+    static let perfectEthicsAchievementID = "perfect_ethics"
     
     // MARK: - Initialization
     
@@ -191,7 +233,18 @@ import GameKit
             Self.automationMilestoneAchievementID,
             Self.ethicalChoicesAchievementID,
             Self.economicCollapseAchievementID,
-            Self.reformEndingAchievementID
+            Self.reformEndingAchievementID,
+            Self.loopEndingAchievementID,
+            Self.packages100AchievementID,
+            Self.packages1000AchievementID,
+            Self.packages10000AchievementID,
+            Self.money1000AchievementID,
+            Self.money10000AchievementID,
+            Self.money100000AchievementID,
+            Self.workers10AchievementID,
+            Self.workers50AchievementID,
+            Self.maxAutomationAchievementID,
+            Self.perfectEthicsAchievementID
         ]
         
         GKAchievementDescription.loadAchievementDescriptions { [weak self] descriptions, error in
@@ -247,7 +300,7 @@ import GameKit
     /// Helper method to load and present leaderboards
     private func loadAndPresentLeaderboards(on viewController: UIViewController) {
         // Load all available leaderboards instead of just one
-        let leaderboardIDs = [Self.totalPackagesLeaderboardID, Self.totalMoneyLeaderboardID]
+        let leaderboardIDs = [Self.totalPackagesLeaderboardID, Self.totalMoneyLeaderboardID, Self.highestEthicsScoreLeaderboardID, Self.packagesPerSecondLeaderboardID, Self.totalWorkersLeaderboardID]
         
         // First load available leaderboards specifically
         GKLeaderboard.loadLeaderboards(IDs: leaderboardIDs) { [weak self, weak viewController] leaderboards, error in
@@ -525,16 +578,26 @@ import GameKit
             // Update local score cache immediately (even before submission)
             lastSubmittedScores[Self.totalPackagesLeaderboardID] = gameState.totalPackagesShipped
             lastSubmittedScores[Self.totalMoneyLeaderboardID] = Int(gameState.lifetimeTotalMoneyEarned)
+            lastSubmittedScores[Self.highestEthicsScoreLeaderboardID] = Int(gameState.ethicsScore)
+            
+            // Calculate packages per second rate
+            let workerContribution = gameState.baseWorkerRate * Double(gameState.workers) * gameState.workerEfficiency
+            let systemContribution = gameState.baseSystemRate * gameState.automationEfficiency
+            let packagesPerSecond = Int((workerContribution + systemContribution) * 100) // Multiply by 100 to store 2 decimal places as integer
+            lastSubmittedScores[Self.packagesPerSecondLeaderboardID] = packagesPerSecond
+            
+            // Total workers
+            lastSubmittedScores[Self.totalWorkersLeaderboardID] = gameState.workers
             
             // Prepare batch scores update
             var scores: [String: Int] = [:]
             
-            // Add total packages shipped score
+            // Add core scores
             scores[Self.totalPackagesLeaderboardID] = gameState.totalPackagesShipped
-            
-            // Add total money earned score (convert to integer)
-            let moneyEarnedAsInt = Int(gameState.lifetimeTotalMoneyEarned)
-            scores[Self.totalMoneyLeaderboardID] = moneyEarnedAsInt
+            scores[Self.totalMoneyLeaderboardID] = Int(gameState.lifetimeTotalMoneyEarned)
+            scores[Self.highestEthicsScoreLeaderboardID] = Int(gameState.ethicsScore)
+            scores[Self.packagesPerSecondLeaderboardID] = packagesPerSecond
+            scores[Self.totalWorkersLeaderboardID] = gameState.workers
             
             // Submit scores in batch
             submitBatchScores(scores)
@@ -545,6 +608,16 @@ import GameKit
             // This ensures the UI can always see the latest scores
             lastSubmittedScores[Self.totalPackagesLeaderboardID] = gameState.totalPackagesShipped
             lastSubmittedScores[Self.totalMoneyLeaderboardID] = Int(gameState.lifetimeTotalMoneyEarned)
+            lastSubmittedScores[Self.highestEthicsScoreLeaderboardID] = Int(gameState.ethicsScore)
+            
+            // Calculate packages per second rate
+            let workerContribution = gameState.baseWorkerRate * Double(gameState.workers) * gameState.workerEfficiency
+            let systemContribution = gameState.baseSystemRate * gameState.automationEfficiency
+            let packagesPerSecond = Int((workerContribution + systemContribution) * 100) // Multiply by 100 to store 2 decimal places as integer
+            lastSubmittedScores[Self.packagesPerSecondLeaderboardID] = packagesPerSecond
+            
+            // Total workers
+            lastSubmittedScores[Self.totalWorkersLeaderboardID] = gameState.workers
         }
         
         // Throttle achievement updates
@@ -575,6 +648,59 @@ import GameKit
                 reportAchievement(achievementID: Self.reformEndingAchievementID, percentComplete: 100.0)
             }
             
+            // Loop ending
+            if gameState.endingType == .loop {
+                reportAchievement(achievementID: Self.loopEndingAchievementID, percentComplete: 100.0)
+            }
+            
+            // Shipping 100 packages
+            if gameState.totalPackagesShipped >= 100 {
+                reportAchievement(achievementID: Self.packages100AchievementID, percentComplete: 100.0)
+            }
+            
+            // Shipping 1,000 packages
+            if gameState.totalPackagesShipped >= 1000 {
+                reportAchievement(achievementID: Self.packages1000AchievementID, percentComplete: 100.0)
+            }
+            
+            // Shipping 10,000 packages
+            if gameState.totalPackagesShipped >= 10000 {
+                reportAchievement(achievementID: Self.packages10000AchievementID, percentComplete: 100.0)
+            }
+            
+            // Earning $1,000
+            if gameState.lifetimeTotalMoneyEarned >= 1000 {
+                reportAchievement(achievementID: Self.money1000AchievementID, percentComplete: 100.0)
+            }
+            
+            // Earning $10,000
+            if gameState.lifetimeTotalMoneyEarned >= 10000 {
+                reportAchievement(achievementID: Self.money10000AchievementID, percentComplete: 100.0)
+            }
+            
+            // Earning $100,000
+            if gameState.lifetimeTotalMoneyEarned >= 100000 {
+                reportAchievement(achievementID: Self.money100000AchievementID, percentComplete: 100.0)
+            }
+            
+            // Hiring 10 workers
+            if gameState.workers >= 10 {
+                reportAchievement(achievementID: Self.workers10AchievementID, percentComplete: 100.0)
+            }
+            
+            // Hiring 50 workers
+            if gameState.workers >= 50 {
+                reportAchievement(achievementID: Self.workers50AchievementID, percentComplete: 100.0)
+            }
+            
+            // Reaching maximum automation efficiency
+            let maxAutomationProgress = min(gameState.automationEfficiency * 100.0, 100.0)
+            reportAchievement(achievementID: Self.maxAutomationAchievementID, percentComplete: maxAutomationProgress)
+            
+            // Maintaining perfect ethics
+            let perfectEthicsProgress = gameState.ethicalChoicesMade == 5 ? 100.0 : 0.0
+            reportAchievement(achievementID: Self.perfectEthicsAchievementID, percentComplete: perfectEthicsProgress)
+            
             lastAchievementUpdate = now
         }
     }
@@ -586,18 +712,28 @@ import GameKit
         // Calculate scores to submit
         let packagesScore = gameState.totalPackagesShipped
         let moneyScore = Int(gameState.lifetimeTotalMoneyEarned)
+        let ethicsScore = Int(gameState.ethicsScore)
         
-        print("🔄 Force refreshing scores: Packages=\(packagesScore), Money=\(moneyScore)")
+        // Calculate packages per second rate
+        let workerContribution = gameState.baseWorkerRate * Double(gameState.workers) * gameState.workerEfficiency
+        let systemContribution = gameState.baseSystemRate * gameState.automationEfficiency
+        let packagesPerSecond = Int((workerContribution + systemContribution) * 100) // Multiply by 100 to store 2 decimal places as integer
         
         // Update local score cache immediately
         lastSubmittedScores[Self.totalPackagesLeaderboardID] = packagesScore
         lastSubmittedScores[Self.totalMoneyLeaderboardID] = moneyScore
+        lastSubmittedScores[Self.highestEthicsScoreLeaderboardID] = ethicsScore
+        lastSubmittedScores[Self.packagesPerSecondLeaderboardID] = packagesPerSecond
+        lastSubmittedScores[Self.totalWorkersLeaderboardID] = gameState.workers
         
         // Check for meaningfully different scores from what's already been submitted
         let shouldSubmitPackages = packagesScore > 0
         let shouldSubmitMoney = moneyScore > 0
+        let shouldSubmitEthics = ethicsScore > 0
+        let shouldSubmitPPS = packagesPerSecond > 0
+        let shouldSubmitWorkers = gameState.workers > 0
         
-        if shouldSubmitPackages || shouldSubmitMoney {
+        if shouldSubmitPackages || shouldSubmitMoney || shouldSubmitEthics || shouldSubmitPPS || shouldSubmitWorkers {
             // Prepare scores dictionary
             var scores: [String: Int] = [:]
             
@@ -607,6 +743,18 @@ import GameKit
             
             if shouldSubmitMoney {
                 scores[Self.totalMoneyLeaderboardID] = moneyScore
+            }
+            
+            if shouldSubmitEthics {
+                scores[Self.highestEthicsScoreLeaderboardID] = ethicsScore
+            }
+            
+            if shouldSubmitPPS {
+                scores[Self.packagesPerSecondLeaderboardID] = packagesPerSecond
+            }
+            
+            if shouldSubmitWorkers {
+                scores[Self.totalWorkersLeaderboardID] = gameState.workers
             }
             
             // Submit scores individually for better error tracking
