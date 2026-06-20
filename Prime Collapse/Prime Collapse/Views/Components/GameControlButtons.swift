@@ -1,9 +1,7 @@
 import SwiftUI
-import SwiftData
 
 struct GameControlButtons: View {
     @Environment(GameState.self) private var gameState
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.openURL) private var openURL
     
     var body: some View {
@@ -123,20 +121,18 @@ struct GameControlButtons: View {
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(GameState.self) private var gameState
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.openURL) private var openURL
     @Environment(SaveManager.self) private var saveManager
-    
+
     // State variables for dialog confirmation
     @State private var showingResetConfirmation = false
     @State private var showingQuitConfirmation = false
     @State private var showingResetSaveConfirmation = false
     @State private var showingSaveDataInfo = false
-    
+
     // State to hold save data information
     @State private var saveDataInfo: String = "No save data found"
-    @Query private var savedGames: [SavedGameState]
-    
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -472,34 +468,9 @@ struct SettingsView: View {
         generator.impactOccurred()
     }
     
-    // Load save data information
+    // Load save data information from the SaveManager.
     private func loadSaveDataInfo() {
-        if savedGames.isEmpty {
-            saveDataInfo = "No save data found."
-            return
-        }
-        
-        let savedGame = savedGames.first!
-        
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateStyle = .medium
-        dateFormatter.timeStyle = .short
-        
-        let saveDate = dateFormatter.string(from: savedGame.savedAt)
-        let saveVersion = savedGame.saveVersion
-        let appVersion = savedGame.appVersionString
-        
-        saveDataInfo = """
-        Save Date: \(saveDate)
-        Schema Version: \(saveVersion)
-        App Version: \(appVersion)
-        
-        Game Stats:
-        Money: \(String(format: "%.2f", savedGame.money))
-        Packages: \(savedGame.totalPackagesShipped)
-        Workers: \(savedGame.workers)
-        Ethics Score: \(String(format: "%.1f", savedGame.ethicsScore))
-        """
+        saveDataInfo = saveManager.saveInfoText
     }
 }
 

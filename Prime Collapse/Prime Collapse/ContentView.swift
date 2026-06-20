@@ -103,15 +103,25 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.3), value: glitchEffect)
         .animation(.easeInOut(duration: 0.5), value: gameState.isCollapsing)
         .onAppear {
-            startGameLoop()
-            
+            // Only run the simulation once the initial save has loaded, so progress
+            // is never overwritten by a freshly-started game. (Load is synchronous at
+            // launch, so this is normally already true; the guard is defensive.)
+            if saveManager.hasCompletedInitialLoad {
+                startGameLoop()
+            }
+
             // Initialize previous values
             previousMoney = gameState.money
             previousWorkers = gameState.workers
-            
+
             // If we're already in collapse state, show effects
             if gameState.isCollapsing {
                 startCollapseEffects()
+            }
+        }
+        .onChange(of: saveManager.hasCompletedInitialLoad) { _, loaded in
+            if loaded && gameTask == nil {
+                startGameLoop()
             }
         }
         .onDisappear {
@@ -221,8 +231,8 @@ struct ContentView: View {
                 startCollapseEffects()
             }
         }
-        .onChange(of: gameState.upgrades.count) { _, _ in
-            // Save when player buys upgrades
+        .onChange(of: gameState.purchasedUpgradeIDs.count) { _, _ in
+            // Save when the player buys an upgrade (repeatable or not — both append here).
             saveManager.saveOnEvent(.upgrade)
         }
     }
