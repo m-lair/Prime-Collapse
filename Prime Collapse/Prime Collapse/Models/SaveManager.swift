@@ -4,446 +4,188 @@
 //
 //  Created on 8/29/24.
 //
+//  Persists the game as a single Codable JSON snapshot on disk. The save is
+//  loaded synchronously at construction (before the first frame), so the game
+//  can never overwrite a real save with fresh/default state on launch. Writes
+//  are serialized and performed off the main thread with atomic file writes.
+//
 
 import Foundation
 import SwiftUI
-import SwiftData
 import Observation
 
 @Observable class SaveManager {
-    // Public properties
-    var lastSaveTime: Date = Date.distantPast
+    // Public state observed by the UI.
+    var lastSaveTime: Date = .distantPast
     var isSaving: Bool = false
     var hasCompletedInitialLoad: Bool = false
     var shouldShowSaveIndicator: Bool = false
-    
-    // Configuration
-    let saveThrottleInterval: TimeInterval = 30 // At most one save per 30 seconds
-    
-    // References to dependencies
-    private let modelContext: ModelContext
+
+    // Metadata from the most recently loaded or written snapshot (for the settings screen).
+    private(set) var lastSnapshot: GameSnapshot?
+
+    // Dependencies.
     private let gameState: GameState
     private let gameCenterManager: GameCenterManager?
-    
-    // Private properties
-    private var saveTask: Task<Void, Error>?
-    
-    init(modelContext: ModelContext, gameState: GameState, gameCenterManager: GameCenterManager? = nil) {
-        self.modelContext = modelContext
+
+    // Debounce + write serialization.
+    private var debounceTask: Task<Void, Never>?
+    private var writeTask: Task<Void, Never>?
+    private let debounceDelay: Duration = .seconds(2)
+
+    init(gameState: GameState, gameCenterManager: GameCenterManager? = nil) {
         self.gameState = gameState
         self.gameCenterManager = gameCenterManager
+        // Load synchronously so state is ready before any view renders.
+        loadGameState()
     }
-    
-    // Loads the game from the saved state
+
+    // MARK: - Loading
+
+    /// Reads the save file (if any) and applies it. Runs synchronously; the file is tiny.
     func loadGameState() {
-        Task {
-            // Perform database operations on a background thread
-            await performBackgroundLoad()
+        if let snapshot = SaveFile.read() {
+            snapshot.apply(to: gameState)
+            lastSnapshot = snapshot
+            print("Loaded save from \(snapshot.savedAt): $\(gameState.money), \(gameState.totalPackagesShipped) packages, \(gameState.workers) workers")
+        } else {
+            print("No saved game found. Starting new game.")
         }
+        hasCompletedInitialLoad = true
+        updateGameCenter()
     }
-    
-    // Background loading function
-    private func performBackgroundLoad() async {
-        // Fetch all saved games
-        let descriptor = FetchDescriptor<SavedGameState>(sortBy: [SortDescriptor(\.savedAt, order: .reverse)])
-        
-        do {
-            // Perform database fetch on background thread
-            let savedGames = try await Task.detached(priority: .userInitiated) {
-                return try self.modelContext.fetch(descriptor)
-            }.value
-            
-            // If we have a save, apply it
-            if let savedGame = savedGames.first {
-                do {
-                    print("Found save game from \(savedGame.savedAt)")
-                    print("Save contains \(savedGame.purchasedUpgradeIDs.count) purchased upgrades")
-                    print("Save contains \(savedGame.repeatableUpgradeIDs.count) repeatable upgrades")
-                    
-                    // Back on main thread to update game state
-                    await MainActor.run {
-                        savedGame.apply(to: gameState)
-                        print("Game loaded successfully. Last saved at \(savedGame.savedAt)")
-                        
-                        // Call upgrade verification after applying saved state
-                        gameState.verifyUpgradeIntegrity()
-                        
-                        // Verify upgrade restoration
-                        print("Game state now has \(gameState.upgrades.count) upgrades and \(gameState.purchasedUpgradeIDs.count) purchased upgrade IDs")
-                        
-                        // Verify key stats were restored
-                        print("Loaded: $\(gameState.money), \(gameState.totalPackagesShipped) packages shipped, ethics: \(gameState.ethicsScore)")
-                    }
-                } catch {
-                    print("Error applying saved game: \(error)")
-                    
-                    // If we can't apply the saved game, reset to a fresh state
-                    await MainActor.run {
-                        gameState.reset()
-                    }
-                    
-                    // And delete the corrupted save
-                    print("Deleting corrupted save data")
-                    await resetDatabaseAsync()
-                }
-            } else {
-                print("No saved game found. Starting new game.")
-            }
-            
-            // Update Game Center regardless
-            await MainActor.run {
-                updateGameCenter()
-                // Mark as loaded
-                hasCompletedInitialLoad = true
-            }
-        } catch {
-            print("Error loading game: \(error)")
-            print("Error details: \(error)")
-            
-            // Reset game state to default since we couldn't load
-            await MainActor.run {
-                gameState.reset()
-                hasCompletedInitialLoad = true // Still mark as loaded to avoid blocking
-            }
-        }
-    }
-    
-    // Saves the current game state if it has progressed
+
+    // MARK: - Saving
+
+    /// Immediate save. No-ops until the initial load has completed and there is progress to save.
     func saveGameState() {
-        // Only save if we've made some progress
+        guard hasCompletedInitialLoad else { return }
         guard gameState.totalPackagesShipped > 0 else { return }
-        
-        // Indicate saving has started
-        isSaving = true
-        
-        // Launch a task to perform the save on a background thread
-        Task {
-            await performBackgroundSave()
-        }
+        persist()
     }
-    
-    // Background saving function
-    private func performBackgroundSave() async {
-        do {
-            // Validate game state before saving (fixing any issues)
-            await MainActor.run {
-                gameState.validateGameState()
-                // Verify purchased upgrade tracking before saving
-                validatePurchasedUpgrades()
-                // Enhanced pre-save validation
-                ensureNonRepeatablePurchasesTracked()
-            }
-            
-            // Fetch existing saves on background thread
-            let savedGames = try await Task.detached(priority: .userInitiated) {
-                let descriptor = FetchDescriptor<SavedGameState>()
-                return try self.modelContext.fetch(descriptor)
-            }.value
-            
-            // Delete existing saved games on background thread
-            try await Task.detached(priority: .userInitiated) {
-                // Delete any existing saved games
-                for game in savedGames {
-                    self.modelContext.delete(game)
-                }
-            }.value
-            
-            // Create a new saved game state (capture game state on main thread)
-            let gameStateCopy = await MainActor.run {
-                return gameState
-            }
-            
-            // Create the saved state
-            let savedState = SavedGameState.from(gameState: gameStateCopy)
-            
-            // Enhanced logging for debugging
-            print("Saving game with \(gameStateCopy.purchasedUpgradeIDs.count) purchased upgrade IDs")
-            print("Current active upgrades: \(gameStateCopy.upgrades.count)")
-            
-            // Double check that repeatable upgrades are properly counted
-            // This should match the number of worker upgrades
-            let repeatableCount = gameStateCopy.upgrades.count
-            print("Saving \(repeatableCount) repeatable upgrades")
-            
-            // Verify the purchased IDs were properly copied
-            if savedState.purchasedUpgradeIDs.count != gameStateCopy.purchasedUpgradeIDs.count {
-                print("Warning: Purchased upgrade count mismatch between game state (\(gameStateCopy.purchasedUpgradeIDs.count)) and saved state (\(savedState.purchasedUpgradeIDs.count))")
-            }
-            
-            // Insert the saved state on background thread
-            try await Task.detached(priority: .userInitiated) {
-                self.modelContext.insert(savedState)
-                // Commit the changes
-                try self.modelContext.save()
-            }.value
-            
-            // Update UI state on main thread after successful save
-            await MainActor.run {
-                // Update last save time and show indicator
-                lastSaveTime = Date()
-                showSaveIndicator()
-                
-                // Update Game Center with the latest stats
-                updateGameCenter()
-                
-                // Mark saving as complete
-                isSaving = false
-            }
-            
-            print("Game saved successfully at \(savedState.savedAt)")
-        } catch {
-            print("Error saving game: \(error)")
-            print("Error details: \(error)")
-            
-            // Mark saving as complete on main thread
-            await MainActor.run {
-                isSaving = false
-            }
-        }
-    }
-    
-    // Debounced save to avoid excessive saves
+
+    /// Trailing-edge debounce: coalesces bursts of events into a single save a short time later.
+    /// Unlike the previous implementation, this never silently drops a save.
     func saveGameStateDebounced() {
-        // Cancel any existing save task
-        saveTask?.cancel()
-        
-        // Check if enough time has passed since the last save
-        let now = Date()
-        let timeSinceLastSave = now.timeIntervalSince(lastSaveTime)
-        
-        // Don't schedule a new save if it's too soon
-        guard timeSinceLastSave >= saveThrottleInterval else { return }
-        
-        // Schedule a new save after a short delay
-        saveTask = Task {
-            do {
-                try await Task.sleep(for: .seconds(2))
-                
-                // Only proceed if task wasn't cancelled during sleep
-                if !Task.isCancelled {
-                    // Call the async save method
-                    await performBackgroundSave()
-                }
-            } catch {
-                // Task was cancelled or other error
-                print("Save task cancelled or error: \(error)")
-            }
+        guard hasCompletedInitialLoad else { return }
+        guard gameState.totalPackagesShipped > 0 else { return }
+
+        let delay = debounceDelay
+        debounceTask?.cancel()
+        debounceTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled else { return }
+            self?.persist()
         }
     }
-    
-    // Use for event-based saves (milestone achievements, purchases, etc.)
+
+    /// Routes gameplay events to the appropriate save cadence.
     func saveOnEvent(_ event: SaveEvent) {
         switch event {
         case .upgrade:
             saveGameStateDebounced()
         case .milestone(let value):
-            if value % 100 == 0 {
-                saveGameStateDebounced()
-            }
+            if value % 100 == 0 { saveGameStateDebounced() }
         case .moneyGain(let amount):
-            if amount >= 100 {
-                saveGameStateDebounced()
-            }
+            if amount >= 100 { saveGameStateDebounced() }
         case .backgrounding:
-            // Immediate save when app goes to background
-            saveGameState()
+            saveGameState() // Immediate when leaving the app.
         }
     }
-    
-    // Shows the save indicator briefly
+
+    /// Captures a snapshot and enqueues an atomic background write. Call on the main thread.
+    private func persist() {
+        isSaving = true
+        let snapshot = GameSnapshot(from: gameState)
+        lastSnapshot = snapshot
+        enqueueWrite(snapshot)
+
+        lastSaveTime = Date()
+        showSaveIndicator()
+        updateGameCenter()
+        isSaving = false
+    }
+
+    /// Serializes writes so an older write can never land after a newer one.
+    private func enqueueWrite(_ snapshot: GameSnapshot) {
+        let previous = writeTask
+        writeTask = Task.detached(priority: .utility) {
+            await previous?.value
+            do {
+                try SaveFile.write(snapshot)
+            } catch {
+                print("Save write failed: \(error)")
+            }
+        }
+    }
+
+    // MARK: - Reset / endings
+
+    /// Clears the on-disk save and resets the in-memory game to a fresh state.
+    func resetDatabase() {
+        gameState.reset()
+        lastSnapshot = nil
+
+        let previous = writeTask
+        writeTask = Task.detached(priority: .utility) {
+            await previous?.value
+            SaveFile.delete()
+        }
+
+        lastSaveTime = Date()
+        showSaveIndicator()
+        updateGameCenter()
+        print("Save data cleared and game reset.")
+    }
+
+    /// Handles win/lose/restart: records final scores where relevant, then starts fresh.
+    func handleGameEnding(type: GameEndingType) {
+        if type == .win || type == .lose {
+            gameCenterManager?.forceRefreshScores(gameState)
+        }
+        resetDatabase()
+    }
+
+    // MARK: - Settings display
+
+    /// Human-readable summary of the current save for the settings screen.
+    var saveInfoText: String {
+        guard let snapshot = lastSnapshot else { return "No save data found." }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return """
+        Save Date: \(formatter.string(from: snapshot.savedAt))
+        Schema Version: \(snapshot.schemaVersion)
+        App Version: \(snapshot.appVersion)
+
+        Game Stats:
+        Money: \(String(format: "%.2f", snapshot.money))
+        Packages: \(snapshot.totalPackagesShipped)
+        Workers: \(snapshot.workers)
+        Ethics Score: \(String(format: "%.1f", snapshot.ethicsScore))
+        """
+    }
+
+    // MARK: - Helpers
+
     private func showSaveIndicator() {
         Task { @MainActor in
-            // Ensure UI updates happen on the main thread
-            withAnimation {
-                shouldShowSaveIndicator = true
-            }
-            
-            // Hide indicator after delay
-            do {
-                try await Task.sleep(for: .seconds(1.5))
-                // Still on main thread due to @MainActor
-                withAnimation {
-                    shouldShowSaveIndicator = false
-                }
-            } catch {
-                // Handle potential cancellation
-                print("Save indicator animation interrupted: \(error)")
-            }
+            withAnimation { shouldShowSaveIndicator = true }
+            try? await Task.sleep(for: .seconds(1.5))
+            withAnimation { shouldShowSaveIndicator = false }
         }
     }
-    
-    // Updates Game Center with latest stats
+
     private func updateGameCenter() {
-        // Only update Game Center if the manager is available
-        if let gcManager = gameCenterManager {
-            // First update from game state (throttled)
-            gcManager.updateFromGameState(gameState)
-            
-            // For key events like saving, force refresh scores to ensure UI shows latest
-            if gameState.totalPackagesShipped > 0 || gameState.lifetimeTotalMoneyEarned > 0 {
-                gcManager.forceRefreshScores(gameState)
-            }
+        guard let gcManager = gameCenterManager else { return }
+        gcManager.updateFromGameState(gameState)
+        if gameState.totalPackagesShipped > 0 || gameState.lifetimeTotalMoneyEarned > 0 {
+            gcManager.forceRefreshScores(gameState)
         }
     }
-    
-    // Reset the database asynchronously
-    private func resetDatabaseAsync() async {
-        do {
-            // Explicitly reset the game state first
-            await MainActor.run {
-                print("Resetting game state before clearing database...")
-                gameState.reset()
-            }
-            
-            // Delete all saved games on background thread
-            try await Task.detached(priority: .userInitiated) {
-                let descriptor = FetchDescriptor<SavedGameState>()
-                let savedGames = try self.modelContext.fetch(descriptor)
-                
-                if savedGames.isEmpty {
-                    print("No saved games to delete")
-                } else {
-                    // Count before deletion
-                    print("Deleting \(savedGames.count) saved games")
-                    
-                    // Delete each saved game
-                    for game in savedGames {
-                        self.modelContext.delete(game)
-                    }
-                    
-                    // Save changes
-                    try self.modelContext.save()
-                    
-                    print("Successfully reset the database")
-                }
-            }.value
-            
-            // Force update the UI state on main thread
-            await MainActor.run {
-                // Update flags and show indicator
-                lastSaveTime = Date()
-                showSaveIndicator()
-                
-                // Update Game Center with the reset stats
-                updateGameCenter()
-                
-                print("Game has been fully reset")
-            }
-            
-        } catch {
-            print("Error resetting database: \(error)")
-            print("Error details: \(error)")
-            
-            // Force reset game state even if database reset fails
-            await MainActor.run {
-                gameState.reset()
-            }
-        }
-    }
-    
-    // Keep this version for backwards compatibility and UI button actions
-    func resetDatabase() {
-        Task {
-            await resetDatabaseAsync()
-        }
-    }
-    
-    // New validation method to ensure all purchased upgrades are correctly tracked
-    private func validatePurchasedUpgrades() {
-        // Get all non-repeatable upgrades
-        let allNonRepeatableUpgrades = UpgradeManager.availableUpgrades.filter { !$0.isRepeatable }
-        
-        // Track which upgrades might need fixing
-        var upgradesNeedingFix = 0
-        
-        // Check each upgrade to see if it's visually hidden but not in purchasedUpgradeIDs
-        for upgrade in allNonRepeatableUpgrades {
-            // For each non-repeatable upgrade, check if it SHOULD be considered purchased
-            let visiblyPurchased = gameState.hasBeenPurchased(upgrade)
-            let idInList = gameState.purchasedUpgradeIDs.contains(upgrade.id)
-            
-            // If there's a mismatch, we need to fix it
-            if visiblyPurchased && !idInList {
-                // The upgrade appears purchased but its ID isn't in the list
-                gameState.purchasedUpgradeIDs.append(upgrade.id)
-                upgradesNeedingFix += 1
-                print("Fixed missing upgrade ID: \(upgrade.name)")
-            }
-        }
-        
-        if upgradesNeedingFix > 0 {
-            print("Fixed \(upgradesNeedingFix) missing upgrade IDs before saving")
-        }
-    }
-    
-    // Added method to ensure all non-repeatable upgrades are tracked
-    private func ensureNonRepeatablePurchasesTracked() {
-        // This ensures all non-repeatable upgrades are properly tracked
-        // by their current IDs in the UpgradeManager
-        
-        // 1. Get all non-repeatable upgrade names
-        let upgradeManagerNames = UpgradeManager.availableUpgrades
-            .filter { !$0.isRepeatable }
-            .map { $0.name }
-        
-        // 2. Get currently tracked purchased upgrade names 
-        let currentlyTrackedNames = gameState.purchasedUpgradeIDs.compactMap { id -> String? in
-            for upgrade in UpgradeManager.availableUpgrades {
-                if upgrade.id == id {
-                    return upgrade.name
-                }
-            }
-            return nil
-        }
-        
-        // 3. For each upgrade in UpgradeManager, check if we should have purchased it
-        for upgradeName in Set(currentlyTrackedNames) {
-            // Find the current version's UUID in UpgradeManager
-            if let currentID = UpgradeManager.availableUpgrades
-                .first(where: { $0.name == upgradeName && !$0.isRepeatable })?.id {
-                
-                // If we don't have this ID in our purchased list, add it
-                if !gameState.purchasedUpgradeIDs.contains(currentID) {
-                    gameState.purchasedUpgradeIDs.append(currentID)
-                    print("CRITICAL: Added missing current ID for purchased upgrade: \(upgradeName)")
-                }
-            }
-        }
-    }
-    
-    // New method for handling game endings (win, lose, restart)
-    func handleGameEnding(type: GameEndingType) {
-        Task {
-            print("Handling game ending of type: \(type)")
-            
-            // If it's a restart, clear everything
-            if type == .restart {
-                await resetDatabaseAsync()
-            } else {
-                // For win/lose scenarios, reset the game state but optionally save high scores first
-                
-                // Optionally record high scores or achievements before resetting
-                if type == .win || type == .lose {
-                    // Update Game Center with final stats
-                    await MainActor.run {
-                        gameCenterManager?.forceRefreshScores(gameState)
-                    }
-                }
-                
-                // Reset the game
-                await MainActor.run {
-                    gameState.reset()
-                }
-                
-                // Save the reset state to database
-                await performBackgroundSave()
-                
-                print("Game ended (\(type)) and state has been reset")
-            }
-        }
-    }
-    
-    // Event types that can trigger a save
+
+    // Event types that can trigger a save.
     enum SaveEvent {
         case upgrade
         case milestone(Int)
@@ -459,10 +201,61 @@ enum GameEndingType {
     case restart
 }
 
+// MARK: - On-disk save file
+
+/// Reads/writes the single JSON save file. Writes are atomic; callers serialize them.
+enum SaveFile {
+    static let fileName = "PrimeCollapseSave.json"
+
+    static var url: URL {
+        let fileManager = FileManager.default
+        let base = (try? fileManager.url(for: .applicationSupportDirectory,
+                                         in: .userDomainMask,
+                                         appropriateFor: nil,
+                                         create: true))
+            ?? fileManager.temporaryDirectory
+        return base.appendingPathComponent(fileName)
+    }
+
+    private static func makeEncoder() -> JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return encoder
+    }
+
+    private static func makeDecoder() -> JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }
+
+    static func write(_ snapshot: GameSnapshot) throws {
+        let data = try makeEncoder().encode(snapshot)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        try data.write(to: url, options: .atomic)
+    }
+
+    static func read() -> GameSnapshot? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        do {
+            return try makeDecoder().decode(GameSnapshot.self, from: data)
+        } catch {
+            print("Failed to decode save file (ignoring): \(error)")
+            return nil
+        }
+    }
+
+    static func delete() {
+        try? FileManager.default.removeItem(at: url)
+    }
+}
+
 // SwiftUI extension for easily showing the save indicator
 struct SaveIndicatorView: View {
     @Environment(SaveManager.self) var saveManager
-    
+
     var body: some View {
         if saveManager.shouldShowSaveIndicator {
             HStack {
@@ -480,4 +273,4 @@ struct SaveIndicatorView: View {
             .transition(.opacity.combined(with: .scale))
         }
     }
-} 
+}
