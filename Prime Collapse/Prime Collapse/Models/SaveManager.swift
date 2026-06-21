@@ -204,17 +204,23 @@ enum GameEndingType {
 // MARK: - On-disk save file
 
 /// Reads/writes the single JSON save file. Writes are atomic; callers serialize them.
+/// The directory is injectable (defaulting to Application Support) so tests can round-trip
+/// against a temporary directory without touching the real save.
 enum SaveFile {
     static let fileName = "PrimeCollapseSave.json"
 
-    static var url: URL {
+    /// Default on-device location for the save file.
+    static var defaultDirectory: URL {
         let fileManager = FileManager.default
-        let base = (try? fileManager.url(for: .applicationSupportDirectory,
-                                         in: .userDomainMask,
-                                         appropriateFor: nil,
-                                         create: true))
+        return (try? fileManager.url(for: .applicationSupportDirectory,
+                                     in: .userDomainMask,
+                                     appropriateFor: nil,
+                                     create: true))
             ?? fileManager.temporaryDirectory
-        return base.appendingPathComponent(fileName)
+    }
+
+    static func url(in directory: URL? = nil) -> URL {
+        (directory ?? defaultDirectory).appendingPathComponent(fileName)
     }
 
     private static func makeEncoder() -> JSONEncoder {
@@ -230,15 +236,17 @@ enum SaveFile {
         return decoder
     }
 
-    static func write(_ snapshot: GameSnapshot) throws {
+    static func write(_ snapshot: GameSnapshot, in directory: URL? = nil) throws {
+        let fileURL = url(in: directory)
         let data = try makeEncoder().encode(snapshot)
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
+        try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(),
                                                 withIntermediateDirectories: true)
-        try data.write(to: url, options: .atomic)
+        try data.write(to: fileURL, options: .atomic)
     }
 
-    static func read() -> GameSnapshot? {
-        guard let data = try? Data(contentsOf: url) else { return nil }
+    static func read(in directory: URL? = nil) -> GameSnapshot? {
+        let fileURL = url(in: directory)
+        guard let data = try? Data(contentsOf: fileURL) else { return nil }
         do {
             return try makeDecoder().decode(GameSnapshot.self, from: data)
         } catch {
@@ -247,8 +255,8 @@ enum SaveFile {
         }
     }
 
-    static func delete() {
-        try? FileManager.default.removeItem(at: url)
+    static func delete(in directory: URL? = nil) {
+        try? FileManager.default.removeItem(at: url(in: directory))
     }
 }
 

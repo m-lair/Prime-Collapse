@@ -22,13 +22,20 @@ struct DelayedEffect: Identifiable, Equatable {
 }
 
 @Observable final class GameState {
+    /// Upper bound on a single automation step's elapsed time. The game loop only ticks
+    /// while the app is foregrounded, so returning from a long background produces one tick
+    /// with a huge gap. Capping it both prevents numeric overflow in the package/money math
+    /// and keeps offline catch-up to a sane amount (8 hours).
+    static let maxAutomationCatchUp: TimeInterval = 8 * 60 * 60
+
     // Core game metrics
     var totalPackagesShipped: Int = 0
-    // Clamp money >= 0
+    // Clamp money >= 0 and reject non-finite values (NaN/inf) so a bad calculation
+    // can never poison the balance.
     private var _money: Double = 0.0
     var money: Double {
         get { _money }
-        set { _money = max(0, newValue) }
+        set { _money = newValue.isFinite ? max(0, newValue) : _money }
     }
     var workers: Int = 0  // Start with 1 worker
     var lifetimeTotalMoneyEarned: Double = 0.0 // Track total money earned throughout the game
@@ -131,13 +138,17 @@ struct DelayedEffect: Identifiable, Equatable {
     
     // Process automation (called on timer)
     func processAutomation(currentTime: Date) {
-        let timeElapsed = currentTime.timeIntervalSince(lastUpdate)
-        
-        // Skip if no time has passed
-        guard timeElapsed > 0 else {
+        let rawElapsed = currentTime.timeIntervalSince(lastUpdate)
+
+        // Skip if no time has passed (or the clock moved backwards / produced a bad value).
+        guard rawElapsed > 0, rawElapsed.isFinite else {
             lastUpdate = currentTime
             return
         }
+
+        // Cap catch-up time so a long background gap can't overflow the math or dump an
+        // absurd burst of packages/money in a single tick.
+        let timeElapsed = min(rawElapsed, GameState.maxAutomationCatchUp)
         
         // Reset worker quit notification at the start of each cycle
         workersQuit = 0
@@ -173,12 +184,18 @@ struct DelayedEffect: Identifiable, Equatable {
         
         // Calculate fractional packages shipped (with environmental penalty)
         let fractionalPackages = finalAdjustedRate * timeElapsed
-        
-        // Add to our accumulator
-        packageAccumulator += fractionalPackages
-        
-        // Process whole packages
-        let packagesShipped = Int(packageAccumulator)
+
+        // Add to our accumulator, guarding against non-finite values poisoning it.
+        if fractionalPackages.isFinite && fractionalPackages > 0 {
+            packageAccumulator += fractionalPackages
+        }
+        if !packageAccumulator.isFinite { packageAccumulator = 0 }
+
+        // Process whole packages. Guard against an accumulator so large that Int(...)
+        // would overflow/trap.
+        let packagesShipped = packageAccumulator >= Double(Int.max)
+            ? 0
+            : Int(packageAccumulator)
         if packagesShipped > 0 {
             totalPackagesShipped += packagesShipped
             
@@ -443,8 +460,9 @@ struct DelayedEffect: Identifiable, Equatable {
         return baseCost * perceptionModifier
     }
     
-    // Safe calculation function that avoids Int overflow
-    private func safeCalculatePrice(basePrice: Double, timesPurchased: Int, scalingFactor: Double) -> Double {
+    // Safe calculation function that avoids Int overflow.
+    // Internal (not private) so the test target can exercise the bounds directly.
+    func safeCalculatePrice(basePrice: Double, timesPurchased: Int, scalingFactor: Double) -> Double {
         // Cap to prevent overflow
         let maxFactor = 10000.0
         
@@ -464,8 +482,9 @@ struct DelayedEffect: Identifiable, Equatable {
         return min(maxPrice, calculatedPrice)
     }
     
-    // Special calculation just for worker upgrades to handle larger numbers
-    private func safeCalculateWorkerPrice(basePrice: Double, workerCount: Int, scalingFactor: Double) -> Double {
+    // Special calculation just for worker upgrades to handle larger numbers.
+    // Internal (not private) so the test target can exercise the bounds directly.
+    func safeCalculateWorkerPrice(basePrice: Double, workerCount: Int, scalingFactor: Double) -> Double {
         // Apply a more gradual scaling for large worker counts
         let effectiveCount: Double
         if workerCount <= 20 {
@@ -602,8 +621,9 @@ struct DelayedEffect: Identifiable, Equatable {
         }
     }
     
-    // Check if player qualifies for the Reform ending
-    private func checkForReformEnding() {
+    // Check if player qualifies for the Reform ending.
+    // Internal (not private) so tests can verify the threshold logic directly.
+    func checkForReformEnding() {
         // To get the Reform ending:
         // 1. Player must have made at least 5 ethical choices (positive impact)
         // 2. Ethics score must be 50 or higher
@@ -613,8 +633,9 @@ struct DelayedEffect: Identifiable, Equatable {
         }
     }
     
-    // Check if player qualifies for the Loop ending
-    private func checkForLoopEnding() {
+    // Check if player qualifies for the Loop ending.
+    // Internal (not private) so tests can verify the threshold logic directly.
+    func checkForLoopEnding() {
         // To get the Loop ending:
         // 1. Ethics score must be low but not collapsed (e.g., 15-25)
         // 2. Must have earned at least $2500

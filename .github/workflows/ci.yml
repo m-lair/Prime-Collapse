@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Show toolchain versions
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Pick an available iOS simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          candidates = [
+              dev["udid"]
+              for runtime, devs in devices.items() if "iOS" in runtime
+              for dev in devs
+              if dev.get("isAvailable") and "iPhone" in dev["name"]
+          ]
+          print(candidates[0] if candidates else "")
+          ')
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          echo "Selected simulator UDID: $UDID"
+
+      - name: Run unit tests
+        run: |
+          set -o pipefail
+          DEST="platform=iOS Simulator,name=iPhone 16"
+          if [ -n "${{ steps.sim.outputs.udid }}" ]; then
+            DEST="id=${{ steps.sim.outputs.udid }}"
+          fi
+          echo "Testing with destination: $DEST"
+          xcodebuild test \
+            -project "Prime Collapse/Prime Collapse.xcodeproj" \
+            -scheme "Prime Collapse" \
+            -destination "$DEST" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO

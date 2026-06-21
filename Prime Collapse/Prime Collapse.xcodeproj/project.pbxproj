@@ -8,7 +8,18 @@
 
 /* Begin PBXFileReference section */
 		2CC2FDD62DAF4E100006FF39 /* Prime Collapse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Prime Collapse.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D1A0000000000000000A0002 /* PrimeCollapseTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PrimeCollapseTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXContainerItemProxy section */
+		D1A0000000000000000A0008 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2CC2FDCE2DAF4E100006FF39 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2CC2FDD52DAF4E100006FF39;
+			remoteInfo = "Prime Collapse";
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		2CC2FDD82DAF4E100006FF39 /* Prime Collapse */ = {
@@ -16,10 +27,22 @@
 			path = "Prime Collapse";
 			sourceTree = "<group>";
 		};
+		D1A0000000000000000A0003 /* PrimeCollapseTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = PrimeCollapseTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		2CC2FDD32DAF4E100006FF39 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D1A0000000000000000A0005 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -33,6 +56,7 @@
 			isa = PBXGroup;
 			children = (
 				2CC2FDD82DAF4E100006FF39 /* Prime Collapse */,
+				D1A0000000000000000A0003 /* PrimeCollapseTests */,
 				2CC2FDD72DAF4E100006FF39 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +65,7 @@
 			isa = PBXGroup;
 			children = (
 				2CC2FDD62DAF4E100006FF39 /* Prime Collapse.app */,
+				D1A0000000000000000A0002 /* PrimeCollapseTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -70,6 +95,29 @@
 			productReference = 2CC2FDD62DAF4E100006FF39 /* Prime Collapse.app */;
 			productType = "com.apple.product-type.application";
 		};
+		D1A0000000000000000A0001 /* PrimeCollapseTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D1A0000000000000000A0009 /* Build configuration list for PBXNativeTarget "PrimeCollapseTests" */;
+			buildPhases = (
+				D1A0000000000000000A0004 /* Sources */,
+				D1A0000000000000000A0005 /* Frameworks */,
+				D1A0000000000000000A0006 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D1A0000000000000000A0007 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D1A0000000000000000A0003 /* PrimeCollapseTests */,
+			);
+			name = PrimeCollapseTests;
+			packageProductDependencies = (
+			);
+			productName = PrimeCollapseTests;
+			productReference = D1A0000000000000000A0002 /* PrimeCollapseTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -82,6 +130,10 @@
 				TargetAttributes = {
 					2CC2FDD52DAF4E100006FF39 = {
 						CreatedOnToolsVersion = 16.2;
+					};
+					D1A0000000000000000A0001 = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = 2CC2FDD52DAF4E100006FF39;
 					};
 				};
 			};
@@ -100,12 +152,20 @@
 			projectRoot = "";
 			targets = (
 				2CC2FDD52DAF4E100006FF39 /* Prime Collapse */,
+				D1A0000000000000000A0001 /* PrimeCollapseTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		2CC2FDD42DAF4E100006FF39 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D1A0000000000000000A0006 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -122,7 +182,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D1A0000000000000000A0004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D1A0000000000000000A0007 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2CC2FDD52DAF4E100006FF39 /* Prime Collapse */;
+			targetProxy = D1A0000000000000000A0008 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		2CC2FDE22DAF4E110006FF39 /* Debug */ = {
@@ -306,6 +381,44 @@
 			};
 			name = Release;
 		};
+		D1A0000000000000000A000A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5Z6AC3LV9L;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "duhmarcus.Prime-Collapse.PrimeCollapseTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Prime Collapse.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Prime Collapse";
+			};
+			name = Debug;
+		};
+		D1A0000000000000000A000B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5Z6AC3LV9L;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "duhmarcus.Prime-Collapse.PrimeCollapseTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Prime Collapse.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Prime Collapse";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -323,6 +436,15 @@
 			buildConfigurations = (
 				2CC2FDE52DAF4E110006FF39 /* Debug */,
 				2CC2FDE62DAF4E110006FF39 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D1A0000000000000000A0009 /* Build configuration list for PBXNativeTarget "PrimeCollapseTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D1A0000000000000000A000A /* Debug */,
+				D1A0000000000000000A000B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
