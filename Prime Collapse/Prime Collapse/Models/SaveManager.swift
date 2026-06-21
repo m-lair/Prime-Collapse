@@ -24,6 +24,12 @@ import Observation
     // Metadata from the most recently loaded or written snapshot (for the settings screen).
     private(set) var lastSnapshot: GameSnapshot?
 
+    // Save-health state, surfaced on the settings screen so failures aren't silent.
+    /// Non-nil when the most recent write failed; describes what went wrong.
+    private(set) var lastSaveError: String?
+    /// Human-readable result of the most recent load (e.g. recovered from backup).
+    private(set) var lastLoadMessage: String?
+
     // Dependencies.
     private let gameState: GameState
     private let gameCenterManager: GameCenterManager?
@@ -43,14 +49,17 @@ import Observation
     // MARK: - Loading
 
     /// Reads the save file (if any) and applies it. Runs synchronously; the file is tiny.
+    /// Falls back to the rotating backup if the primary file is missing or corrupt.
     func loadGameState() {
-        if let snapshot = SaveFile.read() {
+        let result = SaveFile.load()
+        if let snapshot = result.snapshot {
             snapshot.apply(to: gameState)
             lastSnapshot = snapshot
             print("Loaded save from \(snapshot.savedAt): $\(gameState.money), \(gameState.totalPackagesShipped) packages, \(gameState.workers) workers")
         } else {
             print("No saved game found. Starting new game.")
         }
+        lastLoadMessage = result.outcome.message
         hasCompletedInitialLoad = true
         updateGameCenter()
     }
@@ -109,14 +118,22 @@ import Observation
     /// Serializes writes so an older write can never land after a newer one.
     private func enqueueWrite(_ snapshot: GameSnapshot) {
         let previous = writeTask
-        writeTask = Task.detached(priority: .utility) {
+        writeTask = Task.detached(priority: .utility) { [weak self] in
             await previous?.value
             do {
                 try SaveFile.write(snapshot)
+                await self?.recordSaveResult(error: nil)
             } catch {
                 print("Save write failed: \(error)")
+                await self?.recordSaveResult(error: error.localizedDescription)
             }
         }
+    }
+
+    /// Records the outcome of a background write on the main actor (observable state).
+    @MainActor
+    private func recordSaveResult(error: String?) {
+        lastSaveError = error
     }
 
     // MARK: - Reset / endings
@@ -203,11 +220,39 @@ enum GameEndingType {
 
 // MARK: - On-disk save file
 
+/// How a load attempt resolved. Used to surface save health to the player.
+enum LoadOutcome {
+    case empty               // No save on disk; a fresh game.
+    case loaded              // Primary save loaded cleanly.
+    case recoveredFromBackup // Primary was missing/corrupt; backup restored progress.
+    case corruptedNoBackup   // Primary was corrupt and no usable backup existed.
+
+    var message: String? {
+        switch self {
+        case .empty, .loaded: return nil
+        case .recoveredFromBackup: return "Your latest save was unreadable, so progress was restored from a backup."
+        case .corruptedNoBackup: return "Your save data was corrupted and could not be recovered. A new game was started."
+        }
+    }
+}
+
+/// Result of a load attempt: the decoded snapshot (if any) and how it was obtained.
+struct LoadResult {
+    let snapshot: GameSnapshot?
+    let outcome: LoadOutcome
+}
+
 /// Reads/writes the single JSON save file. Writes are atomic; callers serialize them.
 /// The directory is injectable (defaulting to Application Support) so tests can round-trip
 /// against a temporary directory without touching the real save.
+///
+/// Durability: each write first rotates the current good file to a `.bak` copy, so a bad
+/// write can never destroy the only copy. Reads that hit a corrupt primary file quarantine
+/// it as `.corrupt` and fall back to the backup.
 enum SaveFile {
     static let fileName = "PrimeCollapseSave.json"
+    static let backupFileName = "PrimeCollapseSave.bak"
+    static let corruptFileName = "PrimeCollapseSave.corrupt"
 
     /// Default on-device location for the save file.
     static var defaultDirectory: URL {
@@ -221,6 +266,14 @@ enum SaveFile {
 
     static func url(in directory: URL? = nil) -> URL {
         (directory ?? defaultDirectory).appendingPathComponent(fileName)
+    }
+
+    static func backupURL(in directory: URL? = nil) -> URL {
+        (directory ?? defaultDirectory).appendingPathComponent(backupFileName)
+    }
+
+    static func corruptURL(in directory: URL? = nil) -> URL {
+        (directory ?? defaultDirectory).appendingPathComponent(corruptFileName)
     }
 
     private static func makeEncoder() -> JSONEncoder {
@@ -239,24 +292,68 @@ enum SaveFile {
     static func write(_ snapshot: GameSnapshot, in directory: URL? = nil) throws {
         let fileURL = url(in: directory)
         let data = try makeEncoder().encode(snapshot)
-        try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(),
-                                                withIntermediateDirectories: true)
+        let fileManager = FileManager.default
+        try fileManager.createDirectory(at: fileURL.deletingLastPathComponent(),
+                                        withIntermediateDirectories: true)
+
+        // Rotate the current good file to a backup before overwriting, so a failed or
+        // truncated write never leaves us with no recoverable copy.
+        if fileManager.fileExists(atPath: fileURL.path) {
+            let backup = backupURL(in: directory)
+            try? fileManager.removeItem(at: backup)
+            try? fileManager.copyItem(at: fileURL, to: backup)
+        }
+
         try data.write(to: fileURL, options: .atomic)
     }
 
+    /// Back-compat convenience: just the snapshot, recovering from backup if needed.
     static func read(in directory: URL? = nil) -> GameSnapshot? {
-        let fileURL = url(in: directory)
+        load(in: directory).snapshot
+    }
+
+    /// Loads the save, recovering from the rotating backup if the primary is missing/corrupt.
+    static func load(in directory: URL? = nil) -> LoadResult {
+        let fileManager = FileManager.default
+        let primaryURL = url(in: directory)
+
+        if let snapshot = decode(at: primaryURL) {
+            return LoadResult(snapshot: snapshot, outcome: .loaded)
+        }
+
+        // Primary failed to decode. If it actually exists, it's corrupt — quarantine it
+        // so it can't keep tripping us up (and so it's available for debugging).
+        let primaryExisted = fileManager.fileExists(atPath: primaryURL.path)
+        if primaryExisted {
+            let corrupt = corruptURL(in: directory)
+            try? fileManager.removeItem(at: corrupt)
+            try? fileManager.moveItem(at: primaryURL, to: corrupt)
+            print("Quarantined corrupt save to \(corrupt.lastPathComponent)")
+        }
+
+        // Try the backup.
+        if let snapshot = decode(at: backupURL(in: directory)) {
+            print("Recovered save from backup.")
+            return LoadResult(snapshot: snapshot, outcome: .recoveredFromBackup)
+        }
+
+        return LoadResult(snapshot: nil, outcome: primaryExisted ? .corruptedNoBackup : .empty)
+    }
+
+    private static func decode(at fileURL: URL) -> GameSnapshot? {
         guard let data = try? Data(contentsOf: fileURL) else { return nil }
         do {
             return try makeDecoder().decode(GameSnapshot.self, from: data)
         } catch {
-            print("Failed to decode save file (ignoring): \(error)")
+            print("Failed to decode \(fileURL.lastPathComponent): \(error)")
             return nil
         }
     }
 
     static func delete(in directory: URL? = nil) {
-        try? FileManager.default.removeItem(at: url(in: directory))
+        let fileManager = FileManager.default
+        try? fileManager.removeItem(at: url(in: directory))
+        try? fileManager.removeItem(at: backupURL(in: directory))
     }
 }
 

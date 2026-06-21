@@ -61,4 +61,70 @@ final class SaveFileTests: XCTestCase {
         SaveFile.delete(in: dir)
         XCTAssertNil(SaveFile.read(in: dir))
     }
+
+    // MARK: - Backup rotation & recovery
+
+    private func snapshot(money: Double) -> GameSnapshot {
+        let gs = GameState()
+        gs.money = money
+        return GameSnapshot(from: gs)
+    }
+
+    private var fm: FileManager { .default }
+
+    func testBackupCreatedOnSecondWrite() throws {
+        let backup = SaveFile.backupURL(in: dir)
+        XCTAssertFalse(fm.fileExists(atPath: backup.path))
+
+        try SaveFile.write(snapshot(money: 111), in: dir)
+        // Nothing to rotate on the first write.
+        XCTAssertFalse(fm.fileExists(atPath: backup.path))
+
+        try SaveFile.write(snapshot(money: 222), in: dir)
+        // Second write rotates the previous good file into the backup.
+        XCTAssertTrue(fm.fileExists(atPath: backup.path))
+    }
+
+    func testRecoversFromBackupWhenPrimaryCorrupt() throws {
+        try SaveFile.write(snapshot(money: 111), in: dir)   // primary = 111
+        try SaveFile.write(snapshot(money: 222), in: dir)   // backup = 111, primary = 222
+
+        // Corrupt the primary file.
+        try Data("garbage not json".utf8).write(to: SaveFile.url(in: dir))
+
+        let result = SaveFile.load(in: dir)
+
+        XCTAssertEqual(result.outcome, .recoveredFromBackup)
+        XCTAssertEqual(result.snapshot?.money, 111)
+        // The corrupt primary is quarantined.
+        XCTAssertTrue(fm.fileExists(atPath: SaveFile.corruptURL(in: dir).path))
+    }
+
+    func testCorruptWithNoBackupReportsCorruptedNoBackup() throws {
+        try Data("garbage not json".utf8).write(to: SaveFile.url(in: dir))
+
+        let result = SaveFile.load(in: dir)
+
+        XCTAssertNil(result.snapshot)
+        XCTAssertEqual(result.outcome, .corruptedNoBackup)
+        XCTAssertTrue(fm.fileExists(atPath: SaveFile.corruptURL(in: dir).path))
+        XCTAssertFalse(fm.fileExists(atPath: SaveFile.url(in: dir).path))
+    }
+
+    func testEmptyDirectoryReportsEmptyOutcome() {
+        let result = SaveFile.load(in: dir)
+        XCTAssertNil(result.snapshot)
+        XCTAssertEqual(result.outcome, .empty)
+    }
+
+    func testDeleteAlsoRemovesBackup() throws {
+        try SaveFile.write(snapshot(money: 111), in: dir)
+        try SaveFile.write(snapshot(money: 222), in: dir)
+        XCTAssertTrue(fm.fileExists(atPath: SaveFile.backupURL(in: dir).path))
+
+        SaveFile.delete(in: dir)
+
+        XCTAssertFalse(fm.fileExists(atPath: SaveFile.url(in: dir).path))
+        XCTAssertFalse(fm.fileExists(atPath: SaveFile.backupURL(in: dir).path))
+    }
 }
