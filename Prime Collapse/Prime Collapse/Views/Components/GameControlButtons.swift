@@ -1,122 +1,5 @@
 import SwiftUI
 
-struct GameControlButtons: View {
-    @Environment(GameState.self) private var gameState
-    @Environment(\.openURL) private var openURL
-    
-    var body: some View {
-        // This view is now primarily a container for SettingsView
-        // The actual buttons are triggered from ContentView
-        // We keep the helper functions here for now, associated with SettingsView
-        EmptyView() // Or some placeholder if needed, body cannot be empty
-    }
-    
-    // Updated button style to match dashboard design
-    private func gameButtonLabel(systemName: String, text: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: systemName)
-                .foregroundColor(.white)
-                .font(.system(size: 16, weight: .semibold))
-                .frame(width: 32, height: 32)
-                .background(
-                    ZStack {
-                        Circle()
-                            .fill(buttonIconColor(for: text).opacity(0.3))
-                        
-                        Circle()
-                            .strokeBorder(
-                                LinearGradient(
-                                    gradient: Gradient(
-                                        colors: [
-                                            buttonIconColor(for: text).opacity(0.8),
-                                            buttonIconColor(for: text).opacity(0.4)
-                                        ]
-                                    ),
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1.5
-                            )
-                    }
-                )
-                .shadow(color: buttonIconColor(for: text).opacity(0.5), radius: 3, x: 0, y: 2)
-            
-            Text(text)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.white)
-        }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 16)
-        .background(
-            ZStack {
-                // Base shape
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white.opacity(0.05))
-                
-                // Subtle gradient overlay
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(
-                        LinearGradient(
-                            gradient: Gradient(
-                                colors: [
-                                    buttonColor(for: text).opacity(0.2),
-                                    Color.clear
-                                ]
-                            ),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                
-                // Border
-                RoundedRectangle(cornerRadius: 16)
-                    .strokeBorder(
-                        LinearGradient(
-                            gradient: Gradient(
-                                colors: [
-                                    buttonColor(for: text).opacity(0.5),
-                                    buttonColor(for: text).opacity(0.1)
-                                ]
-                            ),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            }
-        )
-        .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 2)
-    }
-    
-    // Return appropriate color based on button type
-    private func buttonColor(for buttonText: String) -> Color {
-        switch buttonText {
-        case "Reset":
-            return Color(red: 0.1, green: 0.5, blue: 0.85)
-        case "Settings":
-            return Color(red: 0.25, green: 0.6, blue: 0.8)
-        case "Quit":
-            return Color(red: 0.85, green: 0.25, blue: 0.25)
-        default:
-            return Color.blue
-        }
-    }
-    
-    // Icon color for buttons
-    private func buttonIconColor(for buttonText: String) -> Color {
-        switch buttonText {
-        case "Reset":
-            return .blue
-        case "Settings":
-            return .cyan
-        case "Quit":
-            return .red
-        default:
-            return .blue
-        }
-    }
-}
-
 // Settings view for game settings
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -132,6 +15,10 @@ struct SettingsView: View {
 
     // State to hold save data information
     @State private var saveDataInfo: String = "No save data found"
+
+    // Persisted audio preferences (no audio engine yet, but the toggles are honest).
+    @AppStorage("soundEffectsEnabled") private var soundEffectsEnabled = true
+    @AppStorage("backgroundMusicEnabled") private var backgroundMusicEnabled = true
 
     var body: some View {
         NavigationStack {
@@ -189,6 +76,19 @@ struct SettingsView: View {
                         }
                         .buttonStyle(PlainButtonStyle())
                         
+                        // Save Now Button
+                        Button(action: {
+                            saveManager.saveGameState()
+                            playHaptic(.light)
+                        }) {
+                            settingsButtonView(
+                                icon: "square.and.arrow.down",
+                                title: "Save Now",
+                                iconColor: .green
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+
                         // Save Data Info Button (new)
                         Button(action: {
                             loadSaveDataInfo()
@@ -209,14 +109,14 @@ struct SettingsView: View {
                         toggleSettingView(
                             icon: "speaker.wave.2.fill",
                             title: "Sound Effects",
-                            isOn: .constant(true),
+                            isOn: $soundEffectsEnabled,
                             iconColor: .blue
                         )
-                        
+
                         toggleSettingView(
                             icon: "music.note",
                             title: "Background Music",
-                            isOn: .constant(true),
+                            isOn: $backgroundMusicEnabled,
                             iconColor: .purple
                         )
                     }
@@ -475,17 +375,8 @@ struct SettingsView: View {
 }
 
 #Preview {
-    GameControlButtons()
-        .environment(GameState())
-        .padding()
-        .background(
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color(red: 0.1, green: 0.15, blue: 0.3),
-                    Color(red: 0.15, green: 0.25, blue: 0.4)
-                ]),
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
-} 
+    let gameState = GameState()
+    return SettingsView()
+        .environment(gameState)
+        .environment(SaveManager(gameState: gameState))
+}
