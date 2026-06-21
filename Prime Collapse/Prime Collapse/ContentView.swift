@@ -50,7 +50,11 @@ struct ContentView: View {
     
     // State for settings panel presentation
     @State private var showingSettings = false
-    
+
+    // First-run onboarding
+    @AppStorage("hasSeenTutorial") private var hasSeenTutorial = false
+    @State private var showOnboarding = false
+
     // Value decrease animation state
     @State private var decreaseAnimator = DecreaseAnimator()
     @State private var previousMoney: Double = 0
@@ -117,11 +121,23 @@ struct ContentView: View {
             if gameState.isCollapsing {
                 startCollapseEffects()
             }
+
+            // Show the tutorial once, for brand-new players.
+            if !hasSeenTutorial {
+                showOnboarding = true
+            }
         }
         .onChange(of: saveManager.hasCompletedInitialLoad) { _, loaded in
             if loaded && gameTask == nil {
                 startGameLoop()
             }
+        }
+        .onChange(of: showOnboarding) { _, shown in
+            // Mark the tutorial as seen once it's been dismissed.
+            if !shown { hasSeenTutorial = true }
+        }
+        .fullScreenCover(isPresented: $showOnboarding) {
+            OnboardingOverlayView(isPresented: $showOnboarding)
         }
         .onDisappear {
             saveManager.saveGameState()

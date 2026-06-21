@@ -64,6 +64,19 @@ final class GameStateClampTests: XCTestCase {
         XCTAssertEqual(gs.purchasedUpgradeIDs.filter { $0 == id }.count, 1)
     }
 
+    func testEnvironmentalSlowdownFraction() {
+        let gs = GameState()
+
+        gs.environmentalImpact = 0
+        XCTAssertEqual(gs.environmentalSlowdownFraction, 0, accuracy: 0.0001)
+
+        gs.environmentalImpact = 50
+        XCTAssertEqual(gs.environmentalSlowdownFraction, 0.25, accuracy: 0.0001)
+
+        gs.environmentalImpact = 100
+        XCTAssertEqual(gs.environmentalSlowdownFraction, 0.5, accuracy: 0.0001)
+    }
+
     func testReformEndingThreshold() {
         let gs = GameState()
         gs.ethicalChoicesMade = 5

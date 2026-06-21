@@ -366,6 +366,16 @@ struct DashboardView: View {
                                         .font(.caption)
                                     ProgressView(value: gameState.environmentalImpact / 100.0)
                                         .tint(environmentalImpactColor)
+
+                                    // Explain the automation penalty when it's actually biting.
+                                    if gameState.environmentalSlowdownFraction > 0 {
+                                        Label(
+                                            "Slowing automation by \(Int(gameState.environmentalSlowdownFraction * 100))%",
+                                            systemImage: "exclamationmark.triangle.fill"
+                                        )
+                                        .font(.caption2)
+                                        .foregroundColor(.orange)
+                                    }
                                 }
                                 .padding(.horizontal)
                                 

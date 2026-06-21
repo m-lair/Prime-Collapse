@@ -46,16 +46,35 @@ import SwiftUI
         guard timeSinceLastEvent >= minTimeBetweenEvents else {
             return
         }
-        
-        // Increase chance of event based on time since last event (caps at ~10%)
-        // Increase event chance further in late game
-        let lateGameFactor: Double = min(Double(gameState.totalPackagesShipped / 1000), 1.5) // Up to 50% more frequent
-        let adjustedChance: Double = min(baseEventChance * (timeSinceLastEvent / minTimeBetweenEvents) * lateGameFactor, 0.15)
-        
+
+        let adjustedChance = EventManager.eventTriggerChance(
+            packagesShipped: gameState.totalPackagesShipped,
+            timeSinceLastEvent: timeSinceLastEvent,
+            baseChance: baseEventChance,
+            minInterval: minTimeBetweenEvents
+        )
+
         // Random roll to determine if an event triggers
         if Double.random(in: 0...1) < adjustedChance {
             triggerRandomEvent(gameState: gameState)
         }
+    }
+
+    /// Probability that an event triggers on a single check. Pure and testable.
+    ///
+    /// Returns 0 until the minimum interval has elapsed. Otherwise the chance scales with how
+    /// long it's been since the last event and a late-game factor. The factor is clamped to
+    /// **at least 1.0** so events also fire in the early game — previously it used integer
+    /// division (`packages / 1000`), which evaluated to 0 below 1000 packages and silently
+    /// disabled all random events for new players. Capped at 15%.
+    static func eventTriggerChance(packagesShipped: Int,
+                                   timeSinceLastEvent: TimeInterval,
+                                   baseChance: Double,
+                                   minInterval: TimeInterval) -> Double {
+        guard minInterval > 0, timeSinceLastEvent >= minInterval else { return 0 }
+        let lateGameFactor = max(1.0, min(Double(packagesShipped) / 1000.0, 1.5))
+        let chance = baseChance * (timeSinceLastEvent / minInterval) * lateGameFactor
+        return min(max(chance, 0), 0.15)
     }
     
     // Select an eligible random event
