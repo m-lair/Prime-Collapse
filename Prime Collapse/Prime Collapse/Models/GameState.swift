@@ -116,6 +116,13 @@ struct DelayedEffect: Identifiable, Equatable {
     // List to hold pending delayed effects
     var pendingEffects: [DelayedEffect] = []
     
+    /// Fraction (0–0.5) by which the current environmental impact is slowing automation.
+    /// Mirrors the `envPenaltyFactor` used in `processAutomation` (max 50% at 100 impact),
+    /// so the UI can explain *why* automation slowed.
+    var environmentalSlowdownFraction: Double {
+        max(0, min(0.5, environmentalImpact / 200.0))
+    }
+
     // Ship a package manually (tap action)
     func shipPackage() {
         totalPackagesShipped += 1
