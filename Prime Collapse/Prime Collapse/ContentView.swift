@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import SwiftData
 import Observation
 import Combine
 import UIKit

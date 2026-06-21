@@ -165,23 +165,42 @@ import Observation
 
     // MARK: - Settings display
 
-    /// Human-readable summary of the current save for the settings screen.
+    /// Human-readable summary of the current save plus live save health, for the settings screen.
     var saveInfoText: String {
-        guard let snapshot = lastSnapshot else { return "No save data found." }
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
-        return """
-        Save Date: \(formatter.string(from: snapshot.savedAt))
-        Schema Version: \(snapshot.schemaVersion)
-        App Version: \(snapshot.appVersion)
 
-        Game Stats:
-        Money: \(String(format: "%.2f", snapshot.money))
-        Packages: \(snapshot.totalPackagesShipped)
-        Workers: \(snapshot.workers)
-        Ethics Score: \(String(format: "%.1f", snapshot.ethicsScore))
-        """
+        var lines: [String] = []
+
+        if let snapshot = lastSnapshot {
+            lines.append("Save Date: \(formatter.string(from: snapshot.savedAt))")
+            lines.append("Schema Version: \(snapshot.schemaVersion)")
+            lines.append("App Version: \(snapshot.appVersion)")
+            lines.append("")
+            lines.append("Game Stats:")
+            lines.append("Money: \(String(format: "%.2f", snapshot.money))")
+            lines.append("Packages: \(snapshot.totalPackagesShipped)")
+            lines.append("Workers: \(snapshot.workers)")
+            lines.append("Ethics Score: \(String(format: "%.1f", snapshot.ethicsScore))")
+        } else {
+            lines.append("No save data found.")
+        }
+
+        // Save health.
+        lines.append("")
+        if let error = lastSaveError {
+            lines.append("⚠️ Last save failed: \(error)")
+        } else if lastSaveTime != .distantPast {
+            lines.append("Last saved: \(formatter.string(from: lastSaveTime))")
+        } else {
+            lines.append("No save written this session yet.")
+        }
+        if let loadMessage = lastLoadMessage {
+            lines.append("⚠️ \(loadMessage)")
+        }
+
+        return lines.joined(separator: "\n")
     }
 
     // MARK: - Helpers
