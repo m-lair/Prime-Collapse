@@ -1281,4 +1281,12 @@ import SwiftUI
     private var allEvents: [GameEvent] {
         return eventCatalog + [lateGameEvent, systemicCollapseEvent, corporateTakeoverEvent]
     }
+
+#if DEBUG
+    /// Read-only access to the full event catalog for simulation/validation tests.
+    /// Mirrors the existing "internal (not private) so tests can exercise it" pattern used
+    /// by `eventTriggerChance`, `checkForReformEnding`, and `safeCalculatePrice`. Has no
+    /// effect on shipping behavior and is excluded from release builds.
+    var allEventsForTesting: [GameEvent] { allEvents }
+#endif
 } 
