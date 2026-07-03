@@ -6,181 +6,168 @@ Simulated **100 games** = 5 strategies × 2 scenarios × 10 runs each, driving t
 
 | Outcome | Count |
 |---|---|
-| collapse | 53 |
-| reformFlagOnly | 21 |
+| collapse | 67 |
+| reform | 16 |
+| loop | 0 |
+| reformFlagOnly | 0 |
 | loopFlagOnly | 0 |
 | stagnated | 0 |
-| survivedToTimeout | 26 |
+| survivedToTimeout | 17 |
 
 ## Per strategy × scenario
 
 | Strategy | Scenario | Collapse | Reform met | Loop met | Stagnated | Median collapse t(s) | Median pkgs | Median lifetime\$ |
 |---|---|---|---|---|---|---|---|---|
-| greedy | freshInstall | 10 | 1 | 0 | 0 | 864 | 2622 | $3305 |
-| greedy | restarted | 10 | 0 | 0 | 0 | 921 | 3032 | $3869 |
-| ethical | freshInstall | 4 | 0 | 0 | 0 | 2152 | 9934 | $10756 |
-| ethical | restarted | 4 | 5 | 0 | 0 | 1656 | 56240 | $75124 |
-| balanced | freshInstall | 3 | 6 | 0 | 0 | 1221 | 43558 | $96428 |
-| balanced | restarted | 3 | 8 | 0 | 0 | 982 | 1186154 | $2543345 |
-| idle | freshInstall | 1 | 0 | 0 | 0 | 2686 | 3318 | $3872 |
-| idle | restarted | 1 | 0 | 0 | 0 | 2432 | 2510 | $2848 |
-| random | freshInstall | 7 | 3 | 0 | 0 | 986 | 6286 | $9609 |
-| random | restarted | 10 | 7 | 0 | 0 | 2263 | 883479 | $2368680 |
+| greedy | freshInstall | 10 | 0 | 0 | 0 | 1304 | 4166 | $5163 |
+| greedy | restarted | 10 | 0 | 0 | 0 | 1234 | 4000 | $5208 |
+| ethical | freshInstall | 4 | 6 | 0 | 0 | 2336 | 6686 | $8098 |
+| ethical | restarted | 8 | 2 | 0 | 0 | 1776 | 6349 | $7087 |
+| balanced | freshInstall | 6 | 4 | 0 | 0 | 1256 | 5322 | $9606 |
+| balanced | restarted | 7 | 3 | 0 | 0 | 1237 | 4798 | $8674 |
+| idle | freshInstall | 1 | 0 | 0 | 0 | 2969 | 2842 | $3424 |
+| idle | restarted | 2 | 0 | 0 | 0 | 2588 | 2822 | $3418 |
+| random | freshInstall | 10 | 0 | 0 | 0 | 1356 | 4352 | $6427 |
+| random | restarted | 9 | 1 | 0 | 0 | 1110 | 3740 | $5299 |
 
 ## Pacing (medians, seconds of active play)
 
 | Strategy | Scenario | 1st upgrade | 1st idle income | 100 pkg | 500 pkg | 1500 pkg | \$1000 |
 |---|---|---|---|---|---|---|---|
-| greedy | freshInstall | 20 | 40 | 34 | 165 | 488 | 1250 |
-| greedy | restarted | 25 | 1 | 33 | 150 | 414 | 1142 |
-| ethical | freshInstall | 20 | 55 | 34 | 165 | 478 | — |
-| ethical | restarted | 15 | 1 | 33 | 152 | 379 | 2276 |
-| balanced | freshInstall | 20 | 55 | 34 | 165 | 486 | 2381 |
-| balanced | restarted | 15 | 1 | 33 | 154 | 392 | 1276 |
-| idle | freshInstall | 55 | 120 | 100 | 478 | 1328 | — |
-| idle | restarted | 60 | 1 | 91 | 371 | 1154 | — |
-| random | freshInstall | 20 | 55 | 34 | 166 | 485 | 2341 |
-| random | restarted | 15 | 1 | 33 | 154 | 400 | 1283 |
+| greedy | freshInstall | 25 | 1 | 33 | 151 | 426 | — |
+| greedy | restarted | 25 | 1 | 33 | 151 | 430 | — |
+| ethical | freshInstall | 15 | 1 | 33 | 153 | 394 | 1445 |
+| ethical | restarted | 15 | 1 | 33 | 153 | 395 | 1350 |
+| balanced | freshInstall | 15 | 1 | 33 | 154 | 403 | 1392 |
+| balanced | restarted | 15 | 1 | 33 | 154 | 404 | 1033 |
+| idle | freshInstall | 60 | 1 | 91 | 376 | 1104 | — |
+| idle | restarted | 60 | 1 | 91 | 376 | 1102 | — |
+| random | freshInstall | 15 | 1 | 33 | 154 | 410 | — |
+| random | restarted | 15 | 1 | 33 | 154 | 408 | 1004 |
 
 ## Fresh-install economy diagnostic
 
-- A brand-new install never calls `reset()`, so it keeps `GameState()` defaults: **0 workers, `baseWorkerRate = 0.0`**.
-- Median fresh-install idle income at 60s: **$0.021/s**.
-- Fresh median time-to-first-idle-income: **55s** vs restarted **1s**.
+- New installs are seeded by `SaveManager` via `reset()` (1 worker, `baseWorkerRate = 0.1`), so fresh and restarted games start identically.
+- Median fresh-install idle income at 60s: **$0.250/s**.
+- Fresh median time-to-first-idle-income: **1s** vs restarted **1s**.
 
 ## Events fired across all games
 
-Total events fired: **1777** (avg 17.8/game).
+Total events fired: **1407** (avg 14.1/game).
 
 | Event | Times fired |
 |---|---|
-| Market Boom | 267 |
-| Competitor Undercuts Prices | 266 |
-| Tax Audit | 208 |
-| Media Spotlight | 200 |
-| Natural Disaster | 154 |
-| Environmental Inspection | 147 |
-| Social Media Backlash | 145 |
-| Workplace Safety Incident | 114 |
-| Labor Law Changes | 97 |
-| Worker Unrest | 93 |
-| Supply Chain Disruption | 25 |
-| Hostile Takeover Attempt | 15 |
-| Charity Partnership Offer | 12 |
-| Corporate Espionage Opportunity | 11 |
-| Automation Breakthrough | 8 |
-| Employee Training Opportunity | 8 |
-| Systemic Industry Crisis | 7 |
+| Market Boom | 258 |
+| Competitor Undercuts Prices | 211 |
+| Media Spotlight | 194 |
+| Tax Audit | 180 |
+| Social Media Backlash | 139 |
+| Worker Unrest | 134 |
+| Environmental Inspection | 125 |
+| Workplace Safety Incident | 81 |
+| Natural Disaster | 64 |
+| Labor Law Changes | 21 |
 
 ### Most common choices
 
 | Event → Choice | Count |
 |---|---|
-| Market Boom → Keep prices stable for customer loyalty | 219 |
-| Competitor Undercuts Prices → Focus on quality over price | 214 |
-| Tax Audit → Hide questionable deductions | 194 |
-| Media Spotlight → Showcase innovation and efficiency | 183 |
-| Social Media Backlash → Issue PR statement without changes | 145 |
-| Natural Disaster → Use disaster to layoff underperforming workers | 145 |
-| Environmental Inspection → Upgrade for full compliance ($5000) | 130 |
-| Workplace Safety Incident → Cover it up (legal risk) | 107 |
-| Worker Unrest → Ignore their complaints | 90 |
-| Labor Law Changes → Implement full compliance | 77 |
-| Market Boom → Raise prices temporarily | 48 |
-| Competitor Undercuts Prices → Spread rumors about competitor quality | 43 |
-| Labor Law Changes → Minimal compliance with loopholes | 19 |
-| Media Spotlight → Highlight worker treatment | 17 |
-| Environmental Inspection → Cut corners with minimal upgrades ($1000) | 16 |
+| Market Boom → Keep prices stable for customer loyalty | 217 |
+| Media Spotlight → Showcase innovation and efficiency | 193 |
+| Tax Audit → Hide questionable deductions | 176 |
+| Competitor Undercuts Prices → Focus on quality over price | 160 |
+| Social Media Backlash → Issue PR statement without changes | 139 |
+| Worker Unrest → Ignore their complaints | 134 |
+| Environmental Inspection → Upgrade for full compliance ($5000) | 125 |
+| Workplace Safety Incident → Cover it up (legal risk) | 79 |
+| Natural Disaster → Use disaster to layoff underperforming workers | 64 |
+| Competitor Undercuts Prices → Spread rumors about competitor quality | 51 |
+| Market Boom → Raise prices temporarily | 41 |
+| Labor Law Changes → Implement full compliance | 21 |
+| Tax Audit → Full transparency with records | 4 |
+| Workplace Safety Incident → Minimum required fixes ($800) | 2 |
+| Media Spotlight → Highlight worker treatment | 1 |
 
 ## Sample transcripts (restarted scenario)
 
 ### greedy
 
-- Outcome: **collapse** at 970s
-- Final: 3118 pkgs, $496 cash, $3964 lifetime, 9 workers, ethics 0.0, perception 0, env 0
-- Upgrades (22): Optimize Logistics, Hire Worker, Hire Worker, Improve Packaging, Hire Worker, Hire Worker, Hire Worker, Automate Sorting, Hire Worker, Rush Delivery, Hire Worker, Employee Surveillance, Aggressive Marketing Campaign, Extended Shifts, Hire Worker, Hire Worker, Predictive Maintenance, Hire Worker, Hire Worker, Hire Worker, Child Labor Loopholes, Hire Worker
+- Outcome: **collapse** at 920s
+- Final: 3067 pkgs, $208 cash, $3892 lifetime, 7 workers, ethics 0.0, perception 0, env 7
+- Upgrades (18): Optimize Logistics, Hire Worker, Hire Worker, Improve Packaging, Hire Worker, Hire Worker, Hire Worker, Automate Sorting, Hire Worker, Rush Delivery, Hire Worker, Employee Surveillance, Aggressive Marketing Campaign, Extended Shifts, Hire Worker, Hire Worker, Predictive Maintenance, Child Labor Loopholes
 - Events:
-    - t=120s — *Social Media Backlash* → Issue PR statement without changes (moral -6)
-    - t=241s — *Competitor Undercuts Prices* → Spread rumors about competitor quality (moral -8)
-    - t=362s — *Worker Unrest* → Ignore their complaints (moral -8)
-    - t=484s — *Media Spotlight* → Showcase innovation and efficiency (moral -2)
-    - t=604s — *Competitor Undercuts Prices* → Spread rumors about competitor quality (moral -8)
-    - t=729s — *Social Media Backlash* → Issue PR statement without changes (moral -6)
-    - t=849s — *Environmental Inspection* → Upgrade for full compliance ($5000) (moral 8)
-    - t=970s — *Workplace Safety Incident* → Cover it up (legal risk) (moral -10)
+    - t=121s — *Market Boom* → Raise prices temporarily (moral -5)
+    - t=241s — *Tax Audit* → Hide questionable deductions (moral -7)
+    - t=361s — *Market Boom* → Raise prices temporarily (moral -5)
+    - t=481s — *Media Spotlight* → Showcase innovation and efficiency (moral -2)
+    - t=603s — *Social Media Backlash* → Issue PR statement without changes (moral -6)
+    - t=723s — *Workplace Safety Incident* → Cover it up (legal risk) (moral -10)
+    - t=846s — *Worker Unrest* → Ignore their complaints (moral -8)
 
 ### ethical
 
-- Outcome: **reformFlagOnly** at 3000s
-- Final: 118303 pkgs, $247 cash, $162674 lifetime, 19 workers, ethics 100.0, perception 100, env 0
-- Upgrades (102): Safety Placards, Optimize Logistics, Hire Worker, Improve Packaging, Hire Worker, Hire Worker, Basic Training, Hire Worker, Hire Worker, Hire Worker, Hire Worker, Performance Bonuses, Hire Worker, Hire Worker, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Hire Worker, Hire Worker, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Hire Worker, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses
+- Outcome: **collapse** at 1614s
+- Final: 6504 pkgs, $542 cash, $6828 lifetime, 12 workers, ethics 0.0, perception 0, env 0
+- Upgrades (17): Safety Placards, Optimize Logistics, Hire Worker, Improve Packaging, Hire Worker, Hire Worker, Basic Training, Hire Worker, Hire Worker, Hire Worker, Hire Worker, Performance Bonuses, Hire Worker, Hire Worker, Performance Bonuses, Hire Worker, Hire Worker
 - Events:
-    - t=128s — *Market Boom* → Keep prices stable for customer loyalty (moral 3)
-    - t=248s — *Competitor Undercuts Prices* → Focus on quality over price (moral 3)
-    - t=368s — *Tax Audit* → Hide questionable deductions (moral -7)
-    - t=489s — *Market Boom* → Keep prices stable for customer loyalty (moral 3)
-    - t=609s — *Social Media Backlash* → Issue PR statement without changes (moral -6)
-    - t=735s — *Competitor Undercuts Prices* → Focus on quality over price (moral 3)
-    - t=863s — *Social Media Backlash* → Issue PR statement without changes (moral -6)
-    - t=983s — *Labor Law Changes* → Implement full compliance (moral 7)
-    - t=1105s — *Media Spotlight* → Showcase innovation and efficiency (moral -2)
-    - t=1228s — *Natural Disaster* → Use disaster to layoff underperforming workers (moral -10)
-    - t=1354s — *Market Boom* → Keep prices stable for customer loyalty (moral 3)
-    - t=1475s — *Labor Law Changes* → Implement full compliance (moral 7)
+    - t=126s — *Competitor Undercuts Prices* → Focus on quality over price (moral 3)
+    - t=267s — *Tax Audit* → Hide questionable deductions (moral -7)
+    - t=388s — *Social Media Backlash* → Issue PR statement without changes (moral -6)
+    - t=509s — *Media Spotlight* → Showcase innovation and efficiency (moral -2)
+    - t=629s — *Tax Audit* → Hide questionable deductions (moral -7)
+    - t=756s — *Social Media Backlash* → Issue PR statement without changes (moral -6)
+    - t=880s — *Workplace Safety Incident* → Cover it up (legal risk) (moral -10)
+    - t=1001s — *Social Media Backlash* → Issue PR statement without changes (moral -6)
+    - t=1126s — *Social Media Backlash* → Issue PR statement without changes (moral -6)
+    - t=1246s — *Media Spotlight* → Showcase innovation and efficiency (moral -2)
+    - t=1372s — *Workplace Safety Incident* → Cover it up (legal risk) (moral -10)
+    - t=1492s — *Labor Law Changes* → Implement full compliance (moral 7)
 
 ### balanced
 
-- Outcome: **reformFlagOnly** at 3000s
-- Final: 2032443 pkgs, $4107385 cash, $4310760 lifetime, 36 workers, ethics 74.8, perception 94, env 5
-- Upgrades (136): Safety Placards, Optimize Logistics, Hire Worker, Improve Packaging, Bulk Material Purchase, Hire Worker, Basic Training, Hire Worker, Hire Worker, Hire Worker, Automate Sorting, Hire Worker, Rush Delivery, Employee Surveillance, Aggressive Marketing Campaign, Hire Worker, Extended Shifts, Performance Bonuses, Hire Worker, Predictive Maintenance, Child Labor Loopholes, Hire Worker, Performance Bonuses, Hire Worker, Hire Worker, Hire Worker, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Hire Worker, Hire Worker, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses
+- Outcome: **collapse** at 1132s
+- Final: 3687 pkgs, $178 cash, $4958 lifetime, 4 workers, ethics 0.0, perception 0, env 0
+- Upgrades (24): Safety Placards, Optimize Logistics, Hire Worker, Improve Packaging, Bulk Material Purchase, Hire Worker, Basic Training, Hire Worker, Hire Worker, Hire Worker, Automate Sorting, Hire Worker, Rush Delivery, Employee Surveillance, Aggressive Marketing Campaign, Extended Shifts, Predictive Maintenance, Child Labor Loopholes, Hire Worker, Hire Worker, Hire Worker, Hire Worker, Hire Worker, Hire Worker
 - Events:
-    - t=123s — *Market Boom* → Keep prices stable for customer loyalty (moral 3)
-    - t=254s — *Market Boom* → Keep prices stable for customer loyalty (moral 3)
-    - t=376s — *Tax Audit* → Hide questionable deductions (moral -7)
-    - t=499s — *Tax Audit* → Hide questionable deductions (moral -7)
-    - t=623s — *Tax Audit* → Hide questionable deductions (moral -7)
-    - t=746s — *Competitor Undercuts Prices* → Focus on quality over price (moral 3)
-    - t=876s — *Natural Disaster* → Use disaster to layoff underperforming workers (moral -10)
-    - t=1000s — *Tax Audit* → Hide questionable deductions (moral -7)
-    - t=1126s — *Natural Disaster* → Use disaster to layoff underperforming workers (moral -10)
-    - t=1247s — *Labor Law Changes* → Implement full compliance (moral 7)
-    - t=1376s — *Tax Audit* → Hide questionable deductions (moral -7)
-    - t=1497s — *Corporate Espionage Opportunity* → Decline the offer (moral 3)
+    - t=130s — *Social Media Backlash* → Issue PR statement without changes (moral -6)
+    - t=259s — *Social Media Backlash* → Issue PR statement without changes (moral -6)
+    - t=390s — *Worker Unrest* → Ignore their complaints (moral -8)
+    - t=510s — *Worker Unrest* → Ignore their complaints (moral -8)
+    - t=630s — *Tax Audit* → Hide questionable deductions (moral -7)
+    - t=759s — *Environmental Inspection* → Upgrade for full compliance ($5000) (moral 8)
+    - t=887s — *Tax Audit* → Hide questionable deductions (moral -7)
+    - t=1009s — *Market Boom* → Keep prices stable for customer loyalty (moral 3)
+    - t=1132s — *Tax Audit* → Hide questionable deductions (moral -7)
 
 ### idle
 
-- Outcome: **survivedToTimeout** at 3000s
-- Final: 3530 pkgs, $8 cash, $4098 lifetime, 5 workers, ethics 84.8, perception 44, env 0
-- Upgrades (34): Optimize Logistics, Hire Worker, Improve Packaging, Hire Worker, Hire Worker, Hire Worker, Hire Worker, Automate Sorting, Hire Worker, Hire Worker, Hire Worker, Hire Worker, Performance Bonuses, Hire Worker, Hire Worker, Hire Worker, Hire Worker, Hire Worker, Hire Worker, Hire Worker, Hire Worker, Hire Worker, Hire Worker, Hire Worker, Hire Worker, Hire Worker, Hire Worker, Hire Worker, Hire Worker, Hire Worker, Predictive Maintenance, Hire Worker, Hire Worker, Hire Worker
+- Outcome: **collapse** at 2703s
+- Final: 2481 pkgs, $26 cash, $2624 lifetime, 4 workers, ethics 0.0, perception 0, env 0
+- Upgrades (14): Optimize Logistics, Hire Worker, Improve Packaging, Hire Worker, Hire Worker, Hire Worker, Hire Worker, Automate Sorting, Hire Worker, Hire Worker, Hire Worker, Hire Worker, Hire Worker, Hire Worker
 - Events:
-    - t=120s — *Market Boom* → Keep prices stable for customer loyalty (moral 3)
-    - t=241s — *Market Boom* → Keep prices stable for customer loyalty (moral 3)
-    - t=364s — *Market Boom* → Keep prices stable for customer loyalty (moral 3)
-    - t=495s — *Environmental Inspection* → Upgrade for full compliance ($5000) (moral 8)
-    - t=624s — *Competitor Undercuts Prices* → Focus on quality over price (moral 3)
-    - t=744s — *Environmental Inspection* → Upgrade for full compliance ($5000) (moral 8)
-    - t=865s — *Natural Disaster* → Use disaster to layoff underperforming workers (moral -10)
-    - t=990s — *Media Spotlight* → Showcase innovation and efficiency (moral -2)
-    - t=1111s — *Workplace Safety Incident* → Cover it up (legal risk) (moral -10)
-    - t=1236s — *Competitor Undercuts Prices* → Focus on quality over price (moral 3)
-    - t=1361s — *Natural Disaster* → Use disaster to layoff underperforming workers (moral -10)
-    - t=1491s — *Media Spotlight* → Showcase innovation and efficiency (moral -2)
+    - t=122s — *Market Boom* → Keep prices stable for customer loyalty (moral 3)
+    - t=245s — *Market Boom* → Keep prices stable for customer loyalty (moral 3)
+    - t=367s — *Competitor Undercuts Prices* → Focus on quality over price (moral 3)
+    - t=488s — *Tax Audit* → Hide questionable deductions (moral -7)
+    - t=609s — *Tax Audit* → Hide questionable deductions (moral -7)
+    - t=737s — *Tax Audit* → Hide questionable deductions (moral -7)
+    - t=859s — *Market Boom* → Keep prices stable for customer loyalty (moral 3)
+    - t=980s — *Tax Audit* → Hide questionable deductions (moral -7)
+    - t=1100s — *Social Media Backlash* → Issue PR statement without changes (moral -6)
+    - t=1223s — *Worker Unrest* → Ignore their complaints (moral -8)
+    - t=1345s — *Media Spotlight* → Showcase innovation and efficiency (moral -2)
+    - t=1465s — *Media Spotlight* → Showcase innovation and efficiency (moral -2)
 
 ### random
 
-- Outcome: **collapse** at 2936s
-- Final: 1961556 pkgs, $4504240 cash, $4591748 lifetime, 19 workers, ethics 0.0, perception 6, env 55
-- Upgrades (136): Safety Placards, Improve Packaging, Hire Worker, Optimize Logistics, Bulk Material Purchase, Hire Worker, Basic Training, Hire Worker, Hire Worker, Hire Worker, Automate Sorting, Hire Worker, Rush Delivery, Aggressive Marketing Campaign, Hire Worker, Employee Surveillance, Hire Worker, Hire Worker, Extended Shifts, Performance Bonuses, Predictive Maintenance, Child Labor Loopholes, Hire Worker, Hire Worker, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Performance Bonuses, Hire Worker, Performance Bonuses
+- Outcome: **reform** at 1004s
+- Final: 4297 pkgs, $1012 cash, $7816 lifetime, 12 workers, ethics 66.0, perception 60, env 8
+- Upgrades (25): Safety Placards, Improve Packaging, Hire Worker, Optimize Logistics, Bulk Material Purchase, Hire Worker, Hire Worker, Basic Training, Hire Worker, Hire Worker, Automate Sorting, Hire Worker, Rush Delivery, Hire Worker, Employee Surveillance, Extended Shifts, Aggressive Marketing Campaign, Performance Bonuses, Predictive Maintenance, Hire Worker, Hire Worker, Performance Bonuses, Hire Worker, Hire Worker, Performance Bonuses
 - Events:
-    - t=120s — *Market Boom* → Raise prices temporarily (moral -5)
-    - t=244s — *Market Boom* → Keep prices stable for customer loyalty (moral 3)
-    - t=370s — *Natural Disaster* → Use disaster to layoff underperforming workers (moral -10)
-    - t=492s — *Workplace Safety Incident* → Cover it up (legal risk) (moral -10)
-    - t=613s — *Competitor Undercuts Prices* → Spread rumors about competitor quality (moral -8)
-    - t=733s — *Labor Law Changes* → Implement full compliance (moral 7)
-    - t=856s — *Labor Law Changes* → Implement full compliance (moral 7)
-    - t=976s — *Competitor Undercuts Prices* → Spread rumors about competitor quality (moral -8)
-    - t=1096s — *Competitor Undercuts Prices* → Focus on quality over price (moral 3)
-    - t=1217s — *Supply Chain Disruption* → Absorb the costs temporarily (moral 4)
-    - t=1340s — *Environmental Inspection* → Cut corners with minimal upgrades ($1000) (moral -5)
-    - t=1464s — *Tax Audit* → Full transparency with records (moral 5)
+    - t=125s — *Competitor Undercuts Prices* → Focus on quality over price (moral 3)
+    - t=256s — *Competitor Undercuts Prices* → Focus on quality over price (moral 3)
+    - t=376s — *Market Boom* → Keep prices stable for customer loyalty (moral 3)
+    - t=501s — *Market Boom* → Keep prices stable for customer loyalty (moral 3)
+    - t=624s — *Competitor Undercuts Prices* → Focus on quality over price (moral 3)
+    - t=747s — *Competitor Undercuts Prices* → Focus on quality over price (moral 3)
+    - t=868s — *Competitor Undercuts Prices* → Spread rumors about competitor quality (moral -8)
+    - t=988s — *Workplace Safety Incident* → Cover it up (legal risk) (moral -10)

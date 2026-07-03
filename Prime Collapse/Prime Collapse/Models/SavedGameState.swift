@@ -145,14 +145,15 @@ struct GameSnapshot: Codable {
             // Unknown names (e.g. an upgrade removed in a later build) are skipped safely.
         }
 
-        // Repeatable upgrades: recreate `count` owned instances per name.
+        // Repeatable upgrades: recreate `count` owned instances per name, and record
+        // one purchase-ledger entry per instance — the duplicate template IDs are what
+        // drive repeatable price scaling, so restoring only one would reset the ladder.
         for (name, count) in repeatableUpgradeCounts where count > 0 {
             guard let template = UpgradeManager.availableUpgrades.first(where: { $0.name == name && $0.isRepeatable }) else {
                 continue
             }
-            // Mark the repeatable as purchased (deduped) so hasBeenPurchased() reports true.
-            gameState.purchasedUpgradeIDs.append(template.id)
             for _ in 0..<count {
+                gameState.purchasedUpgradeIDs.append(template.id)
                 gameState.upgrades.append(GameSnapshot.instance(of: template))
             }
         }

@@ -33,15 +33,19 @@ import Observation
     // Dependencies.
     private let gameState: GameState
     private let gameCenterManager: GameCenterManager?
+    /// Save-file directory override; nil uses the default on-device location.
+    /// Injectable so tests can run against a temporary directory.
+    private let saveDirectory: URL?
 
     // Debounce + write serialization.
     private var debounceTask: Task<Void, Never>?
     private var writeTask: Task<Void, Never>?
     private let debounceDelay: Duration = .seconds(2)
 
-    init(gameState: GameState, gameCenterManager: GameCenterManager? = nil) {
+    init(gameState: GameState, gameCenterManager: GameCenterManager? = nil, directory: URL? = nil) {
         self.gameState = gameState
         self.gameCenterManager = gameCenterManager
+        self.saveDirectory = directory
         // Load synchronously so state is ready before any view renders.
         loadGameState()
     }
@@ -51,13 +55,17 @@ import Observation
     /// Reads the save file (if any) and applies it. Runs synchronously; the file is tiny.
     /// Falls back to the rotating backup if the primary file is missing or corrupt.
     func loadGameState() {
-        let result = SaveFile.load()
+        let result = SaveFile.load(in: saveDirectory)
         if let snapshot = result.snapshot {
             snapshot.apply(to: gameState)
             lastSnapshot = snapshot
             print("Loaded save from \(snapshot.savedAt): $\(gameState.money), \(gameState.totalPackagesShipped) packages, \(gameState.workers) workers")
         } else {
             print("No saved game found. Starting new game.")
+            // Seed the starter economy (1 worker, non-zero worker rate, the initial
+            // hire-worker upgrade). Without this, a fresh install inherits inert
+            // GameState defaults and hired workers produce no income.
+            gameState.reset()
         }
         lastLoadMessage = result.outcome.message
         hasCompletedInitialLoad = true
@@ -118,10 +126,11 @@ import Observation
     /// Serializes writes so an older write can never land after a newer one.
     private func enqueueWrite(_ snapshot: GameSnapshot) {
         let previous = writeTask
+        let directory = saveDirectory
         writeTask = Task.detached(priority: .utility) { [weak self] in
             await previous?.value
             do {
-                try SaveFile.write(snapshot)
+                try SaveFile.write(snapshot, in: directory)
                 await self?.recordSaveResult(error: nil)
             } catch {
                 print("Save write failed: \(error)")
@@ -144,9 +153,10 @@ import Observation
         lastSnapshot = nil
 
         let previous = writeTask
+        let directory = saveDirectory
         writeTask = Task.detached(priority: .utility) {
             await previous?.value
-            SaveFile.delete()
+            SaveFile.delete(in: directory)
         }
 
         lastSaveTime = Date()

@@ -191,6 +191,15 @@ struct ContentView: View {
                 startCollapseEffects()
             }
         }
+        // Show the ending screen when a win-state ending (Reform/Loop) is earned.
+        // Collapse keeps its own flow through the collapse alert above.
+        .onChange(of: gameState.endingReached) { _, reached in
+            if reached {
+                playHaptic(.heavy)
+                stopGameLoop()
+                showEndingScreen = true
+            }
+        }
         // Collapse detailed stats when an event appears
         .onChange(of: eventManager.currentEvent) {
             if eventManager.currentEvent != nil {

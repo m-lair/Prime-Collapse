@@ -28,6 +28,10 @@ struct DelayedEffect: Identifiable, Equatable {
     /// and keeps offline catch-up to a sane amount (8 hours).
     static let maxAutomationCatchUp: TimeInterval = 8 * 60 * 60
 
+    /// Hard cap on hired workers. Purchases at the cap are blocked up front so the
+    /// player is never charged for a worker that data-integrity validation would strip.
+    static let maxWorkers = 150
+
     // Core game metrics
     var totalPackagesShipped: Int = 0
     // Clamp money >= 0 and reject non-finite values (NaN/inf) so a bad calculation
@@ -92,6 +96,10 @@ struct DelayedEffect: Identifiable, Equatable {
     // New game ending properties
     var ethicalChoicesMade: Int = 0
     var endingType: GameEnding = .collapse
+    /// True once a win-state ending (Reform or Loop) has been earned. The UI observes
+    /// this to stop the game loop and present the ending screen; collapse keeps its own
+    /// flow via `isCollapsing`.
+    var endingReached: Bool = false
     
     // Track loop ending state
     var isInLoopEndingState: Bool = false
@@ -123,9 +131,16 @@ struct DelayedEffect: Identifiable, Equatable {
         max(0, min(0.5, environmentalImpact / 200.0))
     }
 
+    // Saturating add: the lifetime counter clamps at Int.max instead of trapping,
+    // since runaway efficiency multipliers can push per-tick shipments arbitrarily high.
+    private func addPackagesShipped(_ count: Int) {
+        let (sum, didOverflow) = totalPackagesShipped.addingReportingOverflow(count)
+        totalPackagesShipped = didOverflow ? Int.max : sum
+    }
+
     // Ship a package manually (tap action)
     func shipPackage() {
-        totalPackagesShipped += 1
+        addPackagesShipped(1)
         
         // Calculate the actual value based on package value, customer satisfaction, and public perception
         let perceptionFactor = 0.8 + (publicPerception / 100.0 * 0.4) // Scales 80% to 120%
@@ -204,7 +219,7 @@ struct DelayedEffect: Identifiable, Equatable {
             ? 0
             : Int(packageAccumulator)
         if packagesShipped > 0 {
-            totalPackagesShipped += packagesShipped
+            addPackagesShipped(packagesShipped)
             
             // Calculate package value factoring in customer satisfaction and public perception
             let perceptionFactor = 0.8 + (publicPerception / 100.0 * 0.4) // Scales 80% to 120%
@@ -230,23 +245,17 @@ struct DelayedEffect: Identifiable, Equatable {
             workerMorale -= timeElapsed * 0.01 * (0.3 - corporateEthics)
         }
         
-        // Handle Loop Ending Instability
-        if isInLoopEndingState {
+        // Handle Loop Ending Instability: surviving the full 60-second window while the
+        // loop criteria hold completes the hidden Loop ending. (Previously this decayed
+        // ethics until collapse, which made the Loop ending impossible to finish.)
+        if isInLoopEndingState && !endingReached {
             if let startTime = loopEndingStartTime {
                 let timeInLoop = currentTime.timeIntervalSince(startTime)
-                if timeInLoop > 60.0 { // After 60 seconds in loop state
-                    // Start decreasing ethics score (rate can be adjusted)
-                    let decayRate = 0.1 // Decrease score by 0.1 per second after 60s
-                    ethicsScore -= decayRate * timeElapsed
-                    ethicsScore = max(0, ethicsScore) // Prevent going below 0 this way
-                    
-                    // If score drops out of loop range or hits 0, collapse
-                    if ethicsScore < 15 {
-                        isInLoopEndingState = false
-                        loopEndingStartTime = nil
-                        isCollapsing = true
-                        endingType = .collapse
-                    }
+                if timeInLoop > 60.0 {
+                    endingType = .loop
+                    endingReached = true
+                    isInLoopEndingState = false
+                    loopEndingStartTime = nil
                 }
             } else {
                 // Should not happen if isInLoopEndingState is true, but set start time just in case
@@ -266,9 +275,13 @@ struct DelayedEffect: Identifiable, Equatable {
             }
         }
         
+        // Reform criteria can be completed by passive income crossing the money
+        // threshold, so re-check every tick — not only on upgrade purchases.
+        checkForReformEnding()
+
         lastUpdate = currentTime
     }
-    
+
     // Check if the player can afford an upgrade
     func canAfford(_ cost: Double) -> Bool {
         return money >= cost
@@ -282,14 +295,17 @@ struct DelayedEffect: Identifiable, Equatable {
             return
         }
         
-        // Count how many times this upgrade has been purchased if repeatable
-        let timesPurchased = purchasedUpgradeIDs.filter { $0 == upgrade.id }.count
-        
-        // Calculate actual cost based on purchase count for repeatable upgrades
-        let actualCost = upgrade.isRepeatable && timesPurchased > 0 
-            ? UpgradeManager.calculatePrice(basePrice: upgrade.cost, timesPurchased: timesPurchased, scalingFactor: upgrade.priceScalingFactor)
-            : upgrade.cost
-            
+        // Block worker purchases at the cap up front — otherwise the player is charged
+        // and validateGameState() strips the extra worker on the next tick.
+        if upgrade.name == "Hire Worker" && workers >= GameState.maxWorkers {
+            print("Worker cap (\(GameState.maxWorkers)) reached. Purchase blocked.")
+            return
+        }
+
+        // Charge exactly what the buy button displays (same calculation, including
+        // the public-perception modifier and worker-count curve).
+        let actualCost = getCurrentUpgradeCost(upgrade)
+
         if canAfford(actualCost) {
             // Safety check: Ensure the upgrade meets requirements before applying
             guard isUpgradeUnlocked(upgrade) else {
@@ -538,8 +554,8 @@ struct DelayedEffect: Identifiable, Equatable {
     // Validate game state integrity
     func validateGameState() {
         // Safety cap for excess values
-        let maxWorkers = 150
-        
+        let maxWorkers = GameState.maxWorkers
+
         // 0. Fix excessive worker count first
         if workers > maxWorkers {
             print("DATA INTEGRITY: Excessive worker count (\(workers)). Capping at \(maxWorkers).")
@@ -601,13 +617,19 @@ struct DelayedEffect: Identifiable, Equatable {
             print("DATA INTEGRITY: Fixed - worker count now \(workers), upgrade count now \(upgrades.count)")
         }
         
-        // 2. Check for duplicate upgrade IDs in purchasedUpgradeIDs
+        // 2. Check for duplicate upgrade IDs in purchasedUpgradeIDs.
+        // Repeatable upgrades legitimately append the same template ID once per
+        // purchase — that history drives price scaling and must be preserved.
+        // Only duplicates of non-repeatable IDs are corruption.
+        let repeatableTemplateIDs = Set(
+            UpgradeManager.availableUpgrades.filter(\.isRepeatable).map(\.id)
+        )
         var uniqueIDs = Set<UUID>()
         var duplicates = 0
-        
+
         var newPurchasedUpgradeIDs: [UUID] = []
         for id in purchasedUpgradeIDs {
-            if uniqueIDs.contains(id) {
+            if uniqueIDs.contains(id) && !repeatableTemplateIDs.contains(id) {
                 duplicates += 1
             } else {
                 uniqueIDs.insert(id)
@@ -631,12 +653,16 @@ struct DelayedEffect: Identifiable, Equatable {
     // Check if player qualifies for the Reform ending.
     // Internal (not private) so tests can verify the threshold logic directly.
     func checkForReformEnding() {
+        // Collapse takes precedence, and an earned ending only fires once.
+        guard !isCollapsing && !endingReached else { return }
+
         // To get the Reform ending:
         // 1. Player must have made at least 5 ethical choices (positive impact)
         // 2. Ethics score must be 50 or higher
         // 3. Must have earned at least $1000
         if ethicalChoicesMade >= 5 && ethicsScore >= 50 && money >= 1000 {
             endingType = .reform
+            endingReached = true
         }
     }
     
@@ -684,6 +710,7 @@ struct DelayedEffect: Identifiable, Equatable {
         lastUpdate = Date()
         ethicalChoicesMade = 0
         endingType = .collapse
+        endingReached = false
         isInLoopEndingState = false // Reset loop state tracking
         loopEndingStartTime = nil   // Reset loop start time
         workersQuit = 0
