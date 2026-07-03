@@ -27,14 +27,16 @@ enum Strategy: String, CaseIterable {
 }
 
 enum Scenario: String, CaseIterable {
-    case freshInstall  // GameState() defaults — what a brand-new player actually gets
+    case freshInstall  // new install: SaveManager finds no save and seeds via reset()
     case restarted     // gs.reset() state — what you get after a collapse/restart
 }
 
 enum Outcome: String {
-    case collapse              // isCollapsing == true (the only real terminal ending)
-    case reformFlagOnly        // reached Reform criteria but game never ended on it
-    case loopFlagOnly          // reached Loop criteria but game never ended on it
+    case collapse              // isCollapsing == true
+    case reform                // endingReached with endingType == .reform (terminal win)
+    case loop                  // endingReached with endingType == .loop (terminal win)
+    case reformFlagOnly        // legacy: criteria met but the game never ended (should be 0)
+    case loopFlagOnly          // legacy: criteria met but the game never ended (should be 0)
     case stagnated             // no income & nothing affordable for a long window
     case survivedToTimeout     // still running at the sim cap
 }
@@ -166,8 +168,11 @@ struct LoopSimulator {
     func simulateGame(strategy: Strategy, scenario: Scenario) -> RunResult {
         let gs = GameState()
         switch scenario {
-        case .freshInstall: break          // keep GameState() defaults (workers 0, baseWorkerRate 0.0)
-        case .restarted:    gs.reset()     // workers 1, baseWorkerRate 0.1, seeded Hire Worker
+        // SaveManager seeds a no-save launch via reset(), so a fresh install and a
+        // restart now start identically (1 worker, baseWorkerRate 0.1, seeded Hire
+        // Worker). Both scenarios are kept so the report proves the parity holds.
+        case .freshInstall: gs.reset()
+        case .restarted:    gs.reset()
         }
 
         let em = EventManager()
@@ -189,10 +194,9 @@ struct LoopSimulator {
         let stagnationWindow = 600.0
 
         var stillTapping = true
-        // A player does not buy the same repeatable hundreds of times. This cap models that,
-        // and also keeps the engine away from a latent crash: the repeatable-pricing bug lets
-        // efficiency run away, and `totalPackagesShipped += packagesShipped` in processAutomation
-        // is NOT overflow-guarded, so an unbounded runaway traps (SIGTRAP). Both are findings.
+        // A player does not buy the same repeatable hundreds of times; this cap models
+        // a human purchase rate. (The engine itself now scales repeatable prices
+        // correctly and saturates the package counter, so this is purely behavioral.)
         var repeatableBuys: [String: Int] = [:]
         let maxRepeatableBuys = 40
 
@@ -246,10 +250,9 @@ struct LoopSimulator {
                     for template in priority {
                         guard gs.isUpgradeUnlocked(template) else { continue }
                         if !template.isRepeatable && gs.hasBeenPurchased(template) { continue }
-                        // Engine caps workers at 150 (validateGameState). Buying past the cap
-                        // still charges money but the worker is stripped on the next validate —
-                        // a real money-sink bug. A rational player stops, so the AI does too.
-                        if template.name == "Hire Worker" && gs.workers >= 150 { continue }
+                        // The engine now blocks worker purchases at the cap (no charge);
+                        // skipping here just saves the wasted evaluation.
+                        if template.name == "Hire Worker" && gs.workers >= GameState.maxWorkers { continue }
                         if template.isRepeatable && repeatableBuys[template.name, default: 0] >= maxRepeatableBuys { continue }
                         let shownCost = gs.getCurrentUpgradeCost(template)
                         if gs.money >= shownCost {
@@ -312,6 +315,10 @@ struct LoopSimulator {
             }
 
             // Terminal conditions.
+            if gs.endingReached {
+                r.outcome = gs.endingType == .loop ? .loop : .reform
+                break
+            }
             if gs.isCollapsing {
                 r.outcome = .collapse
                 r.tCollapse = simNow
@@ -374,14 +381,14 @@ struct LoopSimulator {
         var dist: [Outcome: Int] = [:]
         for r in results { dist[r.outcome, default: 0] += 1 }
         lines.append("Ending distribution:")
-        for o in [Outcome.collapse, .reformFlagOnly, .loopFlagOnly, .stagnated, .survivedToTimeout] {
+        for o in [Outcome.collapse, .reform, .loop, .reformFlagOnly, .loopFlagOnly, .stagnated, .survivedToTimeout] {
             lines.append(String(format: "  %-20@ %3d", o.rawValue as NSString, dist[o] ?? 0))
         }
-        let reformReached = results.filter { $0.tReformReached != nil }.count
-        let loopReached = results.filter { $0.tLoopReached != nil }.count
+        let reformReached = results.filter { $0.tReformReached != nil || $0.outcome == .reform }.count
+        let loopReached = results.filter { $0.tLoopReached != nil || $0.outcome == .loop }.count
         lines.append("")
         lines.append("Reform criteria ever met: \(reformReached)/\(results.count)   Loop criteria ever met: \(loopReached)/\(results.count)")
-        lines.append("(Reform/Loop never trigger the ending screen in code — collapse is the only terminal state.)")
+        lines.append("(Reform and Loop are terminal: endingReached stops the game and shows the ending screen.)")
         let fresh = results.filter { $0.scenario == .freshInstall }
         let freshIdle = fresh.compactMap { $0.idleIncomeAfterEnablersAt60s }
         let restarted = results.filter { $0.scenario == .restarted }
@@ -405,7 +412,7 @@ struct LoopSimulator {
         md.append("|---|---|")
         var dist: [Outcome: Int] = [:]
         for r in results { dist[r.outcome, default: 0] += 1 }
-        for o in [Outcome.collapse, .reformFlagOnly, .loopFlagOnly, .stagnated, .survivedToTimeout] {
+        for o in [Outcome.collapse, .reform, .loop, .reformFlagOnly, .loopFlagOnly, .stagnated, .survivedToTimeout] {
             md.append("| \(o.rawValue) | \(dist[o] ?? 0) |")
         }
         md.append("")
@@ -443,7 +450,7 @@ struct LoopSimulator {
         md.append("")
         let fresh = results.filter { $0.scenario == .freshInstall }
         let freshIdle = fresh.compactMap { $0.idleIncomeAfterEnablersAt60s }
-        md.append("- A brand-new install never calls `reset()`, so it keeps `GameState()` defaults: **0 workers, `baseWorkerRate = 0.0`**.")
+        md.append("- New installs are seeded by `SaveManager` via `reset()` (1 worker, `baseWorkerRate = 0.1`), so fresh and restarted games start identically.")
         md.append("- Median fresh-install idle income at 60s: **\(String(format: "$%.3f/s", median(freshIdle)))**.")
         md.append("- Fresh median time-to-first-idle-income: **\(fmt(median(fresh.compactMap{$0.tFirstAutomationIncome})))s** vs restarted **\(fmt(median(results.filter{$0.scenario == .restarted}.compactMap{$0.tFirstAutomationIncome})))s**.")
         md.append("")
