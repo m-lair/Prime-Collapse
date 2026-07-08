@@ -16,11 +16,16 @@ struct GameEndingView: View {
     let lifetimeTotalMoneyEarned: Double // Added for lifetime stats
     let ethicalChoicesMade: Int // Added for ethical stats
     let onReset: () -> Void
-    
+
+    // Prestige is optional so SwiftUI previews (which don't inject it) still render.
+    @Environment(PrestigeManager.self) private var prestigeManager: PrestigeManager?
+
     @State private var showConfetti = false
     @State private var showStats = false
     @State private var showQuote = false
     @State private var showButton = false
+    @State private var prestigeEarned = 0
+    @State private var showPrestige = false
     
     var body: some View {
         ZStack {
@@ -158,7 +163,13 @@ struct GameEndingView: View {
                 }
                 
                 Spacer()
-                
+
+                // Prestige earned + spend entry point
+                if showButton, let prestigeManager {
+                    prestigeBanner(prestigeManager)
+                        .transition(.opacity)
+                }
+
                 // Play again button
                 if showButton {
                     Button(action: onReset) {
@@ -180,12 +191,20 @@ struct GameEndingView: View {
             }
             .padding(.vertical)
             
-            // Confetti for certain endings
+            // Confetti for certain endings. Decorative only — must not intercept
+            // touches, or it blocks the buttons beneath it (prestige banner, Play Again).
             if showConfetti {
                 ConfettiView()
+                    .allowsHitTesting(false)
             }
         }
+        .sheet(isPresented: $showPrestige) {
+            PrestigeView()
+        }
         .onAppear {
+            // Bank the prestige this run earned (idempotent — safe if re-shown).
+            prestigeEarned = prestigeManager?.concludeRun() ?? 0
+
             // Animate elements in sequence
             withAnimation(.easeIn(duration: 0.8).delay(0.5)) {
                 showStats = true
@@ -208,6 +227,34 @@ struct GameEndingView: View {
         }
     }
     
+    private func prestigeBanner(_ manager: PrestigeManager) -> some View {
+        Button {
+            showPrestige = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 24))
+                    .foregroundStyle(.yellow)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(prestigeEarned > 0 ? "+\(prestigeEarned) Prestige earned" : "Prestige")
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                    Text("\(manager.points) available — tap to spend")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.85))
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+            .padding(16)
+            .background(RoundedRectangle(cornerRadius: 16).fill(Color.black.opacity(0.3)))
+        }
+        .padding(.horizontal, 40)
+        .padding(.bottom, 8)
+        .accessibilityLabel("\(prestigeEarned) prestige earned, \(manager.points) available. Tap to spend.")
+    }
+
     private var backgroundColor: Color {
         switch gameEnding {
         case .collapse:
