@@ -62,6 +62,9 @@ struct ContentView: View {
     
     // Game notification system
     @State private var notificationManager = NotificationManager()
+
+    // Local re-engagement notifications (offline-earnings cap reminder)
+    @State private var reengagementNotifier = ReengagementNotifier()
     
     // Track UI element positions
     @State private var moneyPosition: CGPoint = .zero
@@ -250,14 +253,24 @@ struct ContentView: View {
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .background {
                 saveManager.saveOnEvent(.backgrounding)
-            } else if newPhase == .active && gameState.isCollapsing {
-                // Re-enable collapse effects when returning to the app
-                startCollapseEffects()
+                // Remind the player when offline earnings hit the 8-hour cap.
+                let workers = gameState.workers
+                Task { await reengagementNotifier.scheduleOfflineEarningsCapReminder(workers: workers) }
+            } else if newPhase == .active {
+                // They're back — the reminder is moot.
+                reengagementNotifier.cancelPendingReminders()
+                if gameState.isCollapsing {
+                    // Re-enable collapse effects when returning to the app
+                    startCollapseEffects()
+                }
             }
         }
         .onChange(of: gameState.purchasedUpgradeIDs.count) { _, _ in
             // Save when the player buys an upgrade (repeatable or not — both append here).
             saveManager.saveOnEvent(.upgrade)
+            // First purchase marks an engaged player — the right moment to ask for
+            // notification permission (no-ops after the first request).
+            Task { await reengagementNotifier.requestAuthorizationIfNeeded() }
         }
     }
     
