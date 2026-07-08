@@ -15,17 +15,21 @@ struct Prime_CollapseApp: App {
     @State private var gameCenterManager: GameCenterManager
     @State private var eventManager = EventManager()
     @State private var saveManager: SaveManager
+    @State private var prestigeManager: PrestigeManager
 
     init() {
         // Build the core objects up front and load any existing save synchronously,
         // so the game never renders (or auto-saves) fresh state over a real save.
         let game = GameState()
         let gameCenterManager = GameCenterManager()
+        // Load prestige before the save so a fresh-install reset() seeds its bonuses.
+        let prestigeManager = PrestigeManager(gameState: game)
         let saveManager = SaveManager(gameState: game, gameCenterManager: gameCenterManager)
 
         _game = State(initialValue: game)
         _gameCenterManager = State(initialValue: gameCenterManager)
         _saveManager = State(initialValue: saveManager)
+        _prestigeManager = State(initialValue: prestigeManager)
     }
 
     var body: some Scene {
@@ -35,6 +39,7 @@ struct Prime_CollapseApp: App {
                 .environment(gameCenterManager)
                 .environment(eventManager)
                 .environment(saveManager)
+                .environment(prestigeManager)
                 .onAppear {
                     // Authenticate Game Center when the app launches.
                     gameCenterManager.authenticatePlayer()

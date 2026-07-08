@@ -93,6 +93,12 @@ struct DelayedEffect: Identifiable, Equatable {
     var isCollapsing: Bool = false
     var lastUpdate: Date = Date()
     
+    // Prestige / New Game+ meta-progression. Kept in sync with the persisted
+    // PrestigeState by PrestigeManager; reset() reads it to seed starting bonuses.
+    var prestige: PrestigeState = PrestigeState()
+    /// Guards `concludeRun()` so a single run banks its prestige only once.
+    private var hasBankedPrestigeThisRun: Bool = false
+
     // New game ending properties
     var ethicalChoicesMade: Int = 0
     var endingType: GameEnding = .collapse
@@ -694,6 +700,53 @@ struct DelayedEffect: Identifiable, Equatable {
         }
     }
     
+    /// Bank prestige points earned by the run that just ended. Idempotent within a
+    /// run (guarded), so calling it from multiple ending code paths is safe. Returns
+    /// the points awarded (0 if already banked or the run earned none). The caller is
+    /// responsible for persisting `prestige` afterwards.
+    @discardableResult
+    func concludeRun() -> Int {
+        guard !hasBankedPrestigeThisRun else { return 0 }
+        hasBankedPrestigeThisRun = true
+        let earned = PrestigeState.pointsAwarded(lifetimeMoney: lifetimeTotalMoneyEarned,
+                                                 ending: endingType)
+        prestige.award(earned)
+        return earned
+    }
+
+    /// Apply prestige perks as one-time starting bonuses. Called at the end of reset()
+    /// so a New Game+ begins with its earned head start. Deliberately confined here — it
+    /// never touches the per-tick income math.
+    private func applyPrestigeStartingBonuses() {
+        money += prestige.startingCash
+        baseWorkerRate *= prestige.productionMultiplier
+        publicPerception += prestige.startingPerceptionBonus // clamped by the setter
+
+        // Add the founding-team workers, each with a matching Hire Worker instance so
+        // validateGameState() doesn't reconcile them away.
+        let bonusWorkers = min(prestige.startingWorkerBonus,
+                               GameState.maxWorkers - workers)
+        if bonusWorkers > 0 {
+            let template = UpgradeManager.EarlyGame.hireWorker
+            for _ in 0..<bonusWorkers {
+                let instance = Upgrade(
+                    id: UUID(),
+                    name: template.name,
+                    description: template.description,
+                    cost: template.cost,
+                    effect: template.effect,
+                    isRepeatable: template.isRepeatable,
+                    priceScalingFactor: template.priceScalingFactor,
+                    moralImpact: template.moralImpact,
+                    publicPerceptionImpact: template.publicPerceptionImpact,
+                    environmentalImpactImpact: template.environmentalImpactImpact
+                )
+                upgrades.append(instance)
+            }
+            workers += bonusWorkers
+        }
+    }
+
     // Reset game state (used for new games or after collapse)
     func reset() {
         print("Performing complete game reset...")
@@ -749,7 +802,13 @@ struct DelayedEffect: Identifiable, Equatable {
             environmentalImpactImpact: workerUpgrade.environmentalImpactImpact
         )
         upgrades.append(initialWorker)
-        
-        print("Game has been completely reset with 1 worker and 0 purchased upgrades")
+
+        // A fresh run can bank prestige again.
+        hasBankedPrestigeThisRun = false
+
+        // Seed permanent prestige head-start bonuses (no-op when there's no prestige).
+        applyPrestigeStartingBonuses()
+
+        print("Game has been completely reset with \(workers) worker(s) and 0 purchased upgrades")
     }
 } 
