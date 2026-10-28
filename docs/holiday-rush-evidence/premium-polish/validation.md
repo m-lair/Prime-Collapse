@@ -1,3 +1,5 @@
+> Superseded by ../original-restored/validation.md. The actual pre-redesign visual baseline is 71fa982.
+
 > Superseded: the user rejected this visual direction. See ../restraint-correction/validation.md for the restored baseline and small polish changes.
 
 # Dispatch-floor polish — October 28, 2026

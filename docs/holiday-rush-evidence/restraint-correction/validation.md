@@ -1,3 +1,5 @@
+> Superseded by ../original-restored/validation.md. The actual pre-redesign visual baseline is 71fa982.
+
 # Restrained polish correction — 2026-10-28
 
 Supersedes the visual direction in premium-polish after user rejection of the illustrated warehouse redesign.

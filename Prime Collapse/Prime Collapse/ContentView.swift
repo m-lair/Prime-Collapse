@@ -50,7 +50,6 @@ struct ContentView: View {
     @State private var showEndingScreen = false
     @State private var showDashboard = false
     private var showHolidayRush: Bool { playSession.destination == .holidayRush }
-    @State private var showInvestments = false
     @State private var pendingHolidayRush = false
     @State private var openingHolidayRush = false
     
@@ -79,21 +78,20 @@ struct ContentView: View {
     
     var body: some View {
         ZStack {
-            if playSession.destination == .home {
-                GameHomeView(game: gameState, challenge: playSession.challenge,
-                             onContinue: continueCompany, onChallenge: openHolidayRush,
-                             onSettings: { showingSettings = true })
-            } else if showHolidayRush {
-                HolidayRushView(session: playSession.challenge, onReturn: { playSession.goHome() })
+            if showHolidayRush {
+                HolidayRushView(session: playSession.challenge, onReturn: { playSession.openCompany() })
             } else {
-                GamePalette.ink.ignoresSafeArea()
+                backgroundView
                 if dynamicTypeSize.isAccessibilitySize {
                     ScrollView { mainContentView }
                 } else {
                     mainContentView
                 }
+                animationLayer
                 notificationOverlay
+                packageShippingTrigger
                 detailedStatsOverlay
+                gameControlsView
                 collapseEffectsOverlay
                 EventView()
                 SaveIndicatorView()
@@ -101,12 +99,11 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
             }
         }
-        .preferredColorScheme(playSession.destination == .home ? .light : .dark)
-        .tint(GamePalette.orange)
         .animation(.easeInOut(duration: 0.3), value: showDetailedStatsOverlay) // Animate overlay appearance
         .animation(.easeInOut(duration: 0.3), value: glitchEffect)
         .animation(.easeInOut(duration: 0.5), value: gameState.isCollapsing)
         .onAppear {
+            if playSession.destination == .home { continueCompany() }
             // Only run the simulation once the initial save has loaded, so progress
             // is never overwritten by a freshly-started game. (Load is synchronous at
             // launch, so this is normally already true; the guard is defensive.)
@@ -198,7 +195,6 @@ struct ContentView: View {
         // Start collapse effects when entering collapse phase
         .onChange(of: gameState.isCollapsing) { _, isCollapsing in
             if isCollapsing && playSession.destination == .company && !openingHolidayRush {
-                showInvestments = false
                 playHaptic(.heavy) // Strong haptic for collapse
                 startCollapseEffects()
             }
@@ -209,13 +205,12 @@ struct ContentView: View {
             if reached && playSession.destination == .company && !openingHolidayRush {
                 playHaptic(.heavy)
                 stopGameLoop()
-                if showInvestments { showInvestments = false } else { showEndingScreen = true }
+                showEndingScreen = true
             }
         }
         // Collapse detailed stats when an event appears
         .onChange(of: eventManager.currentEvent) {
             if eventManager.currentEvent != nil {
-                showInvestments = false
                 withAnimation {
                     showDetailedStatsOverlay = false
                 }
@@ -254,26 +249,12 @@ struct ContentView: View {
                     startGameLoop()
                 }
             )
-            .safeAreaInset(edge: .top) {
-                Button("Game home", systemImage: "house") {
-                    showEndingScreen = false
-                    playSession.goHome()
-                }
-                .buttonStyle(.bordered).padding(8)
-            }
         }
         .sheet(isPresented: $showDashboard) {
             DashboardView()
         }
         .sheet(isPresented: $showingSettings) { // Present SettingsView
             SettingsView()
-        }
-        .sheet(isPresented: $showInvestments, onDismiss: {
-            if gameState.isRunTerminal && playSession.destination == .company { showEndingScreen = true }
-        }) {
-            GameInvestmentTray(game: gameState,
-                               preview: { HolidayRushInsights.preview($0, game: gameState) },
-                               purchase: { gameState.applyUpgrade($0) })
         }
         .onChange(of: playSession.destination) { _, destination in
             stopGameLoop()
@@ -333,43 +314,58 @@ struct ContentView: View {
     }
     
     private var mainContentView: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Button("Game home", systemImage: "house") { playSession.goHome() }
-                    .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44)
-                Spacer()
-                Text("Your company").font(.headline)
-                Spacer()
-                Button("Company details", systemImage: "chart.bar") { showDashboard = true }
-                    .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44)
-                Button("Settings", systemImage: "gearshape") { showingSettings = true }
-                    .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44)
+        VStack(spacing: 0) {
+            // Header with title and stats
+            headerView
+
+            Spacer()
+
+            // Main tap button
+            ShipPackageButton()
+                .modifier(ShipButtonPositionReader(position: $shipButtonPosition))
+                .environment(\.accessDecreaseAnimator, decreaseAnimator)
+
+            Spacer()
+
+            // Upgrade section
+            UpgradeListView()
+                .padding(.bottom, 16)
+        }
+    }
+
+    private var headerView: some View {
+        VStack(spacing: 2) {
+            Text("Prime Collapse")
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+                .padding(.top, 12)
+                .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 2)
+
+            GameStatsView(isShowingDetails: $showDetailedStatsOverlay)
+                .padding(.horizontal)
+                // Add position tracking for money and workers
+                .background(MoneyPositionReader(position: $moneyPosition))
+                .background(WorkersPositionReader(position: $workersPosition))
+            HolidayRushEntryCard {
+                openHolidayRush()
             }
             .padding(.horizontal)
-            DispatchHUD(game: gameState)
-            Spacer(minLength: 0)
-            DispatchStage(packages: gameState.totalPackagesShipped, workers: gameState.workers,
-                          automaticRate: gameState.automaticPackagesPerSecond,
-                          isRunning: scenePhase == .active && !gameState.isRunTerminal,
-                          onShip: { gameState.shipPackage() })
-                .frame(maxWidth: 740)
-            Spacer(minLength: 0)
-            Text("Build your operation. Decide what it costs.")
-                .font(.callout).foregroundStyle(GamePalette.label.opacity(0.7))
-            Button { showInvestments = true } label: {
-                Label("Invest in your company", systemImage: "wrench.and.screwdriver")
-                    .font(.headline).frame(maxWidth: .infinity).padding(.vertical, 10)
-            }
-            .buttonStyle(.borderedProminent)
-            .foregroundStyle(GamePalette.ink).padding(.horizontal)
+            .padding(.vertical, 8)
+            .disabled(gameState.isRunTerminal)
             if gameState.isInLoopEndingState {
                 ProgressView("Loop stability: \(Int(gameState.loopStabilitySeconds))/60 sec", value: gameState.loopStabilityProgress)
-                    .font(.caption).padding(.horizontal)
+                    .font(.caption)
+                    .tint(.orange)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
             }
         }
-        .padding(.bottom, 20)
-        .frame(maxWidth: 740)
-        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 0)
+                .fill(Color(red: 0.1, green: 0.1, blue: 0.3).opacity(0.8))
+                .shadow(color: .black.opacity(0.3), radius: 5, y: 2)
+        )
     }
 
     private var animationLayer: some View {
@@ -575,8 +571,7 @@ struct ContentView: View {
             return
         }
         openingHolidayRush = true
-        let dismissingPresentation = showDashboard || showingSettings || showEndingScreen || showCollapseAlert || showInvestments
-        showInvestments = false
+        let dismissingPresentation = showDashboard || showingSettings || showEndingScreen || showCollapseAlert
         showDashboard = false
         showingSettings = false
         showEndingScreen = false
