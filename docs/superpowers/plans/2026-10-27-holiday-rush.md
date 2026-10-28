@@ -33,7 +33,7 @@ Files: ContentView.swift, Prime_CollapseApp.swift, new Views/HolidayRush/*, Info
 - [x] Add a prominent Holiday Rush entry, briefing/start/resume, dashboard goal progress, shared upgrade choices, authored event choices, result/replay/return, local feedback, diagnostics export and share card.
 - [x] Route `primecollapse://events/holiday-rush` after onboarding; opening never automatically starts/resets. Main game pauses and resumes safely behind the full-screen challenge.
 - [x] Show exact base ending progress and stability requirement from engine policy. Handle loaded terminal state before simulation starts.
-- [ ] Build, test, and perform touch-driven walkthrough on isolated iPhone 17 Pro Max. Verify save/return/replay, background pause, cold/warm deep links and share sheet.
+- [x] Build, test, and perform touch-driven walkthrough on isolated iPhone 17 Pro Max. Verify save/return/replay, background pause, cold/warm deep links and share sheet.
 - [x] Commit integration as `52aae82 feat: integrate Holiday Rush event entry and visible ending progress`.
 
 ## 4. Event and marketing package
@@ -46,6 +46,6 @@ Files: marketing/holiday-rush/*.
 
 ## 5. Review and delivery
 - [x] Review spec compliance and code quality, address issues, and run integrated tests/build (95 passed).
-- [ ] Finish remaining native walkthrough after Mac unlock; see validation document for explicit gaps.
+- [x] Resume native walkthrough after Mac unlock: shipping, upgrades, decisions, pause/background, result/share/export/replay and company checkpoint verified. Physical-device pilot and full spoken VoiceOver remain listed in validation.
 - [x] Record test counts, engine evidence, screenshots, and external release gaps in docs/holiday-rush-validation.md.
-- [ ] Deliver branch/commit, runnable build and asset links. No claim of TestFlight distribution, App Store approval, public launch, or aggregate demand measurement without separate verification.
+- [x] Deliver branch/commit, runnable build and asset links. No claim of TestFlight distribution, App Store approval, public launch, or aggregate demand measurement without separate verification.

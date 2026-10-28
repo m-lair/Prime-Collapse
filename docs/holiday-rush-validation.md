@@ -1,4 +1,4 @@
-# Holiday Rush validation — October 27, 2026
+# Holiday Rush validation — October 28, 2026
 
 ## Implemented
 
@@ -46,18 +46,22 @@ These demonstrate an attainable goal with consequential tradeoffs. They are scri
 - Main-game Holiday Rush entry opens the briefing with an explicit Start button. Start opens challenge gameplay.
 - Warm event link from a staged collapsed-company save opens the separate challenge. Returning originally stranded the company; this was reproduced before the fix and then verified to restore the Economic Collapse ending screen after the fix.
 - On a fresh iPad Pro 13-inch / iPadOS 26.5 profile, a cold event link first shows onboarding; dismissing onboarding opens the Holiday Rush briefing without starting a run.
-- Captured actual briefing UI on iPhone and iPad. Event/social preview media is cropped from the unmodified native iPad capture; dimensions and aspect ratios checked, with no artwork generation or upscaling.
+- Completed an unaccelerated 720-active-second iPad walkthrough: 364 packages, ethics 100, morale 100%. Touch shipping, logistics/worker purchases and all three paid constructive decisions worked. This low-tap QA run reached the deadline; it is not a human difficulty study.
+- Pause/resume and Home/background preserved the paused challenge counters. Returning to the company and reentering retained the challenge. Replay started a fresh challenge and retained the prior result and optional local feedback.
+- Main-company checkpoint matched exactly after challenge completion and replay: 3 packages, $2.85, one worker, $2.85 lifetime earnings and zero ethical choices. Before/after evidence is in `holiday-rush-evidence/`.
+- Result sharing and diagnostic export opened native share sheets and were dismissed without sending. Accessibility activation reproduced a missing share-opening record with the old gesture handler (zero records); an explicit button action fixed it (one `share_sheet_opened` record). This measures opening, not completed sharing. Optional Maybe feedback visibly saved and persisted through replay.
+- Ending touch scrolling and Play Again worked on iPhone after hiding decorative background/confetti effects from accessibility. Previously dozens of decorative images burdened the accessibility tree. The final share fix built successfully and was verified natively on iPad; the 95-test suite above predates these two view-only fixes.
+- iPad portrait/landscape and enlarged text size 7 were inspected; text wrapped and Resume remained reachable. Accessibility labels/actions were inspected, but a full spoken VoiceOver walkthrough was not performed.
+- Captured actual briefing/decision UI on iPhone and iPad. Event/social previews are deterministic crops of actual native decision screenshots; exact dimensions/aspect ratios checked, with no artwork generation or upscaling.
 
 UI fixture tests used isolated simulator data only. The staged main save was backed up in the task's temporary directory. No personal app install or production data was modified.
 
 ## Remaining native verification
 
-The Mac locked during the manual shipping walkthrough. Unlock was requested; no lock bypass or further native input was attempted. The following are still pending:
+The Mac was unlocked and the native walkthrough resumed. Remaining verification:
 
-- Touch shipping and upgrade purchases, all authored decision buttons, pause/resume across app background/foreground, result/replay and exact main-company restoration.
-- Opening the share sheet and deliberate diagnostic export without sending to anyone.
-- Touch scrolling of the newly scrollable base ending screen, Dynamic Type and VoiceOver checks.
-- Full unaccelerated human playthrough and physical-device validation.
+- A physical-device player pilot and a full spoken VoiceOver/gesture walkthrough.
+- A human win-oriented playtest for difficulty and repeat interest; scripted success and a low-tap native deadline run do not measure player demand.
 - Replace/review preview event media using final active-event captures after dates are chosen, including App Store Connect's overlay/crop preview.
 
 ## External release state

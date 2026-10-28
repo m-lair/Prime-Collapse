@@ -1,10 +1,12 @@
 import SwiftUI
+import UIKit
 
 struct HolidayRushView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @State private var session: HolidayRushSession
     @State private var manualShipCount = 0
+    @State private var sharedResult: HolidayRushResult?
 
     init(session: HolidayRushSession? = nil) {
         _session = State(initialValue: session ?? HolidayRushSession())
@@ -78,6 +80,9 @@ struct HolidayRushView: View {
             if phase != .active { session.pause() }
         }
         .onDisappear { session.pause() }
+        .sheet(item: $sharedResult) { result in
+            HolidayRushShareSheet(text: result.shareText)
+        }
     }
 
     private var briefing: some View {
@@ -252,8 +257,10 @@ struct HolidayRushView: View {
             }
             Button("Replay Challenge", systemImage: "arrow.clockwise") { session.replay() }
                 .buttonStyle(.borderedProminent).controlSize(.large)
-            ShareLink(item: result.shareText) { Label("Share Result", systemImage: "square.and.arrow.up") }
-                .simultaneousGesture(TapGesture().onEnded { session.recordShare() })
+            Button("Share Result", systemImage: "square.and.arrow.up") {
+                session.recordShare()
+                sharedResult = result
+            }
             panel {
                 Text("Would you play more challenges like this?").font(.headline)
                 Text("Optional · Saved only on this device").font(.caption).foregroundStyle(.secondary)
@@ -288,4 +295,14 @@ struct HolidayRushView: View {
             .padding()
             .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 18))
     }
+}
+
+private struct HolidayRushShareSheet: UIViewControllerRepresentable {
+    let text: String
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: [text], applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
