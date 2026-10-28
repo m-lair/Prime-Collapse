@@ -16,7 +16,9 @@ In Prime Collapse, you start as a small package delivery operation and gradually
   - **Reform**: Ethical choices create a sustainable business
   - **Loop**: Navigate a specific path to discover a special ending
 - **Game Center Integration**: Leaderboards and achievements to track your progress
-- **Persistent Progress**: Game state automatically saved using SwiftData
+- **Holiday Rush**: Free standalone delivery challenge with a separate save, workforce decisions, and local results
+- **Prestige**: Earn permanent starting bonuses across runs
+- **Persistent Progress**: Game state automatically saved as atomic Codable JSON snapshots
 
 ## Game Mechanics
 
@@ -37,7 +39,7 @@ In Prime Collapse, you start as a small package delivery operation and gradually
 
 ## Requirements
 
-- iOS 17.0+
+- iOS 18.2+
 - Xcode 16.0+
 - Swift 5.10+
 - Game Center account for leaderboards and achievements

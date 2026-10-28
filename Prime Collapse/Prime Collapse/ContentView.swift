@@ -47,6 +47,9 @@ struct ContentView: View {
     @State private var slowdownFactor: Double = 1.0
     @State private var showEndingScreen = false
     @State private var showDashboard = false
+    @State private var showHolidayRush = false
+    @State private var pendingHolidayRush = false
+    @State private var openingHolidayRush = false
     
     // State for settings panel presentation
     @State private var showingSettings = false
@@ -112,7 +115,10 @@ struct ContentView: View {
             // Only run the simulation once the initial save has loaded, so progress
             // is never overwritten by a freshly-started game. (Load is synchronous at
             // launch, so this is normally already true; the guard is defensive.)
-            if saveManager.hasCompletedInitialLoad {
+            gameState.resetForegroundTiming()
+            if gameState.endingReached && !showHolidayRush && !openingHolidayRush {
+                showEndingScreen = true
+            } else if saveManager.hasCompletedInitialLoad {
                 startGameLoop()
             }
 
@@ -121,7 +127,7 @@ struct ContentView: View {
             previousWorkers = gameState.workers
 
             // If we're already in collapse state, show effects
-            if gameState.isCollapsing {
+            if gameState.isCollapsing && !showHolidayRush && !openingHolidayRush {
                 startCollapseEffects()
             }
 
@@ -137,7 +143,16 @@ struct ContentView: View {
         }
         .onChange(of: showOnboarding) { _, shown in
             // Mark the tutorial as seen once it's been dismissed.
-            if !shown { hasSeenTutorial = true }
+            if !shown {
+                hasSeenTutorial = true
+                if pendingHolidayRush {
+                    pendingHolidayRush = false
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(350))
+                        showHolidayRush = true
+                    }
+                }
+            }
         }
         .fullScreenCover(isPresented: $showOnboarding) {
             OnboardingOverlayView(isPresented: $showOnboarding)
@@ -189,7 +204,7 @@ struct ContentView: View {
         }
         // Start collapse effects when entering collapse phase
         .onChange(of: gameState.isCollapsing) { _, isCollapsing in
-            if isCollapsing {
+            if isCollapsing && !showHolidayRush && !openingHolidayRush {
                 playHaptic(.heavy) // Strong haptic for collapse
                 startCollapseEffects()
             }
@@ -197,7 +212,7 @@ struct ContentView: View {
         // Show the ending screen when a win-state ending (Reform/Loop) is earned.
         // Collapse keeps its own flow through the collapse alert above.
         .onChange(of: gameState.endingReached) { _, reached in
-            if reached {
+            if reached && !showHolidayRush && !openingHolidayRush {
                 playHaptic(.heavy)
                 stopGameLoop()
                 showEndingScreen = true
@@ -216,6 +231,7 @@ struct ContentView: View {
             Button("Continue", role: .destructive) {
                 // After a brief delay, show the ending screen
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                    guard gameState.isCollapsing, !showHolidayRush, !openingHolidayRush else { return }
                     stopGameLoop()
                     showEndingScreen = true
                 }
@@ -250,7 +266,23 @@ struct ContentView: View {
         .sheet(isPresented: $showingSettings) { // Present SettingsView
             SettingsView()
         }
+        .fullScreenCover(isPresented: $showHolidayRush, onDismiss: resumeCompany) {
+            HolidayRushView()
+        }
+        .onChange(of: showHolidayRush) { _, shown in
+            if shown {
+                openingHolidayRush = false
+                saveManager.saveGameState()
+                stopGameLoop()
+                gameState.resetForegroundTiming()
+            }
+        }
+        .onOpenURL { url in
+            guard HolidayRushRoute.matches(url) else { return }
+            openHolidayRush()
+        }
         .onChange(of: scenePhase) { _, newPhase in
+            gameState.resetForegroundTiming()
             if newPhase == .background {
                 saveManager.saveOnEvent(.backgrounding)
                 // Remind the player when offline earnings hit the 8-hour cap.
@@ -259,7 +291,7 @@ struct ContentView: View {
             } else if newPhase == .active {
                 // They're back — the reminder is moot.
                 reengagementNotifier.cancelPendingReminders()
-                if gameState.isCollapsing {
+                if gameState.isCollapsing && !showHolidayRush && !openingHolidayRush {
                     // Re-enable collapse effects when returning to the app
                     startCollapseEffects()
                 }
@@ -321,6 +353,20 @@ struct ContentView: View {
                 // Add position tracking for money and workers
                 .background(MoneyPositionReader(position: $moneyPosition))
                 .background(WorkersPositionReader(position: $workersPosition))
+            HolidayRushEntryCard {
+                showHolidayRush = true
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+            .disabled(gameState.isRunTerminal)
+            if gameState.isInLoopEndingState {
+                ProgressView("Loop stability: \(Int(gameState.loopStabilitySeconds))/60 sec", value: gameState.loopStabilityProgress)
+                    .font(.caption)
+                    .tint(.orange)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
+            }
         }
         .background(
             RoundedRectangle(cornerRadius: 0)
@@ -464,7 +510,7 @@ struct ContentView: View {
     
     private var collapseEffectsOverlay: some View {
         Group {
-            if gameState.isCollapsing {
+            if gameState.isCollapsing && !showHolidayRush && !openingHolidayRush {
                 CollapseEffectsView(showCollapseAlert: $showCollapseAlert)
             }
         }
@@ -484,6 +530,7 @@ struct ContentView: View {
     private func startGameLoop() {
         // Cancel any existing task
         gameTask?.cancel()
+        guard !showHolidayRush, !gameState.endingReached else { return }
         
         // Use Combine's Timer publisher as an AsyncSequence driving the game loop
         let updateInterval = 0.1 // 100ms
@@ -504,6 +551,39 @@ struct ContentView: View {
             }
         }
     }
+
+    private func resumeCompany() {
+        openingHolidayRush = false
+        gameState.lastUpdate = Date()
+        gameState.resetForegroundTiming()
+        if gameState.isRunTerminal {
+            showEndingScreen = true
+        } else {
+            startGameLoop()
+        }
+    }
+
+    private func openHolidayRush() {
+        guard !showHolidayRush else { return }
+        guard hasSeenTutorial, !showOnboarding else {
+            pendingHolidayRush = true
+            return
+        }
+        openingHolidayRush = true
+        let dismissingPresentation = showDashboard || showingSettings || showEndingScreen || showCollapseAlert
+        showDashboard = false
+        showingSettings = false
+        showEndingScreen = false
+        showCollapseAlert = false
+        if dismissingPresentation {
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(350))
+                showHolidayRush = true
+            }
+        } else {
+            showHolidayRush = true
+        }
+    }
     
     private func stopGameLoop() {
         gameTask?.cancel()
@@ -516,6 +596,7 @@ struct ContentView: View {
         
         // Show the alert after a brief delay
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            guard gameState.isCollapsing, !showHolidayRush, !openingHolidayRush, !showEndingScreen else { return }
             showCollapseAlert = true
         }
         
@@ -526,7 +607,7 @@ struct ContentView: View {
     private func startGlitchingEffect() {
         // Create a repeating timer that toggles the glitch effect
         Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { timer in
-            guard gameState.isCollapsing else {
+            guard gameState.isCollapsing, !showHolidayRush, !openingHolidayRush, !showEndingScreen else {
                 timer.invalidate()
                 return
             }

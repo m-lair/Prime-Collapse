@@ -77,6 +77,10 @@ struct DashboardView: View {
                 // Dashboard content
                 ScrollView {
                     VStack(spacing: 20) {
+                        DashboardSection(title: "Ending Paths") {
+                            EndingProgressView()
+                                .padding(.horizontal)
+                        }
                         // Business KPIs
                         DashboardSection(title: "Business Performance") {
                             // Key business metrics

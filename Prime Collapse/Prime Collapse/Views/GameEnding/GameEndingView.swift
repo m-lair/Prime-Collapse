@@ -19,6 +19,7 @@ struct GameEndingView: View {
 
     // Prestige is optional so SwiftUI previews (which don't inject it) still render.
     @Environment(PrestigeManager.self) private var prestigeManager: PrestigeManager?
+    @Environment(SaveManager.self) private var saveManager: SaveManager?
 
     @State private var showConfetti = false
     @State private var showStats = false
@@ -73,6 +74,7 @@ struct GameEndingView: View {
             }
             
             // Content
+            ScrollView {
             VStack(spacing: 24) {
                 // Title with icon
                 VStack(spacing: 16) {
@@ -190,6 +192,9 @@ struct GameEndingView: View {
                 }
             }
             .padding(.vertical)
+            .frame(maxWidth: 680)
+            .frame(maxWidth: .infinity)
+            }
             
             // Confetti for certain endings. Decorative only — must not intercept
             // touches, or it blocks the buttons beneath it (prestige banner, Play Again).
@@ -204,6 +209,7 @@ struct GameEndingView: View {
         .onAppear {
             // Bank the prestige this run earned (idempotent — safe if re-shown).
             prestigeEarned = prestigeManager?.concludeRun() ?? 0
+            saveManager?.saveGameState()
 
             // Animate elements in sequence
             withAnimation(.easeIn(duration: 0.8).delay(0.5)) {
