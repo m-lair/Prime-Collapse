@@ -160,6 +160,40 @@ struct DelayedEffect: Identifiable, Equatable {
         max(0, min(0.5, environmentalImpact / 200.0))
     }
 
+    var automaticPackagesPerSecond: Double {
+        let moraleFactor: Double
+        if workerMorale < 0.5 {
+            moraleFactor = workerMorale * 2.0 // Scales from 0.0 at 0 morale to 1.0 at 0.5 morale
+        } else if workerMorale > 0.7 {
+            moraleFactor = 1.0 + (workerMorale - 0.7) / 3.0 // Scales from 1.0 at 0.7 morale to 1.1 at 1.0 morale
+        } else {
+            moraleFactor = 1.0 // Neutral effect between 0.5 and 0.7
+        }
+
+        // Calculate raw contribution from workers
+        let workerContribution = baseWorkerRate * Double(workers) * workerEfficiency
+
+        // Calculate raw contribution from automated systems
+        let systemContribution = baseSystemRate * automationEfficiency
+
+        // Total raw automation rate
+        let totalRawRate = workerContribution + systemContribution
+
+        // Apply morale factor (affects combined rate)
+        let moraleAdjustedRate = totalRawRate * moraleFactor
+
+        // Apply environmental impact penalty: high impact slows automation (max penalty 50% at 100 impact)
+        let envPenaltyFactor: Double = max(0, 1.0 - environmentalImpact / 200.0)
+        return moraleAdjustedRate * envPenaltyFactor
+
+    }
+
+    var effectivePackageValue: Double {
+        let perceptionFactor = 0.8 + (publicPerception / 100.0 * 0.4)
+        let satisfactionFactor = 0.5 + (customerSatisfaction * 0.5)
+        return packageValue * perceptionFactor * satisfactionFactor
+    }
+
     // Saturating add: the lifetime counter clamps at Int.max instead of trapping,
     // since runaway efficiency multipliers can push per-tick shipments arbitrarily high.
     private func addPackagesShipped(_ count: Int) {
@@ -172,12 +206,7 @@ struct DelayedEffect: Identifiable, Equatable {
         guard !isRunTerminal else { return }
         addPackagesShipped(1)
         
-        // Calculate the actual value based on package value, customer satisfaction, and public perception
-        let perceptionFactor = 0.8 + (publicPerception / 100.0 * 0.4) // Scales 80% to 120%
-        let satisfactionFactor = 0.5 + (customerSatisfaction * 0.5) // Scales 50% to 100%
-        let actualValue = packageValue * perceptionFactor * satisfactionFactor
-        // let actualValue = packageValue * (0.5 + (customerSatisfaction * 0.5)) // OLD CALC
-        earnMoney(actualValue)
+        earnMoney(effectivePackageValue)
         evaluateEndings()
     }
     
@@ -209,36 +238,7 @@ struct DelayedEffect: Identifiable, Equatable {
         workersQuit = 0
         hasWorkersQuit = false
         
-        // Calculate effective automation rate based on worker efficiency and automation efficiency
-        // Factor in worker morale: Morale below 0.5 starts reducing efficiency linearly down to 0 at 0 morale.
-        // Morale above 0.7 could provide a small boost (e.g., up to 10% at 1.0 morale).
-        let moraleFactor: Double
-        if workerMorale < 0.5 {
-            moraleFactor = workerMorale * 2.0 // Scales from 0.0 at 0 morale to 1.0 at 0.5 morale
-        } else if workerMorale > 0.7 {
-            moraleFactor = 1.0 + (workerMorale - 0.7) / 3.0 // Scales from 1.0 at 0.7 morale to 1.1 at 1.0 morale
-        } else {
-            moraleFactor = 1.0 // Neutral effect between 0.5 and 0.7
-        }
-        
-        // Calculate raw contribution from workers
-        let workerContribution = baseWorkerRate * Double(workers) * workerEfficiency
-        
-        // Calculate raw contribution from automated systems
-        let systemContribution = baseSystemRate * automationEfficiency
-        
-        // Total raw automation rate
-        let totalRawRate = workerContribution + systemContribution
-        
-        // Apply morale factor (affects combined rate)
-        let moraleAdjustedRate = totalRawRate * moraleFactor
-        
-        // Apply environmental impact penalty: high impact slows automation (max penalty 50% at 100 impact)
-        let envPenaltyFactor: Double = max(0, 1.0 - environmentalImpact / 200.0)
-        let finalAdjustedRate = moraleAdjustedRate * envPenaltyFactor
-        
-        // Calculate fractional packages shipped (with environmental penalty)
-        let fractionalPackages = finalAdjustedRate * timeElapsed
+        let fractionalPackages = automaticPackagesPerSecond * timeElapsed
 
         // Add to our accumulator, guarding against non-finite values poisoning it.
         if fractionalPackages.isFinite && fractionalPackages > 0 {
@@ -254,12 +254,7 @@ struct DelayedEffect: Identifiable, Equatable {
         if packagesShipped > 0 {
             addPackagesShipped(packagesShipped)
             
-            // Calculate package value factoring in customer satisfaction and public perception
-            let perceptionFactor = 0.8 + (publicPerception / 100.0 * 0.4) // Scales 80% to 120%
-            let satisfactionFactor = 0.5 + (customerSatisfaction * 0.5) // Scales 50% to 100%
-            let valuePerPackage = packageValue * perceptionFactor * satisfactionFactor
-            // let valuePerPackage = packageValue * (0.5 + (customerSatisfaction * 0.5)) // OLD CALC
-            earnMoney(Double(packagesShipped) * valuePerPackage)
+            earnMoney(Double(packagesShipped) * effectivePackageValue)
             
             // Subtract the shipped packages from the accumulator
             packageAccumulator -= Double(packagesShipped)

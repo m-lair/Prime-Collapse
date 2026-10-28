@@ -50,10 +50,10 @@ private struct HolidayRushSave: Codable {
 }
 
 @MainActor @Observable final class HolidayRushSession {
-    static let duration = 720.0
-    static let packageGoal = 1500
-    static let minimumEthics = 40.0
-    static let minimumMorale = 0.4
+    nonisolated static let duration = 720.0
+    nonisolated static let packageGoal = 1500
+    nonisolated static let minimumEthics = 40.0
+    nonisolated static let minimumMorale = 0.4
 
     private(set) var game = GameState()
     private(set) var hasRun = false
@@ -75,10 +75,38 @@ private struct HolidayRushSave: Codable {
     private var nextDecision = 0
     private var resumeAfterDecision = false
     private var lastAutosaveElapsed = 0.0
+    @ObservationIgnored private var previewState: [Double] = []
+    @ObservationIgnored private var previews: [UUID: HolidayRushUpgradePreview] = [:]
 
     var remaining: Double { max(0, Self.duration - elapsed) }
+    var upcomingDecision: HolidayRushDecision? {
+        guard result == nil, pendingDecision == nil, nextDecision < HolidayRushDecision.schedule.count else { return nil }
+        return HolidayRushDecision.schedule[nextDecision]
+    }
+
     var eventAvailable: Bool { configuration.contains(now()) }
     var saveURL: URL { directory.appendingPathComponent("holiday-rush.json") }
+
+    func preview(for upgrade: Upgrade) -> HolidayRushUpgradePreview? {
+        guard result == nil, UpgradeManager.availableUpgrades.contains(where: { $0.id == upgrade.id }),
+              game.isUpgradeUnlocked(upgrade), upgrade.isRepeatable || !game.hasBeenPurchased(upgrade),
+              upgrade.name != "Hire Worker" || game.workers < GameState.maxWorkers else { return nil }
+        if upgrade.name == "Offshore Tax Havens" {
+            return HolidayRushInsights.preview(upgrade, game: game)
+        }
+        let inputs = [Double(game.workers), game.baseWorkerRate, game.baseSystemRate,
+                      game.workerEfficiency, game.automationEfficiency, game.workerMorale,
+                      game.customerSatisfaction, game.packageValue, game.publicPerception,
+                      game.environmentalImpact, game.ethicsScore, game.corporateEthics, Double(game.automationLevel)]
+        if inputs != previewState {
+            previewState = inputs
+            previews.removeAll()
+        }
+        if let cached = previews[upgrade.id] { return cached }
+        let preview = HolidayRushInsights.preview(upgrade, game: game)
+        previews[upgrade.id] = preview
+        return preview
+    }
 
     init(directory: URL? = nil, now: @escaping () -> Date = Date.init,
          configuration: HolidayRushConfiguration = .bundled) {
@@ -98,6 +126,8 @@ private struct HolidayRushSave: Codable {
     }
 
     private func begin() {
+        previews.removeAll()
+        previewState = []
         game = GameState()
         game.baseEndingsEnabled = false
         game.reset()
@@ -162,6 +192,7 @@ private struct HolidayRushSave: Codable {
     func purchase(_ upgrade: Upgrade) {
         guard canAct, UpgradeManager.availableUpgrades.contains(where: { $0.id == upgrade.id }) else { return }
         game.applyUpgrade(upgrade)
+        previews.removeAll()
         _ = resolveIfNeeded()
         save()
     }
@@ -175,6 +206,7 @@ private struct HolidayRushSave: Codable {
         game.ethicsScore += choice.ethics
         game.workerMorale += choice.morale
         game.workerEfficiency *= choice.efficiency
+        previews.removeAll()
         pendingDecision = nil
         nextDecision += 1
         isRunning = resumeAfterDecision

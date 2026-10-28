@@ -1,0 +1,17 @@
+# Holiday Rush production feedback
+
+Approved scope: the user requested implementation of the changes recommended after the 778-package management playthrough. Improve information and retry feedback; do not rebalance the economy, 1,500-package goal or 720-second duration.
+
+1. Extract current automatic package rate and effective package value from the existing engine arithmetic so production and display use one calculation. Preserve the existing morale/environment factors and per-tick semantics.
+2. Display a compact pinned challenge HUD while a run is active, paused or awaiting a decision: packages/time, money/workforce health, current automatic rate. Show a clearly qualified automatic-only finish estimate using remaining active time and fractional packages. Exclude future taps, upgrades, decisions and changes in morale. While paused, identify rates as capacity and explicitly say production is stopped. The full explanatory forecast can remain in scrollable content to keep the pinned HUD usable with larger text.
+3. Upgrade cards show current→after automatic output and package-value changes computed by applying the real upgrade to an isolated state copy. Include an estimated passive-income payback where the incremental income is positive, accounting for immediate cash returned. Label the estimate as current-rates-only; do not invent finite payback for unchanged/negative income. Locked, purchased and worker-cap cases must respect actual eligibility; unaffordable but otherwise eligible upgrades may be previewed without charging the live state. Cache calculations so normal timer ticks do not clone every card repeatedly.
+4. Before the next decision, show its constructive option's reserve cost and when it occurs, without promising affordability. Decisions already expose exact changes and remain unchanged.
+5. Result feedback identifies each unmet requirement (package shortfall, ethics, morale), distinguishes collapse, and explains a useful next-attempt action based on the unmet conditions. Include actual average packages per active second, clearly including manual shipments; do not infer an unrecorded cause or promise a winning strategy. Existing result/save formats remain compatible; derive feedback from stored result fields.
+
+Implementation boundaries: keep challenge-specific forecasts/previews/result explanations in a focused model helper; extract the pinned HUD into a small SwiftUI view. No third-party frameworks, generated art, telemetry, release upload or changes to base-game behavior beyond sharing the existing production arithmetic.
+
+Verification: tests first for engine/display agreement, morale/environment adjustments, clone-preview equivalence and live-state isolation, affordability/locked/cap behavior, payback edge cases, fraction-aware forecast and terminal explanations. Run full simulator suite after integration. Native check phone layout, scrolling with pinned HUD, enlarged text, upgrade purchase updates, paused/decision states and legacy result feedback. User approval already authorizes implementation; no additional design approval is needed.
+
+## Presentation update
+
+The user subsequently approved a game home with Continue Company and featured challenges. The premium game direction spec supersedes the original card-heavy presentation here. Production arithmetic, preview semantics, and result feedback remain in scope; both modes now share the dispatch floor and investment tray.

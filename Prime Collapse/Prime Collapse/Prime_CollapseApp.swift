@@ -16,6 +16,7 @@ struct Prime_CollapseApp: App {
     @State private var eventManager = EventManager()
     @State private var saveManager: SaveManager
     @State private var prestigeManager: PrestigeManager
+    @State private var playSession: GamePlayCoordinator
 
     init() {
         // Build the core objects up front and load any existing save synchronously,
@@ -30,6 +31,7 @@ struct Prime_CollapseApp: App {
         _gameCenterManager = State(initialValue: gameCenterManager)
         _saveManager = State(initialValue: saveManager)
         _prestigeManager = State(initialValue: prestigeManager)
+        _playSession = State(initialValue: GamePlayCoordinator(company: game, challenge: HolidayRushSession()))
     }
 
     var body: some Scene {
@@ -40,6 +42,7 @@ struct Prime_CollapseApp: App {
                 .environment(eventManager)
                 .environment(saveManager)
                 .environment(prestigeManager)
+                .environment(playSession)
                 .onAppear {
                     // Authenticate Game Center when the app launches.
                     gameCenterManager.authenticatePlayer()

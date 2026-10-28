@@ -4,20 +4,53 @@ import UIKit
 struct HolidayRushView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var session: HolidayRushSession
     @State private var manualShipCount = 0
     @State private var sharedResult: HolidayRushResult?
+    @State private var showInvestments = false
+    @State private var showProductionDetails = false
+    private let onReturn: (() -> Void)?
 
-    init(session: HolidayRushSession? = nil) {
+    init(session: HolidayRushSession? = nil, onReturn: (() -> Void)? = nil) {
+        self.onReturn = onReturn
         _session = State(initialValue: session ?? HolidayRushSession())
     }
 
-    private let navy = Color(red: 0.055, green: 0.08, blue: 0.16)
+    private let navy = GamePalette.ink
 
     var body: some View {
-        NavigationStack {
+        VStack(spacing: 0) {
+            HStack {
+                Button("Game home", systemImage: "house") {
+                    session.pause()
+                    if let onReturn { onReturn() } else { dismiss() }
+                }
+                .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44)
+                Spacer()
+                Text("Holiday Rush").font(.headline)
+                Spacer()
+                if session.hasRun && session.result == nil {
+                    Button("Production details", systemImage: "chart.bar") {
+                        session.pause()
+                        showProductionDetails = true
+                    }
+                    .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44)
+                }
+                if session.isRunning {
+                    Button("Pause", systemImage: "pause") { session.pause() }
+                        .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44)
+                }
+            }
+            .padding(.horizontal)
+            if session.hasRun && session.result == nil && !dynamicTypeSize.isAccessibilitySize {
+                DispatchHUD(game: session.game, remaining: session.remaining, isRunning: session.isRunning)
+            }
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    if dynamicTypeSize.isAccessibilitySize && session.hasRun && session.result == nil {
+                        DispatchHUD(game: session.game, remaining: session.remaining, isRunning: session.isRunning)
+                    }
                     if let error = session.saveError {
                         panel {
                             Label("Challenge save needs attention", systemImage: "exclamationmark.triangle")
@@ -42,25 +75,11 @@ struct HolidayRushView: View {
                 .frame(maxWidth: .infinity)
             }
             .background(navy)
-            .navigationTitle("Holiday Rush")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Return to Company", systemImage: "chevron.backward") {
-                        session.pause()
-                        dismiss()
-                    }
-                    .labelStyle(.titleOnly)
-                }
-                if session.isRunning {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Pause", systemImage: "pause.fill") { session.pause() }
-                    }
-                }
-            }
         }
+        .background(navy.ignoresSafeArea())
+        .foregroundStyle(GamePalette.label)
         .preferredColorScheme(.dark)
-        .tint(.cyan)
+        .tint(GamePalette.orange)
         .task {
             let clock = ContinuousClock()
             var previous = clock.now
@@ -80,6 +99,32 @@ struct HolidayRushView: View {
             if phase != .active { session.pause() }
         }
         .onDisappear { session.pause() }
+        .sheet(isPresented: $showInvestments) {
+            GameInvestmentTray(game: session.game, remaining: session.remaining,
+                               preview: { session.preview(for: $0) }, purchase: { session.purchase($0) })
+        }
+        .sheet(isPresented: $showProductionDetails) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    HStack {
+                        Text("Production outlook").font(.title2.bold())
+                        Spacer()
+                        Button("Done") { showProductionDetails = false }
+                    }
+                    productionOutlook
+                }
+                .padding(24)
+            }
+            .background(GamePalette.ink)
+            .foregroundStyle(GamePalette.label)
+            .presentationDetents([.medium, .large])
+        }
+        .onChange(of: session.pendingDecision?.id) { _, pending in
+            if pending != nil { showInvestments = false }
+        }
+        .onChange(of: session.result?.id) { _, result in
+            if result != nil { showInvestments = false }
+        }
         .sheet(item: $sharedResult) { result in
             HolidayRushShareSheet(text: result.shareText)
         }
@@ -87,7 +132,7 @@ struct HolidayRushView: View {
 
     private var briefing: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Image(systemName: "shippingbox.fill").font(.system(size: 52)).foregroundStyle(.cyan)
+            Image(systemName: "shippingbox.fill").font(.system(size: 52)).foregroundStyle(GamePalette.teal)
                 .accessibilityHidden(true)
             Text("Beat the rush.\nProtect your workforce.")
                 .font(.largeTitle.bold())
@@ -128,22 +173,8 @@ struct HolidayRushView: View {
 
     private var gameplay: some View {
         VStack(alignment: .leading, spacing: 20) {
-            panel {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("\(session.game.totalPackagesShipped.formatted()) / 1,500").font(.title.bold()).monospacedDigit()
-                    Spacer()
-                    Text(timeRemaining).font(.title2.bold()).monospacedDigit()
-                        .accessibilityLabel("\(Int(ceil(session.remaining))) seconds remaining")
-                }
-                Text("Packages shipped · Active time remaining").font(.caption).foregroundStyle(.secondary)
-                ProgressView(value: min(1, Double(session.game.totalPackagesShipped) / 1500))
-                    .accessibilityLabel("Package goal")
-                ViewThatFits(in: .horizontal) {
-                    HStack { metrics }
-                    VStack(alignment: .leading) { metrics }
-                }
-                Text("Finish with ethics ≥ 40 and morale ≥ 40%.").font(.callout).foregroundStyle(.secondary)
-            }
+            Text("Deliver 1,500 packages. Keep ethics and morale at least 40.")
+                .font(.callout).foregroundStyle(GamePalette.label.opacity(0.75))
             if let decision = session.pendingDecision {
                 decisionContent(decision)
             } else if !session.isRunning {
@@ -154,43 +185,29 @@ struct HolidayRushView: View {
                         .buttonStyle(.borderedProminent).controlSize(.large)
                 }
             } else {
-                Button { session.shipPackage(); manualShipCount += 1 } label: {
-                    Label("Ship Package", systemImage: "shippingbox.fill")
-                        .font(.title3.bold()).frame(maxWidth: .infinity).padding(.vertical, 16)
+                DispatchStage(packages: session.game.totalPackagesShipped, workers: session.game.workers,
+                              automaticRate: session.game.automaticPackagesPerSecond, isRunning: session.isRunning,
+                              onShip: { session.shipPackage(); manualShipCount += 1 })
+
+                if let next = session.upcomingDecision, let paid = next.choices.first(where: { $0.cost > 0 }) {
+                    Text("Next decision at \(Int(next.time / 60)):00 · Paid option \(paid.cost.formatted(.currency(code: "USD").precision(.fractionLength(0))))")
+                        .font(.callout).foregroundStyle(.secondary)
+                } else {
+                    Text("All workforce decisions are complete. Keep shipping before time runs out.")
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+                Button { showInvestments = true } label: {
+                    Label("Invest in your operation", systemImage: "wrench.and.screwdriver")
+                        .font(.headline).frame(maxWidth: .infinity).padding(.vertical, 10)
                 }
                 .buttonStyle(.borderedProminent)
-                .sensoryFeedback(.impact(weight: .light), trigger: manualShipCount)
-                Text(session.elapsed < 480 ? "Next decision at \(nextDecisionDescription) active minutes. Timer pauses while you choose." : "All workforce decisions are complete. Keep shipping before time runs out.")
-                    .font(.callout).foregroundStyle(.secondary)
-                upgrades
             }
         }
     }
 
-    @ViewBuilder private var metrics: some View {
-        Label(session.game.money.formatted(.currency(code: "USD").precision(.fractionLength(0))), systemImage: "dollarsign.circle")
-        Spacer(minLength: 8)
-        Label("\(session.game.workers) workers", systemImage: "person.2.fill")
-        Spacer(minLength: 8)
-        Text("Ethics \(Int(session.game.ethicsScore))")
-        Text("Morale \(Int(session.game.workerMorale * 100))%")
-    }
-
-    private var timeRemaining: String {
-        let seconds = Int(ceil(session.remaining))
-        return String(format: "%d:%02d", seconds / 60, seconds % 60)
-    }
-
-    private var nextDecisionDescription: String {
-        if session.elapsed < 120 { return "2" }
-        if session.elapsed < 300 { return "5" }
-        if session.elapsed < 480 { return "8" }
-        return "no more scheduled"
-    }
-
     private func decisionContent(_ decision: HolidayRushDecision) -> some View {
         panel {
-            Label("Decision · Time paused", systemImage: "pause.circle").foregroundStyle(.cyan)
+            Label("Decision · Time paused", systemImage: "pause.circle").foregroundStyle(GamePalette.teal)
             Text(decision.title).font(.title2.bold()).accessibilityAddTraits(.isHeader)
             Text(decision.detail)
             ForEach(decision.choices) { choice in
@@ -208,31 +225,21 @@ struct HolidayRushView: View {
         }
     }
 
-    private var upgrades: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Challenge upgrades").font(.title2.bold()).accessibilityAddTraits(.isHeader)
-            ForEach(UpgradeManager.availableUpgrades.filter { $0.isRepeatable || !session.game.hasBeenPurchased($0) }) { upgrade in
-                let cost = session.game.getCurrentUpgradeCost(upgrade)
-                panel {
-                    Text(upgrade.name).font(.headline)
-                    Text(upgrade.description).font(.callout).foregroundStyle(.secondary)
-                    if upgrade.moralImpact != 0 {
-                        Text("Ethics \(upgrade.moralImpact > 0 ? "+" : "")\(upgrade.moralImpact.formatted())")
-                            .font(.caption)
-                    }
-                    if !session.game.isUpgradeUnlocked(upgrade) {
-                        Text(session.game.getUpgradeRequirementDescription(upgrade) ?? "Requirements not met")
-                            .font(.caption).foregroundStyle(.orange)
-                    }
-                    Button("Buy · \(cost.formatted(.currency(code: "USD").precision(.fractionLength(2))))") {
-                        session.purchase(upgrade)
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(session.game.money < cost || !session.game.isUpgradeUnlocked(upgrade) ||
-                              (upgrade.name == "Hire Worker" && session.game.workers >= GameState.maxWorkers))
+    private var productionOutlook: some View {
+            panel {
+                Text("Production outlook").font(.headline)
+                Text("Automatic-only finish: \(HolidayRushInsights.projectedPackages(game: session.game, remaining: session.remaining).formatted()) / 1,500 packages")
+                    .font(.title3.bold())
+                Text("At current rates, with no further taps, purchases, or decisions.")
+                    .font(.caption).foregroundStyle(.secondary)
+                if session.remaining > 0 {
+                    let required = max(0, Double(HolidayRushSession.packageGoal - session.game.totalPackagesShipped)) / session.remaining
+                    Text("Required total pace: \(required.formatted(.number.precision(.fractionLength(2)))) pkg/s · manual + automatic")
+                        .font(.callout)
                 }
+                Text("Finish with ethics ≥ 40 and morale ≥ 40%.")
+                    .font(.callout).foregroundStyle(.secondary)
             }
-        }
     }
 
     private func resultContent(_ result: HolidayRushResult) -> some View {
@@ -242,13 +249,21 @@ struct HolidayRushView: View {
                 .accessibilityHidden(true)
             Text(result.outcome == .success ? "Rush complete" : result.outcome == .collapse ? "Company collapsed" : "Time’s up")
                 .font(.largeTitle.bold())
-            Text(result.outcome == .success ? "You delivered while protecting the team." : "Try another balance of upgrades, shipping, and workforce choices.")
+            Text(result.retryAdvice)
             panel {
                 Text("\(result.packages.formatted()) / 1,500 packages").font(.title2.bold())
                 Text("Active time: \(Int(result.elapsed)) seconds")
                 Text("Ethics: \(Int(result.ethics)) · Morale: \(Int(result.morale * 100))%")
+                ForEach(result.unmetRequirements, id: \.self) { requirement in
+                    Label(requirement, systemImage: "exclamationmark.circle")
+                        .foregroundStyle(.orange)
+                }
+                Text("Run average: \(result.averagePackagesPerSecond.formatted(.number.precision(.fractionLength(2)))) pkg/s · manual + automatic")
+                    .font(.callout)
+                Text("The volume goal needs an average \((Double(HolidayRushSession.packageGoal) / HolidayRushSession.duration).formatted(.number.precision(.fractionLength(2)))) pkg/s over 12 active minutes.")
+                    .font(.caption).foregroundStyle(.secondary)
                 if result.outcome == .success {
-                    Label("Local completion badge earned", systemImage: "medal.fill").foregroundStyle(.cyan)
+                    Label("Local completion badge earned", systemImage: "medal.fill").foregroundStyle(GamePalette.teal)
                 }
                 earnedBadgeLabel
                 if let best = session.bestResult {
@@ -261,7 +276,7 @@ struct HolidayRushView: View {
                 session.recordShare()
                 sharedResult = result
             }
-            panel {
+            DisclosureGroup("Optional playtest feedback") {
                 Text("Would you play more challenges like this?").font(.headline)
                 Text("Optional · Saved only on this device").font(.caption).foregroundStyle(.secondary)
                 HStack {
@@ -285,7 +300,7 @@ struct HolidayRushView: View {
     @ViewBuilder private var earnedBadgeLabel: some View {
         if let badge = session.earnedEventBadge {
             Label("Event badge earned · \(badge.earnedAt.formatted(date: .abbreviated, time: .omitted))", systemImage: "medal.fill")
-                .foregroundStyle(.cyan)
+                .foregroundStyle(GamePalette.teal)
         }
     }
 
