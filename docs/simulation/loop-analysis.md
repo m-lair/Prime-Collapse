@@ -1,5 +1,7 @@
 # Prime Collapse — Gameplay Loop Analysis
 
+> Historical pre-fix analysis. The ending and economy findings below describe the earlier engine. For current validation, use `loop-validation-report.md`, `ending-regressions.md`, and `../holiday-rush-validation.md`.
+
 Hand-written analysis of the 100-game simulation in
 [`loop-validation-report.md`](loop-validation-report.md) (raw per-game data in
 [`loop-validation-data.json`](loop-validation-data.json)). The simulation drives the **real**

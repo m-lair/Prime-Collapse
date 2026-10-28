@@ -1,6 +1,6 @@
 # Ending balance and Holiday Rush
 
-Status: proposed design for review. No gameplay changes implemented.
+Status: approved October 27, 2026 and implemented. Remaining native verification and release steps are recorded in `docs/holiday-rush-validation.md`.
 
 ## Goal
 
@@ -64,7 +64,7 @@ Initial validation is a TestFlight/player pilot using exported results and direc
 - Implement and test `primecollapse://events/holiday-rush` as a narrowly parsed custom URL, unless an existing owned universal-link setup is found. Opening shows briefing or resume; it never starts or resets a run automatically. Handle cold launch, onboarding, warm launch, malformed links, and repeated links.
 - Keep the challenge replayable. The App Store event promotes a specific limited holiday participation window and the opportunity to earn its completion badge; configure that window in the app and event record consistently before publication. A dated badge requires successful completion within that window, using the completion timestamp, rather than the start timestamp. Outside the window, the briefing explains practice availability and does not offer the dated badge. Existing attempts/results remain accessible; an attempt completed after closing can still succeed in practice but does not earn the dated badge.
 - Event dates, storefronts, and launch time are not yet selected. Maximum App Store event duration is 31 days; promotion can begin up to 14 days earlier. Do not hardcode an unapproved holiday schedule.
-- Prepare event card and detail artwork plus a small social launch image/caption based on the actual playable challenge. Validate current Apple image requirements before export. Avoid putting claims in artwork that the build does not deliver.
+- Prepare event card and detail media plus a small social launch image/caption using actual game captures and simple typography. User clarification: AI for code only, no AI artwork. Validate current Apple image requirements before export. Avoid putting claims in assets that the build does not deliver.
 - Prepare the App Store Connect draft metadata and review notes locally. Creating/submitting the event, accepting agreements, and releasing the app are separate consequential release steps. The previously reported agreement-update banner must be rechecked before release work.
 
 Apple references (checked October 27, 2026):

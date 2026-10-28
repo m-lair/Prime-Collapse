@@ -1,0 +1,31 @@
+{
+  "assets": [
+    {
+      "source": "/Users/marcus/.config/superpowers/worktrees/prime-collapse/holiday-rush/marketing/holiday-rush/captures/briefing-ipad-portrait.png",
+      "output": "event-card.png",
+      "pixels": [
+        2064,
+        1161
+      ],
+      "transformation": "top-aligned horizontal center crop and PNG encoding only; no artwork or upscaling"
+    },
+    {
+      "source": "/Users/marcus/.config/superpowers/worktrees/prime-collapse/holiday-rush/marketing/holiday-rush/captures/briefing-ipad-portrait.png",
+      "output": "event-detail.png",
+      "pixels": [
+        1548,
+        2752
+      ],
+      "transformation": "top-aligned horizontal center crop and PNG encoding only; no artwork or upscaling"
+    },
+    {
+      "source": "/Users/marcus/.config/superpowers/worktrees/prime-collapse/holiday-rush/marketing/holiday-rush/captures/briefing-ipad-portrait.png",
+      "output": "social-capture.png",
+      "pixels": [
+        2064,
+        2064
+      ],
+      "transformation": "top-aligned horizontal center crop and PNG encoding only; no artwork or upscaling"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "referenceName": "Holiday Rush \u2014 free challenge launch",
+  "eventName": "Holiday Rush",
+  "shortDescription": "Beat the rush. Protect your workforce.",
+  "longDescription": "Ship 1,500 packages before time runs out. Balance overtime, morale, and ethics in a free holiday challenge.",
+  "badge": "CHALLENGE",
+  "purpose": "APPROPRIATE_FOR_ALL_USERS",
+  "deepLink": "primecollapse://events/holiday-rush",
+  "inAppPurchaseRequired": false,
+  "startDate": null,
+  "endDate": null,
+  "publishStartDate": null,
+  "territories": null,
+  "status": "LOCAL_DRAFT_NOT_SUBMITTED",
+  "cardImage": "event-card.png",
+  "detailImage": "event-detail.png",
+  "requirements": {
+    "cardAspectRatio": "16:9",
+    "cardMinPixels": [
+      1920,
+      1080
+    ],
+    "detailAspectRatio": "9:16",
+    "detailMinPixels": [
+      1080,
+      1920
+    ]
+  }
+}
