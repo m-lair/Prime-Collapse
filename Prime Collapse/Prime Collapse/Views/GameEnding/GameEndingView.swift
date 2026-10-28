@@ -72,6 +72,8 @@ struct GameEndingView: View {
                     }
                 }
             }
+            .accessibilityHidden(true)
+            .allowsHitTesting(false)
             
             // Content
             ScrollView {
@@ -201,6 +203,7 @@ struct GameEndingView: View {
             if showConfetti {
                 ConfettiView()
                     .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
         }
         .sheet(isPresented: $showPrestige) {
