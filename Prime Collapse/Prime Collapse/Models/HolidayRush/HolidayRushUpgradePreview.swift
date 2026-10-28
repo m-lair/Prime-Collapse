@@ -6,6 +6,8 @@ struct HolidayRushUpgradePreview {
     let packageValueBefore: Double
     let packageValueAfter: Double
     let netCost: Double
+    let ethicsAfter: Double
+    let moraleAfter: Double
 
     var paybackSeconds: Double? {
         if netCost <= 0 { return 0 }

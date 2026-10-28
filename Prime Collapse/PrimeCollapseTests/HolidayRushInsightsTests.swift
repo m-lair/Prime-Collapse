@@ -63,6 +63,8 @@ import XCTest
             copy.applyUpgrade(upgrade)
             XCTAssertEqual(preview.automaticRateAfter, copy.automaticPackagesPerSecond, accuracy: 0.000001)
             XCTAssertEqual(preview.packageValueAfter, copy.effectivePackageValue, accuracy: 0.000001)
+            XCTAssertEqual(preview.ethicsAfter, copy.ethicsScore, accuracy: 0.000001)
+            XCTAssertEqual(preview.moraleAfter, copy.workerMorale, accuracy: 0.000001)
         }
     }
 
@@ -87,7 +89,7 @@ import XCTest
 
     func testPreviewWithNoIncomeGainHasNoFinitePayback() {
         let preview = HolidayRushUpgradePreview(automaticRateBefore: 1, automaticRateAfter: 1,
-                                               packageValueBefore: 1, packageValueAfter: 1, netCost: 200)
+                                               packageValueBefore: 1, packageValueAfter: 1, netCost: 200, ethicsAfter: 100, moraleAfter: 0.8)
         XCTAssertNil(preview.paybackSeconds)
     }
 

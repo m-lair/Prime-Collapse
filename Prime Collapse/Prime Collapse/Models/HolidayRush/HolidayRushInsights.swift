@@ -27,7 +27,8 @@ enum HolidayRushInsights {
                      automaticRateAfter: copy.automaticPackagesPerSecond,
                      packageValueBefore: game.effectivePackageValue,
                      packageValueAfter: copy.effectivePackageValue,
-                     netCost: fundedBalance - copy.money)
+                     netCost: fundedBalance - copy.money,
+                     ethicsAfter: copy.ethicsScore, moraleAfter: copy.workerMorale)
     }
 }
 
