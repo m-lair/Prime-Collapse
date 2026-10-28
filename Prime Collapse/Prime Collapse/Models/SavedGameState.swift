@@ -51,6 +51,11 @@ struct GameSnapshot: Codable {
     var isInLoopEndingState: Bool = false
     var loopEndingStartTime: Date? = nil
 
+    // Optional additions keep schema-1 saves decodable.
+    var endingReached: Bool? = nil
+    var hasBankedPrestigeThisRun: Bool? = nil
+    var loopStabilitySeconds: Double? = nil
+
     // MARK: Upgrades (keyed by stable upgrade name)
     /// Names of purchased non-repeatable upgrades.
     var purchasedUpgradeNames: [String] = []
@@ -81,6 +86,9 @@ struct GameSnapshot: Codable {
         publicPerception = gameState.publicPerception
         environmentalImpact = gameState.environmentalImpact
 
+        endingReached = gameState.endingReached
+        hasBankedPrestigeThisRun = gameState.hasBankedPrestigeThisRun
+        loopStabilitySeconds = gameState.loopStabilitySeconds
         isCollapsing = gameState.isCollapsing
         ethicalChoicesMade = gameState.ethicalChoicesMade
         endingType = GameSnapshot.string(for: gameState.endingType)
@@ -165,6 +173,9 @@ struct GameSnapshot: Codable {
 
         // Final clamp/consistency pass (caps excessive values, reconciles workers).
         gameState.validateGameState()
+        gameState.restoreEndingProgress(reached: endingReached ?? false,
+                                        banked: hasBankedPrestigeThisRun ?? false,
+                                        stabilitySeconds: loopStabilitySeconds ?? 0)
     }
 
     // MARK: - Helpers

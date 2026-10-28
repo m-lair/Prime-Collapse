@@ -1,12 +1,24 @@
+import Foundation
+
+for ending in [GameEnding.reform, .loop, .collapse] {
+    let state = playEndingRoute(ending)
+    precondition(state.isRunTerminal && state.endingType == ending, "Catalog route must reach expected ending")
+    precondition(state.concludeRun() > 0 && state.concludeRun() == 0, "Prestige must bank once")
+    let restored = GameState()
+    let data = try JSONEncoder().encode(GameSnapshot(from: state))
+    try JSONDecoder().decode(GameSnapshot.self, from: data).apply(to: restored)
+    precondition(restored.isRunTerminal && restored.endingType == ending && restored.concludeRun() == 0,
+                 "Every restored ending must remain terminal and bank only once")
+}
+
 //
 //  main.swift
 //  Prime Collapse — headless loop simulator entry point
 //
-//  Runs 100 games over the real engine and writes docs/simulation/{report.md,data.json}.
+//  Runs 120 games over the real engine and writes docs/simulation/{report.md,data.json}.
 //  Build & run with tools/loop-sim/run.sh (compiles the real engine source files in place).
 //
 
-import Foundation
 
 /// Run `body` with stdout redirected to /dev/null. The real engine prints
 /// "DATA INTEGRITY: …" on the hot path (validateGameState runs on every

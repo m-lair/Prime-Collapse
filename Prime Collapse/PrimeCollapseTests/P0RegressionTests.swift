@@ -121,6 +121,7 @@ final class P0RegressionTests: XCTestCase {
         gs.ethicalChoicesMade = 5
         gs.ethicsScore = 60
         gs.money = 1500
+        gs.lifetimeTotalMoneyEarned = 1500
 
         gs.checkForReformEnding()
 
@@ -135,6 +136,7 @@ final class P0RegressionTests: XCTestCase {
         gs.ethicalChoicesMade = 5
         gs.ethicsScore = 60
         gs.money = 1500
+        gs.lifetimeTotalMoneyEarned = 1500
         gs.lastUpdate = Date(timeIntervalSinceNow: -1)
 
         gs.processAutomation(currentTime: Date())
@@ -149,6 +151,7 @@ final class P0RegressionTests: XCTestCase {
         gs.ethicalChoicesMade = 5
         gs.ethicsScore = 60
         gs.money = 1500
+        gs.lifetimeTotalMoneyEarned = 1500
 
         gs.checkForReformEnding()
 
@@ -160,15 +163,151 @@ final class P0RegressionTests: XCTestCase {
 
     func testLoopEndingFiresAfterInstabilityWindow() {
         let gs = GameState()
-        gs.isInLoopEndingState = true
-        gs.loopEndingStartTime = Date(timeIntervalSinceNow: -61)
-        gs.endingType = .loop
-        gs.lastUpdate = Date(timeIntervalSinceNow: -1)
-
-        gs.processAutomation(currentTime: Date())
+        gs.lifetimeTotalMoneyEarned = 2500
+        gs.totalPackagesShipped = 1500
+        gs.workers = 3
+        gs.ethicsScore = 20
+        let start = Date()
+        gs.lastUpdate = start
+        gs.checkForLoopEnding()
+        for second in 1...60 {
+            gs.processAutomation(currentTime: start.addingTimeInterval(Double(second)))
+        }
 
         XCTAssertTrue(gs.endingReached, "surviving 60s of loop instability must end the game")
         XCTAssertEqual(gs.endingType, .loop)
+    }
+
+    func testReformUsesEarningsAfterSpending() {
+        let gs = GameState()
+        gs.lifetimeTotalMoneyEarned = 1000
+        gs.money = 1
+        gs.ethicalChoicesMade = 5
+        gs.shipPackage()
+        XCTAssertTrue(gs.endingReached)
+    }
+
+    func testLoopCannotCompleteAfterLeavingEthicsBand() {
+        let gs = GameState()
+        gs.lifetimeTotalMoneyEarned = 2500
+        gs.money = 2500
+        gs.totalPackagesShipped = 1500
+        gs.workers = 3
+        gs.ethicsScore = 20
+        gs.checkForLoopEnding()
+        gs.loopEndingStartTime = Date(timeIntervalSinceNow: -61)
+        gs.ethicsScore = 80
+        gs.lastUpdate = Date(timeIntervalSinceNow: -1)
+        gs.processAutomation(currentTime: Date())
+        XCTAssertFalse(gs.endingReached)
+    }
+
+    func testLoopProgressPersistsAndExcludesBackgroundCatchUp() throws {
+        let gs = GameState()
+        gs.reset()
+        gs.applyUpgrade(UpgradeManager.EarlyGame.hireWorker)
+        gs.workers = 3
+        gs.upgrades = (0..<3).map { _ in TestHelpers.instance(of: UpgradeManager.EarlyGame.hireWorker) }
+        gs.lifetimeTotalMoneyEarned = 2500
+        gs.totalPackagesShipped = 1500
+        gs.ethicsScore = 20
+        let start = Date()
+        gs.lastUpdate = start
+        gs.checkForLoopEnding()
+        for second in 1...30 { gs.processAutomation(currentTime: start.addingTimeInterval(Double(second))) }
+        XCTAssertEqual(gs.loopStabilitySeconds, 30)
+        let restored = GameState()
+        let data = try JSONEncoder().encode(GameSnapshot(from: gs))
+        try JSONDecoder().decode(GameSnapshot.self, from: data).apply(to: restored)
+        XCTAssertEqual(restored.loopStabilitySeconds, 30)
+        let resume = start.addingTimeInterval(3600)
+        restored.resetForegroundTiming(currentTime: resume)
+        restored.processAutomation(currentTime: resume)
+        XCTAssertEqual(restored.loopStabilitySeconds, 30)
+        XCTAssertFalse(restored.endingReached)
+        restored.workers = 2
+        restored.evaluateEndings()
+        XCTAssertEqual(restored.loopStabilitySeconds, 0)
+    }
+
+    func testTerminalSavePreservesEndingAndBankingGuard() throws {
+        let gs = GameState()
+        gs.lifetimeTotalMoneyEarned = 1000
+        gs.ethicalChoicesMade = 5
+        gs.shipPackage()
+        _ = gs.concludeRun()
+        let restored = GameState()
+        let data = try JSONEncoder().encode(GameSnapshot(from: gs))
+        try JSONDecoder().decode(GameSnapshot.self, from: data).apply(to: restored)
+        XCTAssertTrue(restored.endingReached)
+        XCTAssertEqual(restored.endingType, .reform)
+        XCTAssertEqual(restored.concludeRun(), 0)
+        let packages = restored.totalPackagesShipped
+        let cash = restored.money
+        restored.shipPackage()
+        restored.processAutomation(currentTime: Date().addingTimeInterval(30))
+        restored.applyUpgrade(UpgradeManager.EarlyGame.hireWorker)
+        XCTAssertEqual(restored.totalPackagesShipped, packages)
+        XCTAssertEqual(restored.money, cash)
+    }
+
+    func testChallengeCanSuppressBaseEndings() {
+        let gs = GameState()
+        gs.baseEndingsEnabled = false
+        gs.ethicalChoicesMade = 5
+        gs.lifetimeTotalMoneyEarned = 5000
+        gs.shipPackage()
+        XCTAssertFalse(gs.isRunTerminal)
+        gs.ethicsScore = 0
+        gs.evaluateEndings()
+        XCTAssertFalse(gs.isRunTerminal)
+    }
+
+    func testEventRejectsUnaffordableChoiceAndOffersConstructiveTradeoff() {
+        let gs = GameState()
+        gs.workers = 5
+        gs.workerMorale = 0.5
+        let manager = EventManager()
+        let unrest = manager.allEventsForTesting.first { $0.title == "Worker Unrest" }!
+        manager.currentEvent = unrest
+        manager.processChoice(choice: unrest.choices[0], gameState: gs)
+        XCTAssertEqual(gs.ethicalChoicesMade, 0)
+        XCTAssertNotNil(manager.currentEvent)
+        let listening = unrest.choices.first { $0.text.contains("listening") }!
+        let efficiency = gs.workerEfficiency
+        manager.processChoice(choice: listening, gameState: gs)
+        XCTAssertEqual(gs.ethicalChoicesMade, 1)
+        XCTAssertGreaterThan(gs.workerMorale, 0.5)
+        XCTAssertLessThan(gs.workerEfficiency, efficiency)
+    }
+
+    func testLegacySnapshotWithoutEndingFieldsLoads() throws {
+        let gs = GameState()
+        let data = try JSONEncoder().encode(GameSnapshot(from: gs))
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        for key in ["endingReached", "hasBankedPrestigeThisRun", "loopStabilitySeconds"] { json.removeValue(forKey: key) }
+        let oldData = try JSONSerialization.data(withJSONObject: json)
+        let restored = GameState()
+        try JSONDecoder().decode(GameSnapshot.self, from: oldData).apply(to: restored)
+        XCTAssertFalse(restored.endingReached)
+        XCTAssertEqual(restored.loopStabilitySeconds, 0)
+    }
+
+    func testAllEndingsReachableThroughCatalogGameplay() throws {
+        for ending in [GameEnding.reform, .loop, .collapse] {
+            let state = playEndingRoute(ending)
+            XCTAssertTrue(state.isRunTerminal)
+            XCTAssertEqual(state.endingType, ending)
+            let firstAward = state.concludeRun()
+            XCTAssertGreaterThan(firstAward, 0)
+            XCTAssertEqual(state.concludeRun(), 0)
+            let restored = GameState()
+            let data = try JSONEncoder().encode(GameSnapshot(from: state))
+            try JSONDecoder().decode(GameSnapshot.self, from: data).apply(to: restored)
+            XCTAssertTrue(restored.isRunTerminal)
+            XCTAssertEqual(restored.endingType, ending)
+            XCTAssertEqual(restored.concludeRun(), 0)
+        }
     }
 
     func testResetClearsEndingReached() {
@@ -176,6 +315,7 @@ final class P0RegressionTests: XCTestCase {
         gs.ethicalChoicesMade = 5
         gs.ethicsScore = 60
         gs.money = 1500
+        gs.lifetimeTotalMoneyEarned = 1500
         gs.checkForReformEnding()
         XCTAssertTrue(gs.endingReached)
 
@@ -238,4 +378,38 @@ final class P0RegressionTests: XCTestCase {
         XCTAssertEqual(restored.getCurrentUpgradeCost(template), expected, accuracy: 0.01,
                        "repeatable price ladder must not reset across save/load")
     }
+}
+
+
+
+/// Scripted catalog choices and taps; only the clock is injected, never outcome metrics.
+func playEndingRoute(_ ending: GameEnding) -> GameState {
+    let state = GameState()
+    state.reset()
+    let start = Date(timeIntervalSince1970: 1800000000)
+    state.lastUpdate = start
+    for _ in 0..<4000 { state.shipPackage() }
+    state.applyUpgrade(UpgradeManager.EarlyGame.hireWorker)
+    state.applyUpgrade(UpgradeManager.EarlyGame.hireWorker)
+    if ending == .reform {
+        state.applyUpgrade(UpgradeManager.EarlyGame.optimizeLogistics)
+        state.applyUpgrade(UpgradeManager.EarlyGame.basicTraining)
+        state.applyUpgrade(UpgradeManager.EarlyGame.safetyPlacards)
+        state.applyUpgrade(UpgradeManager.MidGame.performanceBonuses)
+        state.applyUpgrade(UpgradeManager.MidGame.performanceBonuses)
+    } else {
+        let events = EventManager()
+        let boom = events.allEventsForTesting.first { $0.title == "Market Boom" }!
+        let raisePrices = boom.choices.first { $0.moralImpact < 0 }!
+        while !state.isRunTerminal && (ending != .loop || !(15...25).contains(state.ethicsScore)) {
+            precondition(boom.triggerCondition(state))
+            events.currentEvent = boom
+            let choice = ending == .loop && state.ethicsScore < 15 ? boom.choices.first { $0.moralImpact > 0 }! : raisePrices
+            events.processChoice(choice: choice, gameState: state, currentTime: start)
+        }
+        for second in 1...60 {
+            state.processAutomation(currentTime: start.addingTimeInterval(Double(second)))
+        }
+    }
+    return state
 }

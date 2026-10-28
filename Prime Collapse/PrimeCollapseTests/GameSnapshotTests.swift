@@ -14,16 +14,13 @@ final class GameSnapshotTests: XCTestCase {
     /// Build a populated game state with mixed repeatable + non-repeatable upgrades.
     private func makePopulatedState() -> GameState {
         let gs = GameState()
-        gs.totalPackagesShipped = 1234
+        gs.totalPackagesShipped = 2000
         gs.money = 5678.9
         gs.lifetimeTotalMoneyEarned = 99999.0
-        gs.ethicsScore = 42.0
+        gs.ethicsScore = 20.0
         gs.publicPerception = 73.0
         gs.environmentalImpact = 21.0
         gs.ethicalChoicesMade = 4
-        gs.endingType = .loop
-        gs.isInLoopEndingState = true
-        gs.loopEndingStartTime = Date(timeIntervalSince1970: 1_000_000)
         gs.workers = 3
 
         // A purchased non-repeatable upgrade is tracked by template ID.
@@ -33,6 +30,10 @@ final class GameSnapshotTests: XCTestCase {
         for _ in 0..<3 {
             gs.upgrades.append(TestHelpers.instance(of: UpgradeManager.EarlyGame.hireWorker))
         }
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        gs.lastUpdate = start
+        gs.checkForLoopEnding()
+        for second in 1...12 { gs.processAutomation(currentTime: start.addingTimeInterval(Double(second))) }
         return gs
     }
 
@@ -43,16 +44,17 @@ final class GameSnapshotTests: XCTestCase {
         let restored = GameState()
         snapshot.apply(to: restored)
 
-        XCTAssertEqual(restored.totalPackagesShipped, 1234)
+        XCTAssertEqual(restored.totalPackagesShipped, 2000)
         XCTAssertEqual(restored.money, 5678.9, accuracy: 0.0001)
         XCTAssertEqual(restored.lifetimeTotalMoneyEarned, 99999.0, accuracy: 0.0001)
-        XCTAssertEqual(restored.ethicsScore, 42.0, accuracy: 0.0001)
+        XCTAssertEqual(restored.ethicsScore, 20.0, accuracy: 0.0001)
         XCTAssertEqual(restored.publicPerception, 73.0, accuracy: 0.0001)
         XCTAssertEqual(restored.environmentalImpact, 21.0, accuracy: 0.0001)
         XCTAssertEqual(restored.ethicalChoicesMade, 4)
-        XCTAssertEqual(restored.endingType, .loop)
+        XCTAssertFalse(restored.endingReached)
         XCTAssertTrue(restored.isInLoopEndingState)
-        XCTAssertEqual(restored.loopEndingStartTime, Date(timeIntervalSince1970: 1_000_000))
+        XCTAssertNil(restored.loopEndingStartTime, "Wall-clock origin is not resumed across launches")
+        XCTAssertEqual(restored.loopStabilitySeconds, 12)
         XCTAssertEqual(restored.workers, 3)
     }
 

@@ -5,7 +5,7 @@
 //  Drives the REAL engine (GameState.processAutomation / shipPackage,
 //  UpgradeManager.availableUpgrades + getCurrentUpgradeCost + applyUpgrade,
 //  EventManager.eventTriggerChance + processChoice) the way the SwiftUI layer does,
-//  under a set of player archetypes, for 100 games. Records key events, choices,
+//  under a set of player archetypes, for 120 games. Records key events, choices,
 //  milestones and endings, then renders a markdown + JSON validation report.
 //
 //  Time model: the real loop ticks every 0.1s and integrates elapsed time inside
@@ -19,6 +19,7 @@ import Foundation
 // MARK: - Archetypes & scenarios
 
 enum Strategy: String, CaseIterable {
+    case deliberateLoop
     case greedy      // chase profit/efficiency, take unethical options
     case ethical     // chase the Reform path, take ethical options
     case balanced    // buy cheapest unlocked upgrade, neutral choices
@@ -112,6 +113,9 @@ struct LoopSimulator {
     func purchasePriority(_ strategy: Strategy, _ gs: GameState, _ all: [Upgrade]) -> [Upgrade] {
         func named(_ names: [String]) -> [Upgrade] { names.compactMap { n in all.first { $0.name == n } } }
         switch strategy {
+        case .deliberateLoop:
+            if gs.workers < 3 { return named(["Hire Worker"]) }
+            return named(["Improve Packaging"])
         case .greedy:
             return named([
                 "Optimize Logistics", "Hire Worker", "Improve Packaging",
@@ -144,8 +148,10 @@ struct LoopSimulator {
 
     func chooseEventOption(_ strategy: Strategy, _ event: GameEvent, _ gs: GameState) -> EventChoice? {
         let affordable = event.choices.filter { ($0.canChoose?(gs) ?? true) }
-        guard !affordable.isEmpty else { return event.choices.first }
+        guard !affordable.isEmpty else { return nil }
         switch strategy {
+        case .deliberateLoop:
+            return affordable.min { abs(gs.ethicsScore + $0.moralImpact * event.importance.baseScalingFactor - 20) < abs(gs.ethicsScore + $1.moralImpact * event.importance.baseScalingFactor - 20) }
         case .greedy:  return affordable.min { $0.moralImpact < $1.moralImpact }
         case .ethical: return affordable.max { $0.moralImpact < $1.moralImpact }
         case .idle:    return affordable.max { $0.moralImpact < $1.moralImpact }
@@ -158,7 +164,7 @@ struct LoopSimulator {
 
     func tapsPerActiveSecond(_ strategy: Strategy) -> Int {
         switch strategy {
-        case .greedy, .balanced, .ethical, .random: return 3
+        case .greedy, .balanced, .ethical, .random, .deliberateLoop: return 3
         case .idle: return 1
         }
     }
@@ -180,7 +186,7 @@ struct LoopSimulator {
         let allUpgrades = UpgradeManager.availableUpgrades   // hoisted: the catalog is rebuilt per access
         let purchaseEvalInterval = 5                          // a player rescans the shop every few seconds, not every tick
 
-        let start = Date()
+        let start = Date(timeIntervalSince1970: 1800000000)
         gs.lastUpdate = start
 
         var r = RunResult(strategy: strategy, scenario: scenario)
@@ -207,8 +213,19 @@ struct LoopSimulator {
             // 1) Automation tick (real engine).
             gs.processAutomation(currentTime: currentDate)
 
+            // Deliberate Loop route selects a known eligible market event at the normal cooldown.
+            if strategy == .deliberateLoop, !gs.isRunTerminal, !(15...25).contains(gs.ethicsScore),
+               simNow - lastEventTime >= minEventInterval,
+               let event = catalog.first(where: { $0.title == "Market Boom" && $0.triggerCondition(gs) }),
+               let choice = event.choices.first(where: { gs.ethicsScore < 15 ? $0.moralImpact > 0 : $0.moralImpact < 0 }) {
+                em.currentEvent = event
+                em.processChoice(choice: choice, gameState: gs, currentTime: currentDate)
+                r.events.append(EventLog(time: simNow, title: event.title, choice: choice.text, moral: choice.moralImpact))
+                lastEventTime = simNow
+            }
+
             // 2) Event eligibility rolls (10x/sec to match the 0.1s cadence).
-            if !gs.isCollapsing {
+            if !gs.isRunTerminal && strategy != .deliberateLoop {
                 for _ in 0..<eventChecksPerSecond {
                     let since = simNow - lastEventTime
                     guard since >= minEventInterval else { break }
@@ -223,7 +240,7 @@ struct LoopSimulator {
                         if let event = eligible.randomElement(),
                            let choice = chooseEventOption(strategy, event, gs) {
                             em.currentEvent = event
-                            em.processChoice(choice: choice, gameState: gs)
+                            em.processChoice(choice: choice, gameState: gs, currentTime: currentDate)
                             r.events.append(EventLog(time: simNow, title: event.title,
                                                      choice: choice.text, moral: choice.moralImpact))
                             lastEventTime = simNow
@@ -237,7 +254,7 @@ struct LoopSimulator {
             //    (getCurrentUpgradeCost runs validateGameState as a side effect — faithful).
             //    Evaluated on a realistic cadence so the validateGameState hot path doesn't
             //    dominate runtime; the priority list is ranked once per decision point.
-            if !gs.isCollapsing && Int(simNow) % purchaseEvalInterval == 0 {
+            if !gs.isRunTerminal && Int(simNow) % purchaseEvalInterval == 0 {
                 let priority = purchasePriority(strategy, gs, allUpgrades)
                 var boughtSomething = true
                 var buysThisTick = 0
@@ -255,7 +272,8 @@ struct LoopSimulator {
                         if template.name == "Hire Worker" && gs.workers >= GameState.maxWorkers { continue }
                         if template.isRepeatable && repeatableBuys[template.name, default: 0] >= maxRepeatableBuys { continue }
                         let shownCost = gs.getCurrentUpgradeCost(template)
-                        if gs.money >= shownCost {
+                        let reserve = strategy == .ethical && gs.ethicalChoicesMade >= 4 && template.moralImpact <= 0 ? 500.0 : 0.0
+                        if gs.money >= shownCost + reserve {
                             let before = gs.purchasedUpgradeIDs.count
                             gs.applyUpgrade(template)
                             if gs.purchasedUpgradeIDs.count > before {
@@ -273,7 +291,7 @@ struct LoopSimulator {
             }
 
             // 4) Manual taps.
-            if !gs.isCollapsing {
+            if !gs.isRunTerminal {
                 let autoRate = automationRatePerSecond(gs)
                 let taps = tapsPerActiveSecond(strategy)
                 if autoRate >= Double(taps) && simNow > 60 { stillTapping = false }
@@ -291,15 +309,15 @@ struct LoopSimulator {
             if r.tFirst100Pkgs == nil && gs.totalPackagesShipped >= 100 { r.tFirst100Pkgs = simNow }
             if r.tFirst500Pkgs == nil && gs.totalPackagesShipped >= 500 { r.tFirst500Pkgs = simNow }
             if r.tFirst1500Pkgs == nil && gs.totalPackagesShipped >= 1500 { r.tFirst1500Pkgs = simNow }
-            if r.tFirst1000Dollars == nil && gs.money >= 1000 { r.tFirst1000Dollars = simNow }
+            if r.tFirst1000Dollars == nil && gs.lifetimeTotalMoneyEarned >= 1000 { r.tFirst1000Dollars = simNow }
 
             if r.tReformReached == nil &&
-                gs.ethicalChoicesMade >= 5 && gs.ethicsScore >= 50 && gs.money >= 1000 {
+                gs.ethicalChoicesMade >= 5 && gs.ethicsScore >= 50 && gs.lifetimeTotalMoneyEarned >= 1000 {
                 r.tReformReached = simNow
             }
             if r.tLoopReached == nil &&
                 gs.ethicsScore >= 15 && gs.ethicsScore <= 25 &&
-                gs.money >= 2500 && gs.totalPackagesShipped >= 1500 && gs.workers >= 3 {
+                gs.lifetimeTotalMoneyEarned >= 2500 && gs.totalPackagesShipped >= 1500 && gs.workers >= 3 {
                 r.tLoopReached = simNow
             }
 
@@ -403,7 +421,7 @@ struct LoopSimulator {
         var md: [String] = []
         md.append("# Prime Collapse — Gameplay Loop Validation Report")
         md.append("")
-        md.append("Simulated **\(results.count) games** = \(Strategy.allCases.count) strategies × \(Scenario.allCases.count) scenarios × \(gamesPerCell) runs each, driving the real `GameState` / `UpgradeManager` / `EventManager` engine (compiled headless via `tools/loop-sim`). Step = \(stepSeconds)s, event checks = \(eventChecksPerSecond)/s, cap = \(Int(maxSimSeconds))s. RNG is the system generator (the engine itself uses unseeded `Double.random`), so exact numbers vary run to run; distributions at n=\(results.count) are stable.")
+        md.append("Simulated **\(results.count) games** = \(Strategy.allCases.count) strategies × \(Scenario.allCases.count) scenarios × \(gamesPerCell) runs each, driving the real `GameState` / `UpgradeManager` / `EventManager` engine (compiled headless via `tools/loop-sim`). Step = \(stepSeconds)s, event checks = \(eventChecksPerSecond)/s, cap = \(Int(maxSimSeconds))s. RNG is the system generator (the engine itself uses unseeded `Double.random`), so exact numbers vary run to run; these distributions describe scripts and are not player difficulty measurements.")
         md.append("")
 
         md.append("## Ending distribution")

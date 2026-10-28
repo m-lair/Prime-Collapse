@@ -37,7 +37,7 @@ import SwiftUI
     // Called regularly from game loop to determine if an event should trigger
     func checkForEvents(gameState: GameState, currentTime: Date) {
         // Don't trigger events if one is already active or if we're in collapse mode
-        guard currentEvent == nil && !gameState.isCollapsing else {
+        guard currentEvent == nil && !gameState.isRunTerminal else {
             return
         }
         
@@ -94,14 +94,12 @@ import SwiftUI
     }
     
     // Handle player's choice for the current event
-    func processChoice(choice: EventChoice, gameState: GameState) {
-        // Get the current event - we need its importance
-        guard let event = currentEvent else {
-            // Fallback to base choice effect if no event is present (shouldn't happen)
-            choice.effect(gameState)
-            return
-        }
-        
+    func processChoice(choice: EventChoice, gameState: GameState, currentTime: Date? = nil) {
+        guard !gameState.isRunTerminal,
+              let event = currentEvent,
+              event.choices.contains(where: { $0.id == choice.id }),
+              choice.canChoose?(gameState) ?? true else { return }
+
         // Apply the choice effect - this stays the same
         choice.effect(gameState)
         
@@ -138,23 +136,14 @@ import SwiftUI
         // Track ethical choices for ending conditions (positive impact is now ethical)
         if scaledMoralImpact > 0 {
             gameState.ethicalChoicesMade += 1
-            // Check for potential reform ending (uses ethicsScore)
-            if gameState.ethicsScore >= 50 && gameState.money >= 1000 && gameState.ethicalChoicesMade >= 5 {
-                gameState.endingType = .reform
-            }
         }
-        
-        // Check if we've entered collapse phase (uses ethicsScore)
-        if gameState.ethicsScore <= 0 {
-            gameState.isCollapsing = true
-            gameState.endingType = .collapse
-        }
-        
+        gameState.evaluateEndings()
+
         // Clear the current event
         currentEvent = nil
         
         // Start the cooldown timer now that the event is resolved
-        lastEventTime = Date()
+        lastEventTime = currentTime ?? gameState.currentGameplayTime
     }
     
     // Add a new late-game crisis event
@@ -173,7 +162,7 @@ import SwiftUI
                     
                     // Risk of future scandal
                     if Double.random(in: 0...1) < 0.5 {
-                        let triggerTime = Date().addingTimeInterval(90)
+                        let triggerTime = state.currentGameplayTime.addingTimeInterval(90)
                         let delayedEffect = DelayedEffect(triggerTime: triggerTime) { gs in
                             gs.money -= 50000
                             gs.corporateEthics -= 0.3
@@ -314,7 +303,7 @@ import SwiftUI
                     
                     // Small chance of still losing control
                     if Double.random(in: 0...1) < 0.3 {
-                        let triggerTime = Date().addingTimeInterval(120)
+                        let triggerTime = state.currentGameplayTime.addingTimeInterval(120)
                         let delayedEffect = DelayedEffect(triggerTime: triggerTime) { gs in
                             gs.money -= 20000
                             gs.publicPerception -= 15
@@ -413,6 +402,18 @@ import SwiftUI
                     ]
                 ),
                 EventChoice(
+                    text: "Hold a listening session and shorten shifts",
+                    moralImpact: 2,
+                    effect: { state in
+                        state.workerMorale += 0.1
+                        state.workerEfficiency *= 0.9
+                    },
+                    effectDescriptions: [
+                        EffectDescription(metricName: "Morale", changeDescription: "+10%", impactType: .positive),
+                        EffectDescription(metricName: "Efficiency", changeDescription: "-10%", impactType: .negative)
+                    ]
+                ),
+                EventChoice(
                     text: "Ignore their complaints",
                     moralImpact: -8.0, // Unethical
                     effect: { state in
@@ -447,7 +448,7 @@ import SwiftUI
                         state.publicPerception -= 3 // Slight negative perception for price gouging
                         
                         // Schedule price return using DelayedEffect
-                        let triggerTime = Date().addingTimeInterval(30)
+                        let triggerTime = state.currentGameplayTime.addingTimeInterval(30)
                         let delayedEffect = DelayedEffect(triggerTime: triggerTime) { gs in
                             // Restore only if current value matches the modified value
                             if gs.packageValue == originalValue * 1.5 {
@@ -683,7 +684,7 @@ import SwiftUI
                         state.publicPerception -= 18 // Major hit for cover-up
                         // Risk of future legal costs
                         if Double.random(in: 0...1) < 0.3 {
-                            let triggerTime = Date().addingTimeInterval(60)
+                            let triggerTime = state.currentGameplayTime.addingTimeInterval(60)
                             let delayedEffect = DelayedEffect(triggerTime: triggerTime) { gs in
                                 gs.money -= 10000
                             }
@@ -717,7 +718,7 @@ import SwiftUI
                         state.money -= 2000 // Cost of price adjustment campaign
                         
                         // Return prices to normal using DelayedEffect
-                        let triggerTime = Date().addingTimeInterval(45)
+                        let triggerTime = state.currentGameplayTime.addingTimeInterval(45)
                         let delayedEffect = DelayedEffect(triggerTime: triggerTime) { gs in
                              if gs.packageValue == originalValue * 0.8 {
                                 gs.packageValue = originalValue
@@ -759,7 +760,7 @@ import SwiftUI
                         state.publicPerception -= 12 // Negative perception for dirty tactics
                         
                         // Return prices to normal using DelayedEffect
-                        let triggerTime = Date().addingTimeInterval(30)
+                        let triggerTime = state.currentGameplayTime.addingTimeInterval(30)
                          let delayedEffect = DelayedEffect(triggerTime: triggerTime) { gs in
                              if gs.packageValue == originalValue * 0.9 {
                                 gs.packageValue = originalValue
@@ -812,7 +813,7 @@ import SwiftUI
                         state.publicPerception -= 5 // Negative perception for price hikes
                         
                         // Return prices using DelayedEffect
-                        let triggerTime = Date().addingTimeInterval(40)
+                        let triggerTime = state.currentGameplayTime.addingTimeInterval(40)
                         let delayedEffect = DelayedEffect(triggerTime: triggerTime) { gs in
                              if gs.packageValue == originalValue * 1.2 {
                                 gs.packageValue = originalValue
@@ -953,7 +954,7 @@ import SwiftUI
                         
                         // Risk of future fallout using DelayedEffect
                         if Double.random(in: 0...1) < 0.4 {
-                             let triggerTime = Date().addingTimeInterval(50)
+                             let triggerTime = state.currentGameplayTime.addingTimeInterval(50)
                              let delayedEffect = DelayedEffect(triggerTime: triggerTime) { gs in
                                 gs.customerSatisfaction -= 0.3
                                 gs.corporateEthics -= 0.1
@@ -1033,7 +1034,7 @@ import SwiftUI
                         
                         // Risk of future investigation using DelayedEffect
                         if Double.random(in: 0...1) < 0.5 {
-                            let triggerTime = Date().addingTimeInterval(70)
+                            let triggerTime = state.currentGameplayTime.addingTimeInterval(70)
                             let delayedEffect = DelayedEffect(triggerTime: triggerTime) { gs in
                                 gs.money -= 10000
                                 gs.corporateEthics -= 0.1
@@ -1087,7 +1088,7 @@ import SwiftUI
                         state.publicPerception -= 8 // Negative perception for hiding
                         // Risk of larger fine if caught using DelayedEffect
                         if Double.random(in: 0...1) < 0.4 {
-                            let triggerTime = Date().addingTimeInterval(40)
+                            let triggerTime = state.currentGameplayTime.addingTimeInterval(40)
                             let delayedEffect = DelayedEffect(triggerTime: triggerTime) { gs in
                                 gs.money -= 8000
                                 gs.corporateEthics -= 0.15
@@ -1110,7 +1111,7 @@ import SwiftUI
                         
                         // High risk of major scandal using DelayedEffect
                         if Double.random(in: 0...1) < 0.6 {
-                            let triggerTime = Date().addingTimeInterval(60)
+                            let triggerTime = state.currentGameplayTime.addingTimeInterval(60)
                             let delayedEffect = DelayedEffect(triggerTime: triggerTime) { gs in
                                 gs.money -= 15000
                                 gs.corporateEthics -= 0.2

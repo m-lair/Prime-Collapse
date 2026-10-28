@@ -4,7 +4,7 @@
 #
 # Compiles the REAL game engine source files in place (no copies, so the simulation can
 # never drift from shipping behavior) together with the simulator driver, into a macOS
-# command-line binary, then runs 100 games and writes docs/simulation/{report.md,data.json}.
+# command-line binary, then runs 120 games and writes docs/simulation/{report.md,data.json}.
 #
 # No Xcode, no iOS simulator, no code signing — builds and runs in seconds.
 #
@@ -25,15 +25,18 @@ echo "Compiling headless simulator (real engine + driver)…"
 swiftc \
   -D DEBUG \
   "$ENGINE/GameState.swift" \
+  "$ENGINE/SavedGameState.swift" \
+  "$ENGINE/Prestige/PrestigeState.swift" \
   "$ENGINE/Upgrade.swift" \
   "$ENGINE/UpgradeManager.swift" \
   "$ENGINE/EventManager.swift" \
   "$ENGINE/GameEvent.swift" \
   "tools/loop-sim/Shims.swift" \
   "tools/loop-sim/LoopSim.swift" \
+  "tools/loop-sim/EndingRoutes.swift" \
   "tools/loop-sim/main.swift" \
   -o "$BIN"
 
-echo "Running 100 games…"
+echo "Running 120 games…"
 echo
 "$BIN"

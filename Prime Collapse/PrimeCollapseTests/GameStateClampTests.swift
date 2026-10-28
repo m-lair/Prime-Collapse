@@ -82,6 +82,7 @@ final class GameStateClampTests: XCTestCase {
         gs.ethicalChoicesMade = 5
         gs.ethicsScore = 60
         gs.money = 1500
+        gs.lifetimeTotalMoneyEarned = 1500
 
         gs.checkForReformEnding()
 
@@ -92,12 +93,13 @@ final class GameStateClampTests: XCTestCase {
         let gs = GameState()
         gs.ethicsScore = 20
         gs.money = 3000
+        gs.lifetimeTotalMoneyEarned = 3000
         gs.totalPackagesShipped = 2000
         gs.workers = 3
 
         gs.checkForLoopEnding()
         XCTAssertTrue(gs.isInLoopEndingState)
-        XCTAssertEqual(gs.endingType, .loop)
+        XCTAssertFalse(gs.endingReached)
 
         // Ethics recovers out of the loop band -> loop state clears.
         gs.ethicsScore = 80

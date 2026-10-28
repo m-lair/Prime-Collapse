@@ -32,6 +32,29 @@ struct DelayedEffect: Identifiable, Equatable {
     /// player is never charged for a worker that data-integrity validation would strip.
     static let maxWorkers = 150
 
+    enum EndingPolicy {
+        static let reformEarnings = 1000.0
+        static let reformChoices = 5
+        static let reformEthics = 50.0
+        static let loopEarnings = 2500.0
+        static let loopPackages = 1500
+        static let loopWorkers = 3
+        static let loopEthics = 15.0...25.0
+        static let loopDuration = 60.0
+    }
+
+    var baseEndingsEnabled = true
+    var isRunTerminal: Bool { endingReached || isCollapsing }
+    private(set) var loopStabilitySeconds: TimeInterval = 0
+    var loopStabilityProgress: Double { loopStabilitySeconds / EndingPolicy.loopDuration }
+    private var loopTimingBaseline: Date?
+    var currentGameplayTime: Date { lastUpdate }
+
+    /// Call on both backgrounding and activation; elapsed background time never earns stability.
+    func resetForegroundTiming(currentTime: Date = Date()) {
+        loopTimingBaseline = currentTime
+    }
+
     // Core game metrics
     var totalPackagesShipped: Int = 0
     // Clamp money >= 0 and reject non-finite values (NaN/inf) so a bad calculation
@@ -97,7 +120,7 @@ struct DelayedEffect: Identifiable, Equatable {
     // PrestigeState by PrestigeManager; reset() reads it to seed starting bonuses.
     var prestige: PrestigeState = PrestigeState()
     /// Guards `concludeRun()` so a single run banks its prestige only once.
-    private var hasBankedPrestigeThisRun: Bool = false
+    var hasBankedPrestigeThisRun: Bool = false
 
     // New game ending properties
     var ethicalChoicesMade: Int = 0
@@ -146,6 +169,7 @@ struct DelayedEffect: Identifiable, Equatable {
 
     // Ship a package manually (tap action)
     func shipPackage() {
+        guard !isRunTerminal else { return }
         addPackagesShipped(1)
         
         // Calculate the actual value based on package value, customer satisfaction, and public perception
@@ -154,10 +178,12 @@ struct DelayedEffect: Identifiable, Equatable {
         let actualValue = packageValue * perceptionFactor * satisfactionFactor
         // let actualValue = packageValue * (0.5 + (customerSatisfaction * 0.5)) // OLD CALC
         earnMoney(actualValue)
+        evaluateEndings()
     }
     
     // Add money to the player's account
     func earnMoney(_ amount: Double) {
+        guard !isRunTerminal else { return }
         money += amount
         if amount > 0 {
             lifetimeTotalMoneyEarned += amount
@@ -166,6 +192,7 @@ struct DelayedEffect: Identifiable, Equatable {
     
     // Process automation (called on timer)
     func processAutomation(currentTime: Date) {
+        guard !isRunTerminal else { return }
         let rawElapsed = currentTime.timeIntervalSince(lastUpdate)
 
         // Skip if no time has passed (or the clock moved backwards / produced a bad value).
@@ -251,24 +278,6 @@ struct DelayedEffect: Identifiable, Equatable {
             workerMorale -= timeElapsed * 0.01 * (0.3 - corporateEthics)
         }
         
-        // Handle Loop Ending Instability: surviving the full 60-second window while the
-        // loop criteria hold completes the hidden Loop ending. (Previously this decayed
-        // ethics until collapse, which made the Loop ending impossible to finish.)
-        if isInLoopEndingState && !endingReached {
-            if let startTime = loopEndingStartTime {
-                let timeInLoop = currentTime.timeIntervalSince(startTime)
-                if timeInLoop > 60.0 {
-                    endingType = .loop
-                    endingReached = true
-                    isInLoopEndingState = false
-                    loopEndingStartTime = nil
-                }
-            } else {
-                // Should not happen if isInLoopEndingState is true, but set start time just in case
-                loopEndingStartTime = currentTime
-            }
-        }
-        
         // Chance for workers to quit if morale is critically low
         if workerMorale < 0.1 && workers > 1 { // Ensure morale is very low and we have more than 1 worker
             let quitChanceBase = 0.01 // Base 1% chance per second at 0 morale
@@ -283,7 +292,7 @@ struct DelayedEffect: Identifiable, Equatable {
         
         // Reform criteria can be completed by passive income crossing the money
         // threshold, so re-check every tick — not only on upgrade purchases.
-        checkForReformEnding()
+        evaluateEndings(currentTime: currentTime)
 
         lastUpdate = currentTime
     }
@@ -295,6 +304,7 @@ struct DelayedEffect: Identifiable, Equatable {
     
     // Apply an upgrade
     func applyUpgrade(_ upgrade: Upgrade) {
+        guard !isRunTerminal else { return }
         // First verify if upgrade has already been purchased (safer check)
         if !upgrade.isRepeatable && hasBeenPurchased(upgrade) {
             print("Upgrade \(upgrade.name) has already been purchased. Ignoring.")
@@ -358,18 +368,10 @@ struct DelayedEffect: Identifiable, Equatable {
             // Track ethical choices (now based on positive moralImpact)
             if upgrade.moralImpact > 0 {
                 ethicalChoicesMade += 1
-                checkForReformEnding()
             }
             
-            // Check if we've entered collapse phase (score reached 0 or less)
-            if ethicsScore <= 0 {
-                isCollapsing = true
-                endingType = .collapse
-            }
-            
-            // Check for loop ending
-            checkForLoopEnding()
-            
+            evaluateEndings()
+
             // Update automation level for event triggers when appropriate
             if upgrade.name.contains("Automate") || upgrade.name.contains("AI") {
                 automationLevel += 1
@@ -656,50 +658,71 @@ struct DelayedEffect: Identifiable, Equatable {
         }
     }
     
-    // Check if player qualifies for the Reform ending.
-    // Internal (not private) so tests can verify the threshold logic directly.
-    func checkForReformEnding() {
-        // Collapse takes precedence, and an earned ending only fires once.
-        guard !isCollapsing && !endingReached else { return }
+    func checkForReformEnding() { evaluateEndings() }
+    func checkForLoopEnding() { evaluateEndings() }
 
-        // To get the Reform ending:
-        // 1. Player must have made at least 5 ethical choices (positive impact)
-        // 2. Ethics score must be 50 or higher
-        // 3. Must have earned at least $1000
-        if ethicalChoicesMade >= 5 && ethicsScore >= 50 && money >= 1000 {
+    /// Collapse has priority; completed endings are immutable until reset.
+    func evaluateEndings(currentTime: Date? = nil) {
+        guard baseEndingsEnabled, !isRunTerminal else { return }
+        if ethicsScore <= 0 {
+            endingType = .collapse
+            isCollapsing = true
+            clearLoopProgress()
+            return
+        }
+        if lifetimeTotalMoneyEarned >= EndingPolicy.reformEarnings,
+           ethicalChoicesMade >= EndingPolicy.reformChoices,
+           ethicsScore >= EndingPolicy.reformEthics {
             endingType = .reform
             endingReached = true
+            clearLoopProgress()
+            return
         }
-    }
-    
-    // Check if player qualifies for the Loop ending.
-    // Internal (not private) so tests can verify the threshold logic directly.
-    func checkForLoopEnding() {
-        // To get the Loop ending:
-        // 1. Ethics score must be low but not collapsed (e.g., 15-25)
-        // 2. Must have earned at least $2500
-        // 3. Must have shipped at least 1500 packages
-        // 4. Must have hired at least 3 workers
-        let meetsCriteria = ethicsScore >= 15 && ethicsScore <= 25 && money >= 2500 && totalPackagesShipped >= 1500 && workers >= 3
-        
-        if meetsCriteria && !isInLoopEndingState {
-            // Enter loop state
-            endingType = .loop
+        let eligible = lifetimeTotalMoneyEarned >= EndingPolicy.loopEarnings &&
+            totalPackagesShipped >= EndingPolicy.loopPackages && workers >= EndingPolicy.loopWorkers &&
+            EndingPolicy.loopEthics.contains(ethicsScore)
+        guard eligible else {
+            clearLoopProgress()
+            return
+        }
+        let now = currentTime ?? lastUpdate
+        if !isInLoopEndingState {
             isInLoopEndingState = true
-            loopEndingStartTime = Date() // Record start time
-        } else if !meetsCriteria && isInLoopEndingState {
-            // Exit loop state if criteria are no longer met (before collapse)
+            loopEndingStartTime = now
+            loopTimingBaseline = now
+        } else if currentTime != nil, let baseline = loopTimingBaseline {
+            let elapsed = now.timeIntervalSince(baseline)
+            // Long gaps are catch-up, not evidence of active play.
+            if elapsed > 0 && elapsed <= 2 {
+                loopStabilitySeconds = min(EndingPolicy.loopDuration, loopStabilitySeconds + elapsed)
+            }
+            loopTimingBaseline = now
+        }
+        if loopStabilitySeconds >= EndingPolicy.loopDuration {
+            endingType = .loop
+            endingReached = true
             isInLoopEndingState = false
             loopEndingStartTime = nil
-            // Re-evaluate ending type if not collapsing
-            if !isCollapsing {
-                 checkForReformEnding() // Check if reform is met now
-                 // If neither reform nor collapse, perhaps revert to a default/ongoing state?
-                 // For now, it will stay as .loop until collapse or reform conditions are met elsewhere.
-            }
         }
     }
-    
+
+    private func clearLoopProgress() {
+        isInLoopEndingState = false
+        loopEndingStartTime = nil
+        loopStabilitySeconds = 0
+        loopTimingBaseline = nil
+    }
+
+    func restoreEndingProgress(reached: Bool, banked: Bool, stabilitySeconds: Double) {
+        endingReached = reached
+        hasBankedPrestigeThisRun = banked
+        loopStabilitySeconds = stabilitySeconds.isFinite ? min(EndingPolicy.loopDuration, max(0, stabilitySeconds)) : 0
+        loopTimingBaseline = nil
+        loopEndingStartTime = nil
+        if !isRunTerminal { evaluateEndings() }
+        resetForegroundTiming()
+    }
+
     /// Bank prestige points earned by the run that just ended. Idempotent within a
     /// run (guarded), so calling it from multiple ending code paths is safe. Returns
     /// the points awarded (0 if already banked or the run earned none). The caller is
@@ -753,6 +776,9 @@ struct DelayedEffect: Identifiable, Equatable {
         
         // Basic stats reset
         totalPackagesShipped = 0
+        lifetimeTotalMoneyEarned = 0
+        clearLoopProgress()
+        pendingEffects.removeAll()
         money = 0.0
         workers = 1  // Reset to 1 worker instead of 0
         baseWorkerRate = 0.1 // Reset base worker rate
