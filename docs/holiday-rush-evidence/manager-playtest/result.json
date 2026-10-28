@@ -1,0 +1,74 @@
+{
+  "device": "Prime Holiday Manager Playtest / iPhone 17 Pro Max / iOS 26.5",
+  "simulatorID": "431FAD3F-155D-47ED-8933-00027218D051",
+  "localVersion": "1.3 (1)",
+  "gameplaySourceCommit": "aa5e230607fb7a77ca14895db735da88e99dbe49",
+  "execution": "UI-only agent run; not a TestFlight binary or human playtest",
+  "manualShipmentActions": 120,
+  "result": {
+    "outcome": "deadline",
+    "packages": 778,
+    "earnedEventBadge": false,
+    "morale": 0.5700000000000001,
+    "ethics": 53,
+    "elapsed": 720,
+    "id": "14E69D20-2E79-40B3-9769-8DEF07EC06EF",
+    "completedAt": 814887204.055456
+  },
+  "decisionsCompleted": 3,
+  "finalGame": {
+    "baseWorkerRate": 0.12000000000000001,
+    "automationLevel": 2,
+    "money": 145.29076916000108,
+    "customerSatisfaction": 0.9,
+    "appVersion": "1.3 (1)",
+    "environmentalImpact": 3,
+    "packageValue": 1.1550000000000002,
+    "isCollapsing": false,
+    "workers": 6,
+    "savedAt": 814887204.055505,
+    "isInLoopEndingState": false,
+    "ethicalChoicesMade": 2,
+    "workerMorale": 0.5700000000000001,
+    "workerEfficiency": 2.4219000000000004,
+    "repeatableUpgradeCounts": {
+      "Hire Worker": 6
+    },
+    "endingReached": false,
+    "loopStabilitySeconds": 0,
+    "purchasedUpgradeNames": [
+      "Automate Sorting",
+      "Basic Training",
+      "Improve Packaging",
+      "Optimize Logistics"
+    ],
+    "hasBankedPrestigeThisRun": false,
+    "endingType": "collapse",
+    "corporateEthics": 0.45,
+    "totalPackagesShipped": 778,
+    "packageAccumulator": 0.868923821441428,
+    "lifetimeTotalMoneyEarned": 841.1647890000012,
+    "automationEfficiency": 1.3,
+    "publicPerception": 50.5,
+    "baseSystemRate": 0,
+    "ethicsScore": 53,
+    "schemaVersion": 1
+  },
+  "activity": [
+    {
+      "schemaVersion": 1,
+      "date": 814886408.814013,
+      "runID": "14E69D20-2E79-40B3-9769-8DEF07EC06EF",
+      "id": "78FF67AF-4BF2-4412-936B-2A4962EAF575",
+      "kind": "start"
+    },
+    {
+      "schemaVersion": 1,
+      "date": 814887204.055489,
+      "runID": "14E69D20-2E79-40B3-9769-8DEF07EC06EF",
+      "id": "AF87426B-5CAB-4E0D-A494-A32D162FAE0D",
+      "kind": "failure",
+      "value": "deadline"
+    }
+  ]
+}
