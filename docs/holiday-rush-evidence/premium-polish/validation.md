@@ -1,3 +1,5 @@
+> Superseded: the user rejected this visual direction. See ../restraint-correction/validation.md for the restored baseline and small polish changes.
+
 # Dispatch-floor polish — October 28, 2026
 
 Based on the approved premium game direction and commit `7fd8046` on `codex/holiday-rush`. The working tree was clean before this pass.

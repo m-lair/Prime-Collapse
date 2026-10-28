@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct GameHomeView: View {
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let game: GameState
     let challenge: HolidayRushSession
     let onContinue: () -> Void
@@ -10,7 +9,7 @@ struct GameHomeView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 28) {
                 HStack(alignment: .center, spacing: 16) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("PRIME")
@@ -30,7 +29,7 @@ struct GameHomeView: View {
                         .buttonStyle(.plain)
                 }
 
-                VStack(spacing: 16) {
+                VStack(spacing: 0) {
                     DispatchStage(packages: game.totalPackagesShipped, workers: game.workers,
                                   automaticRate: game.automaticPackagesPerSecond, isRunning: false)
                     Button(action: onContinue) {
@@ -45,27 +44,24 @@ struct GameHomeView: View {
                                 .font(.subheadline)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(22)
+                        .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
                         .contentShape(Rectangle())
                     }
-                    .buttonStyle(GameActionStyle())
+                    .buttonStyle(.plain)
+                    .foregroundStyle(GamePalette.ink)
+                    .background(GamePalette.orange)
                 }
 
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("THE NEXT SHIFT")
+                    Text("FEATURED CHALLENGE")
                         .font(.caption2.weight(.bold)).tracking(2)
                         .foregroundStyle(GamePalette.floor)
                     Button(action: onChallenge) {
-                        let challengeLayout = dynamicTypeSize.isAccessibilitySize
-                            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 18))
-                            : AnyLayout(HStackLayout(alignment: .top, spacing: 18))
-                        challengeLayout {
-                            Image(systemName: "shippingbox.and.arrow.backward.fill")
-                                .font(.title)
-                                .foregroundStyle(GamePalette.orange)
-                                .padding(12)
-                                .background(GamePalette.ink, in: RoundedRectangle(cornerRadius: 14))
-                                .accessibilityHidden(true)
+                        HStack(alignment: .top, spacing: 18) {
+                            Rectangle()
+                                .fill(GamePalette.teal)
+                                .frame(width: 5)
                             VStack(alignment: .leading, spacing: 10) {
                                 HStack(alignment: .firstTextBaseline) {
                                     Text("Holiday Rush")
@@ -85,7 +81,7 @@ struct GameHomeView: View {
                                         .font(.caption.weight(.semibold))
                                         .foregroundStyle(GamePalette.floor)
                                 }
-                                Label(challengeAction, systemImage: "play.fill")
+                                Text(challengeAction)
                                     .font(.headline)
                                     .padding(.top, 3)
                             }
@@ -116,12 +112,12 @@ struct GameHomeView: View {
         if challenge.hasRun {
             return "\(challenge.isRunning ? "In progress" : "Paused") · \(challenge.game.totalPackagesShipped.formatted()) packages · \(timeLabel(challenge.remaining)) left"
         }
-        return "A busy floor. A ticking clock. A team counting on you."
+        return "Ship 1,500 packages. Keep ethics at 40 and morale at 40% or higher."
     }
 
     private var challengeAction: String {
         if challenge.result != nil { return "View result" }
-        return challenge.hasRun ? "Return to challenge" : "Explore Holiday Rush"
+        return challenge.hasRun ? "Return to challenge" : "Explore challenge"
     }
 
     private func timeLabel(_ seconds: Double) -> String {

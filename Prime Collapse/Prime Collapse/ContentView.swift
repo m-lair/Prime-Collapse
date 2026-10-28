@@ -87,8 +87,11 @@ struct ContentView: View {
                 HolidayRushView(session: playSession.challenge, onReturn: { playSession.goHome() })
             } else {
                 GamePalette.ink.ignoresSafeArea()
-                ScrollView { mainContentView }
-                    .scrollBounceBehavior(.basedOnSize)
+                if dynamicTypeSize.isAccessibilitySize {
+                    ScrollView { mainContentView }
+                } else {
+                    mainContentView
+                }
                 notificationOverlay
                 detailedStatsOverlay
                 collapseEffectsOverlay
@@ -330,51 +333,41 @@ struct ContentView: View {
     }
     
     private var mainContentView: some View {
-        VStack(spacing: 24) {
-            HStack(spacing: 12) {
+        VStack(spacing: 16) {
+            HStack {
                 Button("Game home", systemImage: "house") { playSession.goHome() }
                     .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44)
-                Text("Your company")
-                    .font(.system(.headline, design: .rounded))
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                Spacer()
+                Text("Your company").font(.headline)
+                Spacer()
                 Button("Company details", systemImage: "chart.bar") { showDashboard = true }
                     .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44)
                 Button("Settings", systemImage: "gearshape") { showingSettings = true }
                     .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44)
             }
-            .foregroundStyle(GamePalette.label)
+            .padding(.horizontal)
             DispatchHUD(game: gameState)
+            Spacer(minLength: 0)
             DispatchStage(packages: gameState.totalPackagesShipped, workers: gameState.workers,
                           automaticRate: gameState.automaticPackagesPerSecond,
                           isRunning: scenePhase == .active && !gameState.isRunTerminal,
                           onShip: { gameState.shipPackage() })
-            let teamLayout = dynamicTypeSize.isAccessibilitySize
-                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
-                : AnyLayout(HStackLayout())
-            teamLayout {
-                Label("\(gameState.workers.formatted()) on the team", systemImage: "person.2.fill")
-                if !dynamicTypeSize.isAccessibilitySize { Spacer() }
-                Text("Build with care.")
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .font(.caption).foregroundStyle(GamePalette.label.opacity(0.75))
+                .frame(maxWidth: 740)
+            Spacer(minLength: 0)
+            Text("Build your operation. Decide what it costs.")
+                .font(.callout).foregroundStyle(GamePalette.label.opacity(0.7))
             Button { showInvestments = true } label: {
-                HStack {
-                    Text("Investments")
-                    if !dynamicTypeSize.isAccessibilitySize {
-                        Spacer(minLength: 8)
-                        Image(systemName: "arrow.up.right")
-                    }
-                }
+                Label("Invest in your company", systemImage: "wrench.and.screwdriver")
+                    .font(.headline).frame(maxWidth: .infinity).padding(.vertical, 10)
             }
-            .buttonStyle(GameActionStyle(prominent: false))
+            .buttonStyle(.borderedProminent)
+            .foregroundStyle(GamePalette.ink).padding(.horizontal)
             if gameState.isInLoopEndingState {
                 ProgressView("Loop stability: \(Int(gameState.loopStabilitySeconds))/60 sec", value: gameState.loopStabilityProgress)
-                    .font(.caption)
+                    .font(.caption).padding(.horizontal)
             }
         }
-        .padding(.horizontal, 22)
-        .padding(.bottom, 32)
+        .padding(.bottom, 20)
         .frame(maxWidth: 740)
         .frame(maxWidth: .infinity)
     }
