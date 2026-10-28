@@ -3,18 +3,22 @@ import SwiftUI
 // Shows the main game stats
 struct GameStatsView: View {
     @Environment(GameState.self) private var gameState
+    @Environment(\.dynamicTypeSize) private var textSize
     @Binding var isShowingDetails: Bool
     
     var body: some View {
         VStack(spacing: 8) {
-            HStack(spacing: 16) {
+            let layout = textSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(spacing: 12))
+                : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
+            layout {
                 // Packages info
                 StatCard(
                     icon: "shippingbox.fill",
                     title: "Packages",
                     value: "\(gameState.totalPackagesShipped)",
                     secondaryText: "$\(String(format: "%.2f", gameState.packageValue)) per pack",
-                    iconColor: .yellow
+                    iconColor: .yellow, minimumContentHeight: 66
                 )
                 
                 // Money info
@@ -22,13 +26,13 @@ struct GameStatsView: View {
                     icon: "dollarsign.circle.fill",
                     title: "Money",
                     value: "$\(String(format: "%.2f", gameState.money))",
-                    iconColor: .green
+                    iconColor: .green, minimumContentHeight: 66
                 )
             }
             
             // Show ethics if score is not perfect (100) or if workers exist
             if gameState.workers > 0 || gameState.ethicsScore < 100 {
-                HStack(spacing: 16) {
+                layout {
                     // Workers info (only show if we have workers)
                     if gameState.workers > 0 {
                         StatCard(

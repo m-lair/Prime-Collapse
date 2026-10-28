@@ -2,6 +2,7 @@ import SwiftUI
 
 // Card for displaying a statistic
 struct StatCard: View {
+    @Environment(\.dynamicTypeSize) private var textSize
     let icon: String
     let title: String
     let value: String
@@ -11,6 +12,8 @@ struct StatCard: View {
     var isHighlightSecondary: Bool = false // Highlight secondary text for emphasis
     var secondaryTextColor: Color? = nil
     
+    var minimumContentHeight: CGFloat = 44
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
@@ -20,21 +23,21 @@ struct StatCard: View {
                     .shadow(color: iconColor.opacity(0.5), radius: 2, x: 0, y: 1)
                 
                 Text(title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.caption.weight(.semibold))
                     .foregroundColor(.white)
             }
             
             Text(value)
-                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .font(.system(.headline, design: .rounded, weight: .bold))
                 .foregroundColor(valueColor ?? .white)
-                .lineLimit(1)
+                .lineLimit(textSize.isAccessibilitySize ? nil : 1)
                 .minimumScaleFactor(0.8)
             
             if let secondaryText = secondaryText {
                 Text(secondaryText)
-                    .font(.system(size: 10, weight: isHighlightSecondary ? .bold : .medium))
+                    .font(.caption2.weight(isHighlightSecondary ? .bold : .medium))
                     .foregroundColor(secondaryTextColor ?? (isHighlightSecondary ? .orange : .white.opacity(0.7)))
-                    .lineLimit(1)
+                    .lineLimit(textSize.isAccessibilitySize ? nil : 1)
                     .minimumScaleFactor(0.8)
                     .padding(.vertical, isHighlightSecondary ? 2 : 0)
                     .padding(.horizontal, isHighlightSecondary ? 4 : 0)
@@ -46,8 +49,8 @@ struct StatCard: View {
                     )
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
+        .frame(maxWidth: .infinity, minHeight: minimumContentHeight, alignment: .topLeading)
+        .padding(12)
         .background(
             ZStack {
                 // Base shape
@@ -82,11 +85,11 @@ struct StatCard: View {
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
-                        lineWidth: 1.5
+                        lineWidth: 1
                     )
             }
         )
-        .shadow(color: Color.black.opacity(0.2), radius: 3, x: 0, y: 2)
+        .accessibilityElement(children: .combine)
     }
 }
 

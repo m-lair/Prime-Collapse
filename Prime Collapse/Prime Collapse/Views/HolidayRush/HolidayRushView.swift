@@ -49,7 +49,7 @@ struct HolidayRushView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Return to Company", systemImage: "chevron.backward") {
+                    Button(onReturn == nil ? "Return to Company" : "Game home", systemImage: "chevron.backward") {
                         session.pause()
                         if let onReturn { onReturn() } else { dismiss() }
                     }

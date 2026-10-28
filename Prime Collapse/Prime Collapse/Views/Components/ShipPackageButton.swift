@@ -3,6 +3,8 @@ import SwiftUI
 // Main tap button for shipping packages
 struct ShipPackageButton: View {
     @Environment(GameState.self) private var gameState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ScaledMetric(relativeTo: .headline) private var diameter = 180
     @State private var isPressed = false
     @State private var animateScale = false
     @Environment(\.accessDecreaseAnimator) private var decreaseAnimator
@@ -10,7 +12,7 @@ struct ShipPackageButton: View {
     var body: some View {
         Button {
             isPressed = true
-            animateScale = true
+            animateScale = !reduceMotion
             
             // Reset animation after a delay
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -55,7 +57,7 @@ struct ShipPackageButton: View {
                             .stroke(Color.white.opacity(0.3), lineWidth: 2)
                     )
                     .shadow(color: .black.opacity(0.3), radius: 5)
-                    .scaleEffect(isPressed ? 0.95 : 1.0)
+                    .scaleEffect(isPressed && !reduceMotion ? 0.95 : 1.0)
                     .animation(.easeInOut(duration: 0.1), value: isPressed)
                 
                 // Content
@@ -68,15 +70,19 @@ struct ShipPackageButton: View {
                         .shadow(color: .black.opacity(0.5), radius: 2)
                     
                     Text("SHIP PACKAGE")
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .font(.system(.headline, design: .rounded, weight: .bold))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 20)
                         .foregroundColor(.white)
                 }
-                .offset(y: isPressed ? 2 : 0)
+                .offset(y: isPressed && !reduceMotion ? 2 : 0)
             }
-            .frame(width: 180, height: 180)
+            .frame(width: min(diameter, 290), height: min(diameter, 290))
         }
         .buttonStyle(PlainButtonStyle())
-        .disabled(gameState.isCollapsing)
+        .disabled(gameState.isRunTerminal)
+        .accessibilityLabel("Ship package")
+        .accessibilityHint("Dispatch one package")
     }
     
     private func playHaptic(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {

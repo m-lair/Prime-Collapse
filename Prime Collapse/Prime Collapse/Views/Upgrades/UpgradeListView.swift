@@ -71,10 +71,11 @@ struct UpgradeListView: View {
                         showDetailedUpgrades = true
                     } label: {
                         Text("MORE")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.caption.weight(.bold))
                             .foregroundColor(.white)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
+                            .frame(minHeight: 44)
                             .background(
                                 Capsule()
                                     .fill(Color.white.opacity(0.2))
@@ -87,7 +88,6 @@ struct UpgradeListView: View {
                     .padding(.horizontal)
                     .padding(.trailing)
                     
-                    Spacer()
                 }
                 .padding(.trailing, 20)
             }
@@ -95,7 +95,7 @@ struct UpgradeListView: View {
             
             // Upgrade cards
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack() {
+                HStack(alignment: .top, spacing: 12) {
                     // Iterate over potentially available upgrades
                     ForEach(potentiallyAvailableUpgrades, id: \.id) { upgrade in
                         UpgradeCardView(upgrade: upgrade)

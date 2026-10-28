@@ -4,6 +4,8 @@ import SwiftUI
 struct UpgradeCardView: View {
     let upgrade: Upgrade
     @Environment(GameState.self) private var gameState
+    @Environment(\.dynamicTypeSize) private var textSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed = false
     
     // Check if the upgrade requirements are met
@@ -26,7 +28,7 @@ struct UpgradeCardView: View {
             // Title area with ethics indicator
             VStack(alignment: .leading) {
                 Text(upgrade.name)
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .font(.system(.subheadline, design: .rounded, weight: .bold))
                     .foregroundColor(.white)
                 
                 Spacer()
@@ -60,11 +62,11 @@ struct UpgradeCardView: View {
             
             // Description
             Text(upgrade.description)
-                .font(.system(size: 12))
-                .foregroundColor(.white.opacity(0.8))
+                .font(.caption)
+                .foregroundColor(.white.opacity(0.9))
                 .multilineTextAlignment(.leading)
-                .lineLimit(3)
-                .frame(height: 50, alignment: .top)
+                .lineLimit(textSize.isAccessibilitySize ? nil : 3)
+                .frame(minHeight: 50, alignment: .top)
             
             Spacer()
             
@@ -76,8 +78,9 @@ struct UpgradeCardView: View {
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.yellow)
                     
-                    Text("\(Int(currentPrice))")
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                    Text(currentPrice.formatted(.number.precision(.fractionLength(2))))
+                        .monospacedDigit()
+                        .font(.system(.subheadline, design: .rounded, weight: .bold))
                         .foregroundColor(gameState.canAfford(currentPrice) ? .white : .white.opacity(0.5))
                 }
                 
@@ -95,26 +98,31 @@ struct UpgradeCardView: View {
                     }
                 } label: {
                     Text("BUY")
-                        .font(.system(size: 14, weight: .heavy, design: .rounded))
+                        .font(.system(.caption, design: .rounded, weight: .heavy))
                         .foregroundColor(.white)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
+                        .frame(minHeight: 44)
                         .background(
                             Capsule()
                                 .fill(
                                     gameState.canAfford(currentPrice) 
-                                    ? Color.green 
+                                    ? Color(red: 0.03, green: 0.42, blue: 0.17)
                                     : Color.gray.opacity(0.5)
                                 )
                                 .shadow(color: .black.opacity(0.3), radius: 2)
                         )
-                        .scaleEffect(isPressed ? 0.95 : 1.0)
+                        .scaleEffect(isPressed && !reduceMotion ? 0.95 : 1.0)
                 }
-                .disabled(!gameState.canAfford(currentPrice) || !isUnlocked)
+                .disabled(gameState.isRunTerminal || !gameState.canAfford(currentPrice) || !isUnlocked)
+                .accessibilityLabel("Buy \(upgrade.name)")
+                .accessibilityValue(currentPrice.formatted(.currency(code: "USD")))
             }
         }
         .padding(12)
-        .frame(width: 230, height: 165)
+        .frame(width: textSize.isAccessibilitySize ? 320 : 230)
+        .frame(height: textSize.isAccessibilitySize ? nil : 180)
+        .fixedSize(horizontal: false, vertical: textSize.isAccessibilitySize)
         .background(
             LinearGradient(
                 gradient: Gradient(colors: [
@@ -139,7 +147,7 @@ struct UpgradeCardView: View {
                     VStack(spacing: 10) {
                         Image(systemName: "lock.fill")
                             .font(.system(size: 30))
-                            .foregroundColor(.white.opacity(0.8))
+                            .foregroundColor(.white.opacity(0.9))
                         
                         if let requirementText = requirementDescription {
                             Text(requirementText)
@@ -147,18 +155,18 @@ struct UpgradeCardView: View {
                                 .foregroundColor(.white.opacity(0.9))
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 16)
-                                .lineLimit(3)
+                                .lineLimit(textSize.isAccessibilitySize ? nil : 3)
                         } else {
                             Text("Locked")
                                 .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(.white.opacity(0.8))
+                                .foregroundColor(.white.opacity(0.9))
                         }
                     }
                 )
             : nil
         )
         .opacity(isUnlocked ? 1.0 : 0.8) // Slightly increased opacity when locked for better readability
-        .animation(.easeInOut(duration: 0.1), value: isPressed)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.1), value: isPressed)
     }
     
     private var cardBackgroundColor: Color {

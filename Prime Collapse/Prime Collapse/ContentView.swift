@@ -78,8 +78,12 @@ struct ContentView: View {
     
     var body: some View {
         ZStack {
-            if showHolidayRush {
-                HolidayRushView(session: playSession.challenge, onReturn: { playSession.openCompany() })
+            if playSession.destination == .home {
+                GameHomeView(game: gameState, challenge: playSession.challenge,
+                             onContinue: continueCompany, onChallenge: openHolidayRush,
+                             onSettings: { showingSettings = true })
+            } else if showHolidayRush {
+                HolidayRushView(session: playSession.challenge, onReturn: { playSession.goHome() })
             } else {
                 backgroundView
                 if dynamicTypeSize.isAccessibilitySize {
@@ -88,10 +92,11 @@ struct ContentView: View {
                     mainContentView
                 }
                 animationLayer
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
                 notificationOverlay
                 packageShippingTrigger
                 detailedStatsOverlay
-                gameControlsView
                 collapseEffectsOverlay
                 EventView()
                 SaveIndicatorView()
@@ -103,7 +108,6 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.3), value: glitchEffect)
         .animation(.easeInOut(duration: 0.5), value: gameState.isCollapsing)
         .onAppear {
-            if playSession.destination == .home { continueCompany() }
             // Only run the simulation once the initial save has loaded, so progress
             // is never overwritten by a freshly-started game. (Load is synchronous at
             // launch, so this is normally already true; the guard is defensive.)
@@ -249,6 +253,13 @@ struct ContentView: View {
                     startGameLoop()
                 }
             )
+            .safeAreaInset(edge: .top) {
+                Button("Game home", systemImage: "house.fill") {
+                    showEndingScreen = false
+                    playSession.goHome()
+                }
+                .buttonStyle(.bordered).padding(8)
+            }
         }
         .sheet(isPresented: $showDashboard) {
             DashboardView()
@@ -331,27 +342,32 @@ struct ContentView: View {
             UpgradeListView()
                 .padding(.bottom, 16)
         }
+        .frame(maxWidth: 760)
+        .frame(maxWidth: .infinity)
     }
 
     private var headerView: some View {
-        VStack(spacing: 2) {
-            Text("Prime Collapse")
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
-                .padding(.top, 12)
-                .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 2)
+        VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                Button("Game home", systemImage: "house.fill") { playSession.goHome() }
+                    .labelStyle(.iconOnly).frame(width: 44, height: 44)
+                Text("Prime Collapse")
+                    .font(.system(.title2, design: .rounded, weight: .bold))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Button("Company details", systemImage: "chart.bar.fill") { showDashboard = true }
+                    .labelStyle(.iconOnly).frame(width: 44, height: 44)
+                Button("Settings", systemImage: "gearshape.fill") { showingSettings = true }
+                    .labelStyle(.iconOnly).frame(width: 44, height: 44)
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
 
             GameStatsView(isShowingDetails: $showDetailedStatsOverlay)
                 .padding(.horizontal)
                 // Add position tracking for money and workers
                 .background(MoneyPositionReader(position: $moneyPosition))
                 .background(WorkersPositionReader(position: $workersPosition))
-            HolidayRushEntryCard {
-                openHolidayRush()
-            }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-            .disabled(gameState.isRunTerminal)
             if gameState.isInLoopEndingState {
                 ProgressView("Loop stability: \(Int(gameState.loopStabilitySeconds))/60 sec", value: gameState.loopStabilityProgress)
                     .font(.caption)
@@ -361,6 +377,7 @@ struct ContentView: View {
                     .padding(.bottom, 8)
             }
         }
+        .padding(.bottom, 12)
         .background(
             RoundedRectangle(cornerRadius: 0)
                 .fill(Color(red: 0.1, green: 0.1, blue: 0.3).opacity(0.8))
@@ -455,49 +472,6 @@ struct ContentView: View {
                 .transition(.opacity.combined(with: .move(edge: .top))) // Slide down + fade
                 .zIndex(1) // Ensure it's above the main content layer
             }
-        }
-    }
-    
-    private var gameControlsView: some View {
-        VStack {
-            HStack {
-                // Settings button
-                Button(action: {
-                    showingSettings = true
-                }) {
-                    Image(systemName: "gearshape.fill") // Gear icon
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(8)
-                        .background(
-                            Circle()
-                                .fill(Color.blue.opacity(0.8))
-                                .shadow(color: .black.opacity(0.3), radius: 3)
-                        )
-                }
-                .padding(.leading)
-                
-                Spacer()
-                
-                // Dashboard button
-                Button(action: {
-                    showDashboard = true
-                }) {
-                    Image(systemName: "chart.bar.fill")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(8)
-                        .background(
-                            Circle()
-                                .fill(Color.blue.opacity(0.8))
-                                .shadow(color: .black.opacity(0.3), radius: 3)
-                        )
-                }
-                .padding(.trailing)
-            }
-            .padding(.top)
-            
-            Spacer()
         }
     }
     
