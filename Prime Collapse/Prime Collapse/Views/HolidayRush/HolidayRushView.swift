@@ -109,12 +109,13 @@ struct HolidayRushView: View {
 
     private var eventAvailability: some View {
         panel {
+            earnedBadgeLabel
             Label(session.eventAvailable ? "Event completion badge available" : "Free practice challenge", systemImage: session.eventAvailable ? "medal.fill" : "shippingbox")
                 .font(.headline)
             if session.eventAvailable, let end = session.configuration.end {
                 Text("Complete the challenge before \(end.formatted(date: .abbreviated, time: .shortened)) to earn the dated local badge.")
             } else {
-                Text("Practice is always available. No dated event badge is currently offered.")
+                Text("Practice is always available. There is no active event window.")
                     .foregroundStyle(.secondary)
             }
         }
@@ -244,9 +245,7 @@ struct HolidayRushView: View {
                 if result.outcome == .success {
                     Label("Local completion badge earned", systemImage: "medal.fill").foregroundStyle(.cyan)
                 }
-                if result.earnedEventBadge {
-                    Text("Event badge · \(result.completedAt.formatted(date: .abbreviated, time: .omitted))")
-                }
+                earnedBadgeLabel
                 if let best = session.bestResult {
                     Text("Best local completion: \(Int(best.elapsed)) active seconds").foregroundStyle(.secondary)
                 }
@@ -273,6 +272,13 @@ struct HolidayRushView: View {
             }
             Text("Share local results and up to 100 activity records. Nothing is uploaded automatically.")
                 .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder private var earnedBadgeLabel: some View {
+        if let badge = session.earnedEventBadge {
+            Label("Event badge earned · \(badge.earnedAt.formatted(date: .abbreviated, time: .omitted))", systemImage: "medal.fill")
+                .foregroundStyle(.cyan)
         }
     }
 

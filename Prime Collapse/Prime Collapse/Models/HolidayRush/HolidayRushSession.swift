@@ -17,6 +17,11 @@ struct HolidayRushResult: Codable, Equatable, Identifiable {
     }
 }
 
+struct HolidayRushEarnedBadge: Codable, Equatable {
+    let runID: UUID
+    let earnedAt: Date
+}
+
 enum HolidayRushFeedback: String, Codable, CaseIterable { case yes = "Yes", maybe = "Maybe", no = "No" }
 
 struct HolidayRushActivity: Codable, Identifiable {
@@ -41,6 +46,7 @@ private struct HolidayRushSave: Codable {
     let bestResult: HolidayRushResult?
     let feedback: HolidayRushFeedback?
     let activity: [HolidayRushActivity]
+    var earnedEventBadge: HolidayRushEarnedBadge? = nil
 }
 
 @MainActor @Observable final class HolidayRushSession {
@@ -58,6 +64,7 @@ private struct HolidayRushSave: Codable {
     private(set) var lastResult: HolidayRushResult?
     private(set) var bestResult: HolidayRushResult?
     private(set) var feedback: HolidayRushFeedback?
+    private(set) var earnedEventBadge: HolidayRushEarnedBadge?
     private(set) var activity: [HolidayRushActivity] = []
     private(set) var saveError: String?
     private(set) var recoveryNotice: String?
@@ -189,6 +196,9 @@ private struct HolidayRushSave: Codable {
                                          elapsed: elapsed, ethics: game.ethicsScore, morale: game.workerMorale,
                                          completedAt: completion,
                                          earnedEventBadge: outcome == .success && configuration.contains(completion))
+        if resolved.earnedEventBadge, earnedEventBadge == nil {
+            earnedEventBadge = .init(runID: resolved.id, earnedAt: resolved.completedAt)
+        }
         result = resolved
         lastResult = resolved
         if outcome == .success, bestResult == nil || elapsed < bestResult!.elapsed { bestResult = resolved }
@@ -246,7 +256,7 @@ private struct HolidayRushSave: Codable {
             let snapshot = HolidayRushSave(runID: runID, hasRun: hasRun, elapsed: elapsed,
                                            nextDecision: nextDecision, pendingDecisionID: pendingDecision?.id,
                                            game: GameSnapshot(from: game), result: result, lastResult: lastResult,
-                                           bestResult: bestResult, feedback: feedback, activity: activity)
+                                           bestResult: bestResult, feedback: feedback, activity: activity, earnedEventBadge: earnedEventBadge)
             let data = try JSONEncoder().encode(snapshot)
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             try data.write(to: saveURL, options: .atomic)
@@ -282,6 +292,11 @@ private struct HolidayRushSave: Codable {
             lastResult = snapshot.lastResult
             bestResult = snapshot.bestResult
             feedback = snapshot.feedback
+            let previousBadgeResult = [snapshot.result, snapshot.lastResult, snapshot.bestResult]
+                .compactMap { $0 }.filter(\.earnedEventBadge).min { $0.completedAt < $1.completedAt }
+            earnedEventBadge = snapshot.earnedEventBadge ?? previousBadgeResult.map {
+                HolidayRushEarnedBadge(runID: $0.id, earnedAt: $0.completedAt)
+            }
             activity = Array(snapshot.activity.suffix(100))
             lastAutosaveElapsed = elapsed
         } catch {

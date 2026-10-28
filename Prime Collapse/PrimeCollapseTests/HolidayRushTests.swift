@@ -247,4 +247,47 @@ import XCTest
         XCTAssertTrue(run.isRunning)
     }
 
+    func testEarnedEventBadgeSurvivesFasterPracticeCompletionAndReload() throws {
+        var date = Date(timeIntervalSince1970: 1000)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let config = HolidayRushConfiguration(start: date, end: date.addingTimeInterval(60))
+        let run = HolidayRushSession(directory: directory, now: { date }, configuration: config)
+        run.start()
+        run.advance(seconds: 10)
+        run.game.totalPackagesShipped = 1499
+        run.shipPackage()
+        let earned = try XCTUnwrap(run.result)
+        XCTAssertTrue(earned.earnedEventBadge)
+        run.replay()
+        date = date.addingTimeInterval(100)
+        run.advance(seconds: 1)
+        run.game.totalPackagesShipped = 1499
+        run.shipPackage()
+        XCTAssertFalse(try XCTUnwrap(run.result).earnedEventBadge)
+        XCTAssertFalse(try XCTUnwrap(run.bestResult).earnedEventBadge)
+        let restored = HolidayRushSession(directory: directory, now: { date }, configuration: config)
+        restored.save()
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: restored.saveURL)) as? [String: Any])
+        let badge = try XCTUnwrap(object["earnedEventBadge"] as? [String: Any])
+        XCTAssertEqual(badge["runID"] as? String, earned.id.uuidString)
+        XCTAssertEqual(badge["earnedAt"] as? Double, earned.completedAt.timeIntervalSinceReferenceDate)
+    }
+
+    func testLegacyResultMigratesItsEarnedBadge() throws {
+        let date = Date(timeIntervalSince1970: 1000)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let config = HolidayRushConfiguration(start: date, end: date.addingTimeInterval(60))
+        let run = HolidayRushSession(directory: directory, now: { date }, configuration: config)
+        run.start()
+        run.game.totalPackagesShipped = 1499
+        run.shipPackage()
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: run.saveURL)) as? [String: Any])
+        object.removeValue(forKey: "earnedEventBadge")
+        try JSONSerialization.data(withJSONObject: object).write(to: run.saveURL, options: .atomic)
+        let restored = HolidayRushSession(directory: directory, now: { date }, configuration: config)
+        XCTAssertEqual(restored.earnedEventBadge?.runID, run.result?.id)
+        XCTAssertEqual(restored.earnedEventBadge?.earnedAt, date)
+        XCTAssertNil(restored.recoveryNotice)
+    }
+
 }
