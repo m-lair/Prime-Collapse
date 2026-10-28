@@ -66,6 +66,8 @@ The Mac was unlocked and the native walkthrough resumed. Remaining verification:
 
 ## External release state
 
+**October 28 update:** 1.3 (4) has since been uploaded through Xcode Cloud and verified Testing in the internal Holiday Rush Playtest group. See `holiday-rush-testflight.md`. The paragraph below records the implementation handoff before that separately authorized distribution.
+
 No TestFlight upload/distribution, App Store event creation/submission, review approval, public release, agreement acceptance or public marketing post was performed. Event dates/storefronts remain unselected and must match the app's event-window resource before submission. The CLI has no configured API credentials; an existing signed-in browser session was not used for release mutations.
 
 Pilot diagnostics stay local until deliberately exported. No remote analytics service was added, and public aggregate completion/replay or willingness to pay has not been measured.
