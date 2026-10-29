@@ -105,11 +105,13 @@ struct UpgradeCardView: View {
                         .frame(minHeight: 44)
                         .background(
                             Capsule()
-                                .fill(
-                                    gameState.canAfford(currentPrice) 
-                                    ? Color(red: 0.03, green: 0.42, blue: 0.17)
-                                    : Color.gray.opacity(0.5)
-                                )
+                                .fill(LinearGradient(
+                                    colors: gameState.canAfford(currentPrice)
+                                        ? [Color.green.opacity(0.8), Color.green.opacity(0.6)]
+                                        : [Color.gray.opacity(0.5), Color.gray.opacity(0.5)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                ))
                                 .shadow(color: .black.opacity(0.3), radius: 2)
                         )
                         .scaleEffect(isPressed && !reduceMotion ? 0.95 : 1.0)
