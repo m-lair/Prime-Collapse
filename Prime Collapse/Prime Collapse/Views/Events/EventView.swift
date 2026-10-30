@@ -82,7 +82,8 @@ struct EventView: View {
                                 }
                             }) {
                                 // Use the helper function to build the button label content
-                                choiceButtonLabel(choice: choice, isButtonEnabled: isButtonEnabled, canMakeChoice: canMakeChoice)
+                                choiceButtonLabel(choice: choice, importance: event.importance,
+                                                  isButtonEnabled: isButtonEnabled, canMakeChoice: canMakeChoice)
                             }
                             .buttonStyle(ScaleButtonStyle()) // Apply custom button style
                             .disabled(!isButtonEnabled) // Disable button based on combined state
@@ -109,19 +110,26 @@ struct EventView: View {
                 )
                 .shadow(color: .black.opacity(0.5), radius: 10, x: 0, y: 5)
                 .padding(.horizontal, 24)
-                .frame(maxWidth: 400, maxHeight: UIScreen.main.bounds.height * 0.8)
-                .offset(y: slideIn ? 0 : UIScreen.main.bounds.height)
-                .animation(.spring(response: 0.6, dampingFraction: 0.7), value: slideIn)
-                .onAppear {
-                    isInteractable = false // Ensure it's false initially
+                .padding(.vertical, 12) // room for the card's shadow inside the scroll view
+                .frame(maxWidth: 400)
+                .frame(maxWidth: .infinity)
+            }
+            // Cap the scroll view, not its content: capping the content let tall events
+            // overflow above the screen edge, hiding the title under the status bar.
+            .frame(maxHeight: UIScreen.main.bounds.height * 0.8)
+            .fixedSize(horizontal: false, vertical: true)
+            .scrollBounceBehavior(.basedOnSize)
+            .offset(y: slideIn ? 0 : UIScreen.main.bounds.height)
+            .animation(.spring(response: 0.6, dampingFraction: 0.7), value: slideIn)
+            .onAppear {
+                isInteractable = false // Ensure it's false initially
+                withAnimation {
+                    slideIn = true
+                }
+                // Delay enabling interaction
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { // Adjust delay as needed
                     withAnimation {
-                        slideIn = true
-                    }
-                    // Delay enabling interaction
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { // Adjust delay as needed
-                        withAnimation {
-                             isInteractable = true
-                        }
+                         isInteractable = true
                     }
                 }
             }
@@ -132,7 +140,8 @@ struct EventView: View {
     
     // MARK: - Helper View Builder for Choice Button Label
     @ViewBuilder
-    private func choiceButtonLabel(choice: EventChoice, isButtonEnabled: Bool, canMakeChoice: Bool) -> some View {
+    private func choiceButtonLabel(choice: EventChoice, importance: GameEvent.EventImportance,
+                                   isButtonEnabled: Bool, canMakeChoice: Bool) -> some View {
         // Main HStack for two-column layout
         HStack(alignment: .top, spacing: 12) { // Align tops, add spacing
             // Left Column: Choice Text & Ethics
@@ -159,41 +168,27 @@ struct EventView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading) // Allow left column to expand
 
-            // Right Column: Effects
-            if let descriptions = choice.effectDescriptions, !descriptions.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(descriptions) { description in
-                        HStack(alignment: .firstTextBaseline, spacing: 5) {
-                            Image(systemName: iconName(for: description.impactType))
-                                .font(.caption) // Keep icon size reasonable
-                                .foregroundColor(color(for: description.impactType))
-                                .frame(width: 15, alignment: .center) // Give icon consistent space
+            // Right Column: money first, then stats, ethics, and what lands later
+            let immediate = moneyDescriptions(for: choice)
+                + (choice.effectDescriptions ?? [])
+                + ethicsDescription(for: choice, importance: importance)
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(immediate) { description in
+                    effectRow(description, showsCurrentValue: true)
+                }
 
-                            VStack(alignment: .leading, spacing: 1) { // Reduced spacing
-                                // Metric Name and Change
-                                HStack(spacing: 4) { 
-                                    Text("\(description.metricName):")
-                                        .font(.caption) // Keep captions
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.white.opacity(0.9))
-                                    Text(description.changeDescription)
-                                        .font(.caption)
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(color(for: description.impactType))
-                                }
-
-                                // Current Value (if available)
-                                if let currentValue = getCurrentValueString(for: description.metricName) {
-                                    Text(currentValue)
-                                        .font(.caption2)
-                                        .foregroundColor(.white.opacity(0.6)) // Slightly dimmer
-                                }
-                            }
-                        }
+                if let fallout = choice.fallout {
+                    Text(falloutHeading(fallout))
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.orange.opacity(0.9))
+                        .padding(.top, 2)
+                    ForEach(falloutDescriptions(fallout)) { description in
+                        effectRow(description, showsCurrentValue: false)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading) // Allow right column to expand
             }
+            .frame(maxWidth: .infinity, alignment: .leading) // Allow right column to expand
         }
         .padding(16) // Apply padding to the HStack content
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -224,12 +219,82 @@ struct EventView: View {
         )
     }
     
+    private func effectRow(_ description: EffectDescription, showsCurrentValue: Bool) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
+            Image(systemName: iconName(for: description.impactType))
+                .font(.caption)
+                .foregroundColor(color(for: description.impactType))
+                .frame(width: 15, alignment: .center)
+
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 4) {
+                    Text("\(description.metricName):")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white.opacity(0.9))
+                    Text(description.changeDescription)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(color(for: description.impactType))
+                }
+
+                if showsCurrentValue, let currentValue = getCurrentValueString(for: description.metricName) {
+                    Text(currentValue)
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.6))
+                }
+            }
+        }
+    }
+
+    /// "+$340 now" / "+25% for 60s", sized from the economy as it stands right now.
+    private func moneyDescriptions(for choice: EventChoice) -> [EffectDescription] {
+        var rows: [EffectDescription] = []
+        if let cash = choice.cash {
+            let amount = cash.signedAmount(in: gameState)
+            rows.append(EffectDescription(metricName: "Cash",
+                                          changeDescription: "\(MoneyFormat.signed(amount)) now",
+                                          impactType: amount >= 0 ? .positive : .negative))
+        }
+        if let shift = choice.incomeShift {
+            let percent = String(format: "%+.0f%%", shift.bonus * 100)
+            rows.append(EffectDescription(metricName: "Income",
+                                          changeDescription: "\(percent) for \(Int(shift.duration))s",
+                                          impactType: shift.bonus >= 0 ? .positive : .negative))
+        }
+        return rows
+    }
+
+    private func ethicsDescription(for choice: EventChoice, importance: GameEvent.EventImportance) -> [EffectDescription] {
+        let impact = EventManager.scaledMoralImpact(of: choice, importance: importance, state: gameState)
+        guard impact.rounded() != 0 else { return [] }
+        return [EffectDescription(metricName: "Ethics Score",
+                                  changeDescription: String(format: "%+.0f", impact),
+                                  impactType: impact > 0 ? .positive : .negative)]
+    }
+
+    private func falloutHeading(_ fallout: Fallout) -> String {
+        let when = "in \(Int(fallout.delay))s"
+        return fallout.chance < 1 ? "\(Int(fallout.chance * 100))% risk, \(when)" : "Later, \(when)"
+    }
+
+    private func falloutDescriptions(_ fallout: Fallout) -> [EffectDescription] {
+        let fine = fallout.fine.map {
+            EffectDescription(metricName: "Cash",
+                              changeDescription: MoneyFormat.signed(-$0.sizedAmount(in: gameState)),
+                              impactType: .negative)
+        }
+        return (fine.map { [$0] } ?? []) + fallout.descriptions
+    }
+
     // Helper to get current value string for a metric
     private func getCurrentValueString(for metricName: String) -> String? {
         let value: String?
         switch metricName.lowercased() { // Use lowercased for case-insensitivity
-        case "money":
+        case "money", "cash":
             value = String(format: "$%.2f", gameState.money)
+        case "income":
+            value = String(format: "$%.2f/s", gameState.baseIncomePerSecond)
         case "workers":
             value = "\(gameState.workers)"
         case "worker morale", "morale":

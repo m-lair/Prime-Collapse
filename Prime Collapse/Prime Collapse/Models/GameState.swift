@@ -129,7 +129,15 @@ struct DelayedEffect: Identifiable, Equatable {
     
     // List to hold pending delayed effects
     var pendingEffects: [DelayedEffect] = []
-    
+
+    /// Temporary income changes from event choices. Not persisted — they last a minute or two.
+    struct IncomeModifier: Equatable {
+        let bonus: Double
+        let start: Date
+        let end: Date
+    }
+    var incomeModifiers: [IncomeModifier] = []
+
     /// Fraction (0–0.5) by which the current environmental impact is slowing automation.
     /// Mirrors the `envPenaltyFactor` used in `processAutomation` (max 50% at 100 impact),
     /// so the UI can explain *why* automation slowed.
@@ -147,13 +155,73 @@ struct DelayedEffect: Identifiable, Equatable {
     // Ship a package manually (tap action)
     func shipPackage() {
         addPackagesShipped(1)
-        
-        // Calculate the actual value based on package value, customer satisfaction, and public perception
-        let perceptionFactor = 0.8 + (publicPerception / 100.0 * 0.4) // Scales 80% to 120%
-        let satisfactionFactor = 0.5 + (customerSatisfaction * 0.5) // Scales 50% to 100%
-        let actualValue = packageValue * perceptionFactor * satisfactionFactor
-        // let actualValue = packageValue * (0.5 + (customerSatisfaction * 0.5)) // OLD CALC
-        earnMoney(actualValue)
+        let now = Date()
+        earnMoney(valuePerPackage * incomeMultiplier(from: now, to: now))
+    }
+
+    /// Money per package: package value scaled by public perception (80–120%) and
+    /// customer satisfaction (50–100%).
+    var valuePerPackage: Double {
+        let perceptionFactor = 0.8 + (publicPerception / 100.0 * 0.4)
+        let satisfactionFactor = 0.5 + (customerSatisfaction * 0.5)
+        return packageValue * perceptionFactor * satisfactionFactor
+    }
+
+    /// Automated packages per second after morale and environmental penalties.
+    var automationRate: Double {
+        // Morale below 0.5 reduces output linearly to 0; above 0.7 boosts it up to +10% at 1.0.
+        let moraleFactor: Double
+        if workerMorale < 0.5 {
+            moraleFactor = workerMorale * 2.0
+        } else if workerMorale > 0.7 {
+            moraleFactor = 1.0 + (workerMorale - 0.7) / 3.0
+        } else {
+            moraleFactor = 1.0
+        }
+        let workerContribution = baseWorkerRate * Double(workers) * workerEfficiency
+        let systemContribution = baseSystemRate * automationEfficiency
+        // High environmental impact slows automation (max penalty 50% at 100 impact)
+        let envPenaltyFactor = max(0, 1.0 - environmentalImpact / 200.0)
+        return (workerContribution + systemContribution) * moraleFactor * envPenaltyFactor
+    }
+
+    /// Automated income per second at current stats, before temporary event modifiers.
+    var baseIncomePerSecond: Double {
+        let income = automationRate * valuePerPackage
+        return income.isFinite ? max(0, income) : 0
+    }
+
+    /// Yardstick for event stakes: a minute of automated income, or 2% of lifetime earnings —
+    /// whichever is larger, so tap-heavy early play and idle late play both register.
+    var earningsPerMinute: Double {
+        max(baseIncomePerSecond * 60, lifetimeTotalMoneyEarned * 0.02)
+    }
+
+    /// Average income multiplier from event modifiers over `[from, to]`. Prorated so a single
+    /// long catch-up tick only pays a 60-second boost for 60 seconds. A zero-length window
+    /// returns the multiplier at that instant.
+    func incomeMultiplier(from: Date, to: Date) -> Double {
+        let window = to.timeIntervalSince(from)
+        var bonus = 0.0
+        for modifier in incomeModifiers {
+            if window > 0 {
+                let overlap = min(to, modifier.end).timeIntervalSince(max(from, modifier.start))
+                if overlap > 0 { bonus += modifier.bonus * overlap / window }
+            } else if modifier.start <= to && to < modifier.end {
+                bonus += modifier.bonus
+            }
+        }
+        return max(0.1, 1.0 + bonus)
+    }
+
+    func applyIncomeShift(_ shift: IncomeShift, at now: Date = Date()) {
+        incomeModifiers.append(IncomeModifier(bonus: shift.bonus, start: now,
+                                              end: now.addingTimeInterval(shift.duration)))
+    }
+
+    func scheduleEffect(after delay: TimeInterval, from now: Date = Date(),
+                        _ apply: @escaping (GameState) -> Void) {
+        pendingEffects.append(DelayedEffect(triggerTime: now.addingTimeInterval(delay), applyEffect: apply))
     }
     
     // Add money to the player's account
@@ -182,36 +250,8 @@ struct DelayedEffect: Identifiable, Equatable {
         workersQuit = 0
         hasWorkersQuit = false
         
-        // Calculate effective automation rate based on worker efficiency and automation efficiency
-        // Factor in worker morale: Morale below 0.5 starts reducing efficiency linearly down to 0 at 0 morale.
-        // Morale above 0.7 could provide a small boost (e.g., up to 10% at 1.0 morale).
-        let moraleFactor: Double
-        if workerMorale < 0.5 {
-            moraleFactor = workerMorale * 2.0 // Scales from 0.0 at 0 morale to 1.0 at 0.5 morale
-        } else if workerMorale > 0.7 {
-            moraleFactor = 1.0 + (workerMorale - 0.7) / 3.0 // Scales from 1.0 at 0.7 morale to 1.1 at 1.0 morale
-        } else {
-            moraleFactor = 1.0 // Neutral effect between 0.5 and 0.7
-        }
-        
-        // Calculate raw contribution from workers
-        let workerContribution = baseWorkerRate * Double(workers) * workerEfficiency
-        
-        // Calculate raw contribution from automated systems
-        let systemContribution = baseSystemRate * automationEfficiency
-        
-        // Total raw automation rate
-        let totalRawRate = workerContribution + systemContribution
-        
-        // Apply morale factor (affects combined rate)
-        let moraleAdjustedRate = totalRawRate * moraleFactor
-        
-        // Apply environmental impact penalty: high impact slows automation (max penalty 50% at 100 impact)
-        let envPenaltyFactor: Double = max(0, 1.0 - environmentalImpact / 200.0)
-        let finalAdjustedRate = moraleAdjustedRate * envPenaltyFactor
-        
-        // Calculate fractional packages shipped (with environmental penalty)
-        let fractionalPackages = finalAdjustedRate * timeElapsed
+        // Calculate fractional packages shipped (morale and environmental penalties included)
+        let fractionalPackages = automationRate * timeElapsed
 
         // Add to our accumulator, guarding against non-finite values poisoning it.
         if fractionalPackages.isFinite && fractionalPackages > 0 {
@@ -226,17 +266,13 @@ struct DelayedEffect: Identifiable, Equatable {
             : Int(packageAccumulator)
         if packagesShipped > 0 {
             addPackagesShipped(packagesShipped)
-            
-            // Calculate package value factoring in customer satisfaction and public perception
-            let perceptionFactor = 0.8 + (publicPerception / 100.0 * 0.4) // Scales 80% to 120%
-            let satisfactionFactor = 0.5 + (customerSatisfaction * 0.5) // Scales 50% to 100%
-            let valuePerPackage = packageValue * perceptionFactor * satisfactionFactor
-            // let valuePerPackage = packageValue * (0.5 + (customerSatisfaction * 0.5)) // OLD CALC
-            earnMoney(Double(packagesShipped) * valuePerPackage)
-            
+            let multiplier = incomeMultiplier(from: currentTime.addingTimeInterval(-timeElapsed), to: currentTime)
+            earnMoney(Double(packagesShipped) * valuePerPackage * multiplier)
+
             // Subtract the shipped packages from the accumulator
             packageAccumulator -= Double(packagesShipped)
         }
+        incomeModifiers.removeAll { $0.end <= currentTime }
 
         // Process pending delayed effects
         let effectsToApply = pendingEffects.filter { currentTime >= $0.triggerTime }
@@ -768,7 +804,10 @@ struct DelayedEffect: Identifiable, Equatable {
         loopEndingStartTime = nil   // Reset loop start time
         workersQuit = 0
         hasWorkersQuit = false
-        
+        // Don't let a previous run's scandals or boosts land in this one.
+        pendingEffects.removeAll()
+        incomeModifiers.removeAll()
+
         // Reset worker and business stats
         workerEfficiency = 1.0
         workerMorale = 0.8
