@@ -5,7 +5,11 @@ struct ShipPackageButton: View {
     @Environment(GameState.self) private var gameState
     @State private var isPressed = false
     @State private var animateScale = false
+    @State private var gains: [ValueGain] = []
+    @State private var shipCount = 0
     @Environment(\.accessDecreaseAnimator) private var decreaseAnimator
+    /// Called with the payout of each tap.
+    var onShip: (Double) -> Void = { _ in }
     
     var body: some View {
         Button {
@@ -21,8 +25,15 @@ struct ShipPackageButton: View {
                 animateScale = false
             }
             
+            let before = gameState.money
             gameState.shipPackage()
-            playHaptic(.medium)
+            let payout = gameState.money - before
+            shipCount += 1
+            if payout > 0 {
+                let now = Date()
+                gains = Array(gains.filter { $0.isActive(at: now) }.suffix(11)) + [ValueGain(amount: payout)]
+            }
+            onShip(payout)
         } label: {
             ZStack {
                 // Outer glow
@@ -77,11 +88,33 @@ struct ShipPackageButton: View {
         }
         .buttonStyle(PlainButtonStyle())
         .disabled(gameState.isCollapsing)
+        .sensoryFeedback(.impact(weight: .medium), trigger: shipCount)
+        .overlay(alignment: .top) { gainFloaters }
+        .task(id: gains.last?.id) {
+            // Drop finished floaters once the latest one has run its course.
+            try? await Task.sleep(for: .seconds(ValueGain.duration))
+            gains.removeAll { !$0.isActive(at: Date()) }
+        }
     }
     
-    private func playHaptic(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
-        let generator = UIImpactFeedbackGenerator(style: style)
-        generator.impactOccurred()
+    private var gainFloaters: some View {
+        TimelineView(.animation(paused: gains.isEmpty)) { timeline in
+            ZStack {
+                ForEach(gains) { gain in
+                    let progress = gain.progress(at: timeline.date)
+                    Text("+\(gain.amount.shortCurrency)")
+                        .font(.system(size: 20, weight: .heavy, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(.green)
+                        .shadow(color: .black.opacity(0.6), radius: 2, y: 1)
+                        .scaleEffect(progress < 0.15 ? 0.7 + progress * 2 : 1)
+                        .opacity(progress < 0.6 ? 1 : 1 - (progress - 0.6) / 0.4)
+                        .offset(x: gain.xJitter, y: -70 * progress)
+                }
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 

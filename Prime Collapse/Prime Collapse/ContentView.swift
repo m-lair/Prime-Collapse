@@ -35,6 +35,7 @@ struct ContentView: View {
     @Environment(GameCenterManager.self) private var gameCenterManager
     @Environment(EventManager.self) private var eventManager
     @Environment(SaveManager.self) private var saveManager
+    @Environment(SoundEffects.self) private var soundEffects
     @State private var gameTask: Task<Void, Never>?
     @Environment(\.scenePhase) private var scenePhase
     
@@ -59,6 +60,12 @@ struct ContentView: View {
     @State private var decreaseAnimator = DecreaseAnimator()
     @State private var previousMoney: Double = 0
     @State private var previousWorkers: Int = 0
+    @State private var previousPurchaseCount: Int = 0
+
+    // Reward feedback
+    @State private var moneyPulse = 0
+    @State private var purchaseCount = 0
+    @State private var milestoneCount = 0
     
     // Game notification system
     @State private var notificationManager = NotificationManager()
@@ -119,6 +126,7 @@ struct ContentView: View {
             // Initialize previous values
             previousMoney = gameState.money
             previousWorkers = gameState.workers
+            previousPurchaseCount = gameState.purchasedUpgradeIDs.count
 
             // If we're already in collapse state, show effects
             if gameState.isCollapsing {
@@ -147,8 +155,11 @@ struct ContentView: View {
             stopGameLoop()
         }
         .onChange(of: gameState.money) { oldValue, newValue in
-            if newValue < oldValue {
-                // Money decreased, trigger animation
+            let currentPurchases = gameState.purchasedUpgradeIDs.count
+            let isPurchase = currentPurchases != previousPurchaseCount
+            previousPurchaseCount = currentPurchases
+            if newValue < oldValue && !isPurchase {
+                // Money lost (not spent on an upgrade), trigger animation
                 let decrease = oldValue - newValue
                 decreaseAnimator.addDecrease(decrease, at: moneyPosition)
                 
@@ -160,6 +171,18 @@ struct ContentView: View {
             }
             previousMoney = newValue
         }
+        .onChange(of: gameState.lifetimeTotalMoneyEarned) { oldValue, newValue in
+            if let tier = Milestone.highestTierCrossed(in: Milestone.lifetimeEarningsTiers, old: oldValue, new: newValue) {
+                celebrate(.earningsMilestone(tier))
+            }
+        }
+        .onChange(of: gameState.totalPackagesShipped) { oldValue, newValue in
+            if let tier = Milestone.highestTierCrossed(in: Milestone.packageTiers, old: oldValue, new: newValue) {
+                celebrate(.packagesMilestone(tier))
+            }
+        }
+        .sensoryFeedback(.success, trigger: purchaseCount)
+        .sensoryFeedback(.success, trigger: milestoneCount)
         .onChange(of: gameState.workers) { oldValue, newValue in
             if newValue < oldValue {
                 // Workers decreased, trigger animation
@@ -265,7 +288,11 @@ struct ContentView: View {
                 }
             }
         }
-        .onChange(of: gameState.purchasedUpgradeIDs.count) { _, _ in
+        .onChange(of: gameState.purchasedUpgradeIDs.count) { oldValue, newValue in
+            if newValue > oldValue {
+                purchaseCount += 1
+                soundEffects.play(.buy)
+            }
             // Save when the player buys an upgrade (repeatable or not — both append here).
             saveManager.saveOnEvent(.upgrade)
             // First purchase marks an engaged player — the right moment to ask for
@@ -296,7 +323,10 @@ struct ContentView: View {
             Spacer()
             
             // Main tap button
-            ShipPackageButton()
+            ShipPackageButton { payout in
+                soundEffects.play(.ship)
+                if payout > 0 { moneyPulse += 1 }
+            }
                 .modifier(ShipButtonPositionReader(position: $shipButtonPosition))
                 .environment(\.accessDecreaseAnimator, decreaseAnimator)
             
@@ -316,7 +346,7 @@ struct ContentView: View {
                 .padding(.top, 12)
                 .shadow(color: .black.opacity(0.5), radius: 2, x: 0, y: 2)
             
-            GameStatsView(isShowingDetails: $showDetailedStatsOverlay)
+            GameStatsView(isShowingDetails: $showDetailedStatsOverlay, moneyPulse: moneyPulse)
                 .padding(.horizontal)
                 // Add position tracking for money and workers
                 .background(MoneyPositionReader(position: $moneyPosition))
@@ -472,9 +502,17 @@ struct ContentView: View {
     
     // MARK: - Helper Functions
     
+    private func celebrate(_ notification: GameNotification) {
+        notificationManager.addNotification(notification)
+        milestoneCount += 1
+        soundEffects.play(.milestone)
+    }
+
     // Helper to format value for display
     private func formatValue(_ value: Double) -> String {
-        if value == round(value) {
+        if value >= 1000 {
+            return NumberFormat.short(value)
+        } else if value == round(value) {
             return "\(Int(value))"
         } else {
             return String(format: "%.1f", value)
