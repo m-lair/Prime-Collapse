@@ -186,6 +186,31 @@ final class EventBalanceTests: XCTestCase {
         XCTAssertLessThan(state.incomeMultiplier(from: Date(), to: Date()), 1.0)
     }
 
+    func testFalloutLandsAfterItsDelay() {
+        let manager = EventManager()
+        let state = lateGame()
+        let start = Date()
+        state.lastUpdate = start
+        let fine = EventStakes.fine.sizedAmount(in: state)
+        let choice = EventChoice(
+            text: "Shortcut",
+            moralImpact: -5,
+            fallout: Fallout(delay: 45, fine: EventStakes.fine,
+                             consequences: { $0.publicPerception -= 10 })
+        )
+
+        manager.processChoice(choice: choice, gameState: state, now: start)
+        state.processAutomation(currentTime: start.addingTimeInterval(30))
+        XCTAssertEqual(state.publicPerception, 50, "nothing lands before the delay")
+
+        let before = state.money
+        let earned = state.baseIncomePerSecond * 16 // before the perception hit lowers income
+        state.processAutomation(currentTime: start.addingTimeInterval(46))
+        XCTAssertEqual(state.publicPerception, 40)
+        XCTAssertEqual(state.money, before + earned - fine, accuracy: state.valuePerPackage * 2)
+        XCTAssertTrue(state.pendingEffects.isEmpty)
+    }
+
     func testIncomeModifierIsProratedAcrossLongTicks() {
         let state = GameState()
         let start = Date()

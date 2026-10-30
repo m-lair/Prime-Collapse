@@ -18,9 +18,10 @@ enum EventStakes {
     static let commitment = MoneyStake.cost(minutes: 2, balanceShare: 0.2, minimum: 40)
     static let sacrifice = MoneyStake.cost(minutes: 4, balanceShare: 0.3, minimum: 80)
 
-    // Delayed fines for shortcuts that get caught.
-    static let fine = MoneyStake.cost(minutes: 1.5, minimum: 40)
-    static let penalty = MoneyStake.cost(minutes: 3, minimum: 100)
+    // Delayed fines for shortcuts that get caught. Balance shares keep them in proportion
+    // to the shortcut payouts, which also scale with the balance.
+    static let fine = MoneyStake.cost(minutes: 1.5, balanceShare: 0.15, minimum: 40)
+    static let penalty = MoneyStake.cost(minutes: 3, balanceShare: 0.25, minimum: 100)
 }
 
 private func better(_ metric: String, _ change: String) -> EffectDescription {

@@ -133,6 +133,12 @@ struct EventView: View {
                     }
                 }
             }
+            // Full-screen backdrop: a decision is pending, so the game behind it must not take
+            // taps (otherwise players could spend down their balance to shrink an ethical cost).
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.black.opacity(slideIn ? 0.35 : 0).ignoresSafeArea())
+            .contentShape(Rectangle())
+            .animation(.easeInOut(duration: 0.3), value: slideIn)
         } else {
             EmptyView()
         }
