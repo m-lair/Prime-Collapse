@@ -23,24 +23,24 @@ struct EventView: View {
             ScrollView(.vertical, showsIndicators: true) {
                 VStack {
                     // Event header
-                    VStack(spacing: 4) {
+                    VStack(spacing: 6) {
                         Text(event.title)
-                            .font(.title3)
-                            .fontWeight(.bold)
+                            .font(.headline)
                             .foregroundColor(.white)
-                            .padding(.vertical, 16)
-                        
+                            .multilineTextAlignment(.center)
+
                         // Category indicator
                         Text(categoryName(event.category))
-                            .font(.caption)
+                            .font(.caption2)
                             .fontWeight(.medium)
                             .foregroundColor(.white)
                             .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
+                            .padding(.vertical, 3)
                             .background(categoryColor(event.category).opacity(0.8))
                             .clipShape(Capsule())
                     }
-                    .padding(.bottom)
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 16)
                     .frame(maxWidth: .infinity)
                     .background(
                         LinearGradient(
@@ -56,9 +56,10 @@ struct EventView: View {
                     
                     // Event description
                     Text(event.description)
-                        .font(.body)
+                        .font(.subheadline)
                         .multilineTextAlignment(.center)
-                        .padding()
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
                         .frame(maxWidth: .infinity)
                         .background(
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -82,7 +83,8 @@ struct EventView: View {
                                 }
                             }) {
                                 // Use the helper function to build the button label content
-                                choiceButtonLabel(choice: choice, isButtonEnabled: isButtonEnabled, canMakeChoice: canMakeChoice)
+                                choiceButtonLabel(choice: choice, importance: event.importance,
+                                                  isButtonEnabled: isButtonEnabled, canMakeChoice: canMakeChoice)
                             }
                             .buttonStyle(ScaleButtonStyle()) // Apply custom button style
                             .disabled(!isButtonEnabled) // Disable button based on combined state
@@ -109,93 +111,71 @@ struct EventView: View {
                 )
                 .shadow(color: .black.opacity(0.5), radius: 10, x: 0, y: 5)
                 .padding(.horizontal, 24)
-                .frame(maxWidth: 400, maxHeight: UIScreen.main.bounds.height * 0.8)
-                .offset(y: slideIn ? 0 : UIScreen.main.bounds.height)
-                .animation(.spring(response: 0.6, dampingFraction: 0.7), value: slideIn)
-                .onAppear {
-                    isInteractable = false // Ensure it's false initially
+                .padding(.vertical, 12) // room for the card's shadow inside the scroll view
+                .frame(maxWidth: 400)
+                .frame(maxWidth: .infinity)
+            }
+            // Cap the scroll view, not its content: capping the content let tall events
+            // overflow above the screen edge, hiding the title under the status bar.
+            .frame(maxHeight: UIScreen.main.bounds.height * 0.8)
+            .fixedSize(horizontal: false, vertical: true)
+            .scrollBounceBehavior(.basedOnSize)
+            .offset(y: slideIn ? 0 : UIScreen.main.bounds.height)
+            .animation(.spring(response: 0.6, dampingFraction: 0.7), value: slideIn)
+            .onAppear {
+                isInteractable = false // Ensure it's false initially
+                withAnimation {
+                    slideIn = true
+                }
+                // Delay enabling interaction
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { // Adjust delay as needed
                     withAnimation {
-                        slideIn = true
-                    }
-                    // Delay enabling interaction
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { // Adjust delay as needed
-                        withAnimation {
-                             isInteractable = true
-                        }
+                         isInteractable = true
                     }
                 }
             }
+            // Full-screen backdrop: a decision is pending, so the game behind it must not take
+            // taps (otherwise players could spend down their balance to shrink an ethical cost).
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.black.opacity(slideIn ? 0.35 : 0).ignoresSafeArea())
+            .contentShape(Rectangle())
+            .animation(.easeInOut(duration: 0.3), value: slideIn)
         } else {
             EmptyView()
         }
     }
     
-    // MARK: - Helper View Builder for Choice Button Label
+    // MARK: - Choice Button Label
+
+    /// Title and ethics badge, then one wrapping row of effect chips (money first), then a single
+    /// line for what lands later. Compact enough that a three-choice event fits without scrolling.
     @ViewBuilder
-    private func choiceButtonLabel(choice: EventChoice, isButtonEnabled: Bool, canMakeChoice: Bool) -> some View {
-        // Main HStack for two-column layout
-        HStack(alignment: .top, spacing: 12) { // Align tops, add spacing
-            // Left Column: Choice Text & Ethics
-            VStack(alignment: .leading, spacing: 8) {
-                Text(choice.text)
-                    .font(.headline) // Make choice text more prominent
-                    .fontWeight(.medium)
-                    .foregroundColor(.white)
-                    .multilineTextAlignment(.leading)
-                    .lineLimit(nil) // Allow text to wrap
+    private func choiceButtonLabel(choice: EventChoice, importance: GameEvent.EventImportance,
+                                   isButtonEnabled: Bool, canMakeChoice: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(choice.text)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(.white)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
 
-                // Ethics impact indicator
-                HStack(spacing: 6) {
-                    Text(ethicsImpactLabel(choice.moralImpact))
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.9))
-
-                    ethicsImpactIndicator(choice.moralImpact)
+            FlowLayout(spacing: 5) {
+                ethicsBadge(choice: choice, importance: importance)
+                ForEach(moneyDescriptions(for: choice) + (choice.effectDescriptions ?? [])) { description in
+                    effectChip(description)
                 }
-                .padding(.vertical, 4)
-                .padding(.horizontal, 8)
-                .background(ethicsImpactColor(choice.moralImpact).opacity(0.4)) // Slightly more opaque bg
-                .cornerRadius(6)
             }
-            .frame(maxWidth: .infinity, alignment: .leading) // Allow left column to expand
 
-            // Right Column: Effects
-            if let descriptions = choice.effectDescriptions, !descriptions.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(descriptions) { description in
-                        HStack(alignment: .firstTextBaseline, spacing: 5) {
-                            Image(systemName: iconName(for: description.impactType))
-                                .font(.caption) // Keep icon size reasonable
-                                .foregroundColor(color(for: description.impactType))
-                                .frame(width: 15, alignment: .center) // Give icon consistent space
-
-                            VStack(alignment: .leading, spacing: 1) { // Reduced spacing
-                                // Metric Name and Change
-                                HStack(spacing: 4) { 
-                                    Text("\(description.metricName):")
-                                        .font(.caption) // Keep captions
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.white.opacity(0.9))
-                                    Text(description.changeDescription)
-                                        .font(.caption)
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(color(for: description.impactType))
-                                }
-
-                                // Current Value (if available)
-                                if let currentValue = getCurrentValueString(for: description.metricName) {
-                                    Text(currentValue)
-                                        .font(.caption2)
-                                        .foregroundColor(.white.opacity(0.6)) // Slightly dimmer
-                                }
-                            }
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading) // Allow right column to expand
+            if let fallout = choice.fallout {
+                Label(falloutSummary(fallout), systemImage: "clock.badge.exclamationmark")
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .foregroundColor(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(16) // Apply padding to the HStack content
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -223,43 +203,68 @@ struct EventView: View {
             }
         )
     }
-    
-    // Helper to get current value string for a metric
-    private func getCurrentValueString(for metricName: String) -> String? {
-        let value: String?
-        switch metricName.lowercased() { // Use lowercased for case-insensitivity
-        case "money":
-            value = String(format: "$%.2f", gameState.money)
-        case "workers":
-            value = "\(gameState.workers)"
-        case "worker morale", "morale":
-            value = String(format: "%.0f%%", gameState.workerMorale * 100)
-        case "worker efficiency", "efficiency":
-             value = String(format: "%.2f", gameState.workerEfficiency)
-        case "customer satisfaction", "satisfaction":
-            value = String(format: "%.0f%%", gameState.customerSatisfaction * 100)
-        case "public perception", "perception":
-            value = String(format: "%.0f / 100", gameState.publicPerception)
-        case "environmental impact", "environment":
-             value = String(format: "%.0f / 100", gameState.environmentalImpact)
-        case "package value":
-            value = String(format: "$%.2f", gameState.packageValue)
-        case "ethics", "ethics score":
-            value = String(format: "%.0f / 100", gameState.ethicsScore)
-        // Add other cases for relevant GameState properties as needed
-        default:
-            return nil // Return nil if metricName doesn't match known properties
+
+    /// "Very Unethical ●●●●● −10": label, dots and the scaled ethics change actually applied.
+    private func ethicsBadge(choice: EventChoice, importance: GameEvent.EventImportance) -> some View {
+        let impact = EventManager.scaledMoralImpact(of: choice, importance: importance, state: gameState)
+        return HStack(spacing: 4) {
+            Text(ethicsImpactLabel(choice.moralImpact))
+            ethicsImpactIndicator(choice.moralImpact)
+            if impact.rounded() != 0 {
+                Text(String(format: "%+.0f", impact))
+                    .fontWeight(.bold)
+            }
         }
-        return "Currently: \(value ?? "N/A")"
+        .font(.caption2)
+        .foregroundColor(.white)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 4)
+        .background(ethicsImpactColor(choice.moralImpact).opacity(0.45))
+        .clipShape(Capsule())
     }
 
-    // Helper functions for EffectDescription display
-    private func iconName(for impactType: EffectDescription.ImpactType) -> String {
-        switch impactType {
-        case .positive: return "arrow.up.right.circle.fill"
-        case .negative: return "arrow.down.right.circle.fill"
-        case .neutral: return "circle.dashed"
+    private func effectChip(_ description: EffectDescription) -> some View {
+        let tint = color(for: description.impactType)
+        // Money chips are already self-describing ("+$75 now"); stat chips need their name.
+        let text = description.metricName == "Cash"
+            ? description.changeDescription
+            : "\(description.metricName) \(description.changeDescription)"
+        return Text(text)
+            .font(.caption2)
+            .fontWeight(description.metricName == "Cash" ? .bold : .medium)
+            .foregroundColor(tint)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 4)
+            .background(tint.opacity(0.15))
+            .clipShape(Capsule())
+    }
+
+    /// "+$340 now" / "Income +25% · 60s", sized from the economy as it stands right now.
+    private func moneyDescriptions(for choice: EventChoice) -> [EffectDescription] {
+        var rows: [EffectDescription] = []
+        if let cash = choice.cash {
+            let amount = cash.signedAmount(in: gameState)
+            rows.append(EffectDescription(metricName: "Cash",
+                                          changeDescription: "\(MoneyFormat.signed(amount)) now",
+                                          impactType: amount >= 0 ? .positive : .negative))
         }
+        if let shift = choice.incomeShift {
+            let percent = String(format: "%+.0f%%", shift.bonus * 100)
+            rows.append(EffectDescription(metricName: "Income",
+                                          changeDescription: "\(percent) · \(Int(shift.duration))s",
+                                          impactType: shift.bonus >= 0 ? .positive : .negative))
+        }
+        return rows
+    }
+
+    /// One line: "In 45s: Perception −10" or "40% risk in 60s: −$1.3K, Perception −15".
+    private func falloutSummary(_ fallout: Fallout) -> String {
+        let when = fallout.chance < 1
+            ? "\(Int(fallout.chance * 100))% risk in \(Int(fallout.delay))s"
+            : "In \(Int(fallout.delay))s"
+        let fine = fallout.fine.map { [MoneyFormat.signed(-$0.sizedAmount(in: gameState))] } ?? []
+        let effects = fallout.descriptions.map { "\($0.metricName) \($0.changeDescription)" }
+        return "\(when): " + (fine + effects).joined(separator: ", ")
     }
 
     private func color(for impactType: EffectDescription.ImpactType) -> Color {
@@ -343,6 +348,43 @@ struct EventView: View {
             case .regulatory: return .orange
             case .technology: return .yellow
             case .crisis: return .red
+        }
+    }
+}
+
+/// Left-to-right wrapping layout for effect chips.
+private struct FlowLayout: Layout {
+    var spacing: CGFloat = 4
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0, widest: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > 0 && x + size.width > maxWidth {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            x += size.width + spacing
+            widest = max(widest, x - spacing)
+            rowHeight = max(rowHeight, size.height)
+        }
+        return CGSize(width: min(widest, maxWidth), height: y + rowHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX, y = bounds.minY, rowHeight: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > bounds.minX && x + size.width > bounds.maxX {
+                x = bounds.minX
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
         }
     }
 }
