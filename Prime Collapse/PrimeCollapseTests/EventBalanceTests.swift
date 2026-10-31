@@ -239,6 +239,60 @@ final class EventBalanceTests: XCTestCase {
         XCTAssertEqual(boosted, state.baseIncomePerSecond * 20, accuracy: state.valuePerPackage * 2)
     }
 
+    // MARK: Reform ending
+
+    /// The run from a player report: Reform fired at 2,227 packages after five cheap good deeds.
+    func testReformDoesNotFireOnAnEarlyRun() {
+        let state = GameState()
+        state.reset()
+        state.totalPackagesShipped = 2_227
+        state.lifetimeTotalMoneyEarned = 2_569
+        state.workers = 9
+        state.ethicalChoicesMade = 5
+        state.ethicsScore = 100
+        state.money = 1_500
+
+        state.checkForReformEnding()
+
+        XCTAssertFalse(state.endingReached)
+        XCTAssertNotEqual(state.endingType, .reform)
+    }
+
+    func testReformNeedsEveryRequirement() {
+        let shortfalls: [(String, (GameState) -> Void)] = [
+            ("choices", { $0.ethicalChoicesMade -= 1 }),
+            ("ethics", { $0.ethicsScore -= 1 }),
+            ("lifetime", { $0.lifetimeTotalMoneyEarned -= 1 }),
+        ]
+        for (name, fallShort) in shortfalls {
+            let state = GameState()
+            state.ethicalChoicesMade = GameState.reformEthicalChoices
+            state.ethicsScore = GameState.reformEthicsScore
+            state.lifetimeTotalMoneyEarned = GameState.reformLifetimeEarnings
+            fallShort(state)
+
+            state.checkForReformEnding()
+
+            XCTAssertFalse(state.endingReached, "short on \(name)")
+        }
+    }
+
+    /// Events go through the same gate as upgrades and ticks, and actually end the game.
+    func testEthicalEventChoiceCanCompleteReform() throws {
+        let manager = EventManager()
+        let event = try XCTUnwrap(manager.allEventsForTesting.first { $0.title == "Market Boom" })
+        let stable = try XCTUnwrap(byMorality(event).last)
+
+        let state = lateGame()
+        state.lifetimeTotalMoneyEarned = GameState.reformLifetimeEarnings
+        state.ethicalChoicesMade = GameState.reformEthicalChoices - 1
+        manager.presentForTesting(titled: event.title)
+        manager.processChoice(choice: stable, gameState: state)
+
+        XCTAssertTrue(state.endingReached)
+        XCTAssertEqual(state.endingType, .reform)
+    }
+
     func testResetClearsPendingEffectsAndModifiers() {
         let state = lateGame()
         state.applyIncomeShift(IncomeShift(bonus: 0.5, duration: 60))

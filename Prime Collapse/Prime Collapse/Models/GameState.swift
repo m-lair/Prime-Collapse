@@ -32,6 +32,13 @@ struct DelayedEffect: Identifiable, Equatable {
     /// player is never charged for a worker that data-integrity validation would strip.
     static let maxWorkers = 150
 
+    /// Reform is the capstone of a clean run, reachable only after the late-game events and
+    /// ethical upgrades — not by holding $1K after a few cheap good deeds. Lifetime earnings,
+    /// not the balance, because ethical event choices now cost cash.
+    static let reformEthicalChoices = 10
+    static let reformEthicsScore = 70.0
+    static let reformLifetimeEarnings = 25_000.0
+
     // Core game metrics
     var totalPackagesShipped: Int = 0
     // Clamp money >= 0 and reject non-finite values (NaN/inf) so a bad calculation
@@ -698,11 +705,9 @@ struct DelayedEffect: Identifiable, Equatable {
         // Collapse takes precedence, and an earned ending only fires once.
         guard !isCollapsing && !endingReached else { return }
 
-        // To get the Reform ending:
-        // 1. Player must have made at least 5 ethical choices (positive impact)
-        // 2. Ethics score must be 50 or higher
-        // 3. Must have earned at least $1000
-        if ethicalChoicesMade >= 5 && ethicsScore >= 50 && money >= 1000 {
+        if ethicalChoicesMade >= GameState.reformEthicalChoices
+            && ethicsScore >= GameState.reformEthicsScore
+            && lifetimeTotalMoneyEarned >= GameState.reformLifetimeEarnings {
             endingType = .reform
             endingReached = true
         }

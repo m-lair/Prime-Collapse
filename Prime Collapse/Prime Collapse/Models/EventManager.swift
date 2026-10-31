@@ -144,10 +144,7 @@ private func worse(_ metric: String, _ change: String) -> EffectDescription {
         // Track ethical choices for ending conditions (positive impact is now ethical)
         if scaledMoralImpact > 0 {
             gameState.ethicalChoicesMade += 1
-            // Check for potential reform ending (uses ethicsScore)
-            if gameState.ethicsScore >= 50 && gameState.money >= 1000 && gameState.ethicalChoicesMade >= 5 {
-                gameState.endingType = .reform
-            }
+            gameState.checkForReformEnding()
         }
 
         // Check if we've entered collapse phase (uses ethicsScore)
