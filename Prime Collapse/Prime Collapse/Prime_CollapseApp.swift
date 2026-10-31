@@ -44,6 +44,11 @@ struct Prime_CollapseApp: App {
                     // Authenticate Game Center when the app launches.
                     gameCenterManager.authenticatePlayer()
                 }
+                .onChange(of: gameCenterManager.isAuthenticated) { _, isAuthenticated in
+                    if isAuthenticated {
+                        gameCenterManager.forceRefreshScores(game)
+                    }
+                }
                 .onChange(of: game.totalPackagesShipped) { _, newValue in
                     // Save on milestone package counts.
                     saveManager.saveOnEvent(.milestone(newValue))
