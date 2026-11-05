@@ -2,6 +2,7 @@ import SwiftUI
 
 // Card for displaying a statistic
 struct StatCard: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let icon: String
     let title: String
     let value: String
@@ -20,6 +21,7 @@ struct StatCard: View {
                     .font(.system(size: 14, weight: .bold))
                     .shadow(color: iconColor.opacity(0.5), radius: 2, x: 0, y: 1)
                     .symbolEffect(.bounce, value: iconPulse)
+                    .symbolEffectsRemoved(reduceMotion)
                 
                 Text(title)
                     .font(.system(size: 12, weight: .semibold))
@@ -32,8 +34,8 @@ struct StatCard: View {
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
-                .contentTransition(.numericText())
-                .animation(.snappy(duration: 0.2), value: value)
+                .contentTransition(reduceMotion ? .identity : .numericText())
+                .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: value)
             
             if let secondaryText = secondaryText {
                 Text(secondaryText)

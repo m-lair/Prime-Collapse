@@ -8,9 +8,9 @@ import Observation
 
         var volume: Float {
             switch self {
-            case .ship: 0.45
-            case .buy: 0.6
-            case .milestone: 0.7
+            case .ship: 0.18
+            case .buy: 0.25
+            case .milestone: 0.32
             }
         }
 

@@ -35,6 +35,7 @@ struct ContentView: View {
     @Environment(GameCenterManager.self) private var gameCenterManager
     @Environment(EventManager.self) private var eventManager
     @Environment(SaveManager.self) private var saveManager
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(SoundEffects.self) private var soundEffects
     @State private var gameTask: Task<Void, Never>?
     @Environment(\.scenePhase) private var scenePhase
@@ -88,9 +89,6 @@ struct ContentView: View {
             
             // Value decrease animations layer
             animationLayer
-            
-            // Game notifications overlay
-            notificationOverlay
             
             // Package shipping animation trigger (zero-size view)
             packageShippingTrigger
@@ -319,6 +317,7 @@ struct ContentView: View {
         VStack(spacing: 0) {
             // Header with title and stats
             headerView
+            notificationsView
             
             Spacer()
             
@@ -396,26 +395,25 @@ struct ContentView: View {
         }
     }
     
-    private var notificationOverlay: some View {
-        VStack {
-            Spacer().frame(height: 180) // Push notifications below header
-            
+    private var notificationsView: some View {
+        VStack(spacing: 8) {
             ForEach(notificationManager.notifications) { notification in
                 GameNotificationView(notification: notification)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
-            
-            Spacer()
         }
+        .frame(maxWidth: 560)
         .padding(.horizontal)
-        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: notificationManager.notifications.count)
+        .padding(.top, notificationManager.notifications.isEmpty ? 0 : 8)
+        .allowsHitTesting(false)
+        .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: notificationManager.notifications.count)
     }
     
     private var packageShippingTrigger: some View {
         Color.clear
             .frame(width: 0, height: 0)
             .onChange(of: gameState.totalPackagesShipped) { oldValue, newValue in
-                if newValue > oldValue {
+                if newValue > oldValue && !reduceMotion {
                     // Add animation for each package shipped (limit to avoid flooding)
                     let packagesShipped = min(newValue - oldValue, 3) // Reduce max from 5 to 3
                     
