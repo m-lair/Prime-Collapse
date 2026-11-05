@@ -3,6 +3,9 @@ import GameKit
 
 /// Manages Game Center functionality including authentication, leaderboards, and achievements
 @Observable final class GameCenterManager: NSObject {
+    typealias ScoreSubmitter = (Int, String, @escaping @MainActor (Error?) -> Void) -> Void
+
+    private let submitLeaderboardScore: ScoreSubmitter
     // MARK: - Properties
     
     /// Whether the user is authenticated with Game Center
@@ -35,19 +38,17 @@ import GameKit
     private let achievementUpdateInterval: TimeInterval = 5.0
     
     /// Cache of last submitted scores to avoid duplicate submissions
-    var lastSubmittedScores: [String: Int] = [:]
+    private(set) var lastSubmittedScores: [String: Int] = [:]
+    private var inFlightScores: [String: Int] = [:]
     
     /// Cache of last reported achievement progresses to avoid duplicate reports
     private var lastReportedAchievements: [String: Double] = [:]
     
     /// Pending leaderboard updates that failed and need to be retried
-    private var pendingLeaderboardUpdates: [(leaderboardID: String, score: Int)] = []
+    private var pendingLeaderboardUpdates: [String: Int] = [:]
     
     /// Maximum number of retry attempts for leaderboard submissions
     private let maxRetryAttempts = 3
-    
-    /// Current retry count for leaderboard submissions
-    private var retryCount = 0
     
     /// Background task for retrying failed leaderboard submissions
     private var retryTask: Task<Void, Never>?
@@ -121,7 +122,12 @@ import GameKit
     
     // MARK: - Initialization
     
-    override init() {
+    init(submitLeaderboardScore: @escaping ScoreSubmitter = { score, leaderboardID, completion in
+        GKLeaderboard.submitScore(score, context: 0, player: GKLocalPlayer.local, leaderboardIDs: [leaderboardID]) { error in
+            Task { @MainActor in completion(error) }
+        }
+    }) {
+        self.submitLeaderboardScore = submitLeaderboardScore
         super.init()
         // Don't authenticate automatically on init
         
@@ -344,152 +350,85 @@ import GameKit
         }
     }
     
-    /// Submits a score to the specified leaderboard
-    /// - Parameters:
-    ///   - score: The score to submit
-    ///   - leaderboardID: The ID of the leaderboard to submit the score to
+    /// Only acknowledged scores enter the cache used to suppress duplicate uploads.
     func submitScore(_ score: Int, to leaderboardID: String) {
-        guard isAuthenticated else {
-            // Silently ignore if not authenticated to prevent console spam
-            return
-        }
-        
-        // Check if we've already submitted this score
-        if let lastScore = lastSubmittedScores[leaderboardID], lastScore >= score {
-            // Skip if the new score is not higher than the last submitted score
-            return
-        }
-        
-        print("Submitting score \(score) to leaderboard \(leaderboardID)")
-        
-        // Update the cache
-        lastSubmittedScores[leaderboardID] = score
-        
-        GKLeaderboard.submitScore(score, context: 0, player: GKLocalPlayer.local, leaderboardIDs: [leaderboardID]) { [weak self] error in
-            guard let self = self else { return }
-            
-            if let error = error {
-                print("❌ ERROR submitting score to leaderboard \(leaderboardID): \(error.localizedDescription)")
-                
-                // Add to pending updates for retry
-                self.pendingLeaderboardUpdates.append((leaderboardID: leaderboardID, score: score))
-                
-                // Start retry mechanism if not already running
+        guard isAuthenticated else { return }
+        let score = max(score, pendingLeaderboardUpdates[leaderboardID] ?? score)
+        if let confirmed = lastSubmittedScores[leaderboardID], confirmed >= score { return }
+        if let inFlight = inFlightScores[leaderboardID], inFlight >= score { return }
+
+        inFlightScores[leaderboardID] = score
+        submitLeaderboardScore(score, leaderboardID) { [weak self] error in
+            guard let self else { return }
+            if self.inFlightScores[leaderboardID] == score {
+                self.inFlightScores.removeValue(forKey: leaderboardID)
+            }
+
+            if let error {
+                print("Error submitting score to \(leaderboardID): \(error.localizedDescription)")
+                if let confirmed = self.lastSubmittedScores[leaderboardID], confirmed >= score { return }
+                self.pendingLeaderboardUpdates[leaderboardID] = max(
+                    self.pendingLeaderboardUpdates[leaderboardID] ?? score, score
+                )
                 self.startRetryMechanismIfNeeded()
             } else {
-                print("✅ Successfully submitted score \(score) to leaderboard \(leaderboardID)")
+                self.recordSuccessfulScore(score, for: leaderboardID)
             }
         }
     }
-    
-    /// Submits multiple scores to leaderboards in a batch
-    /// - Parameter scores: Dictionary mapping leaderboardIDs to scores
+
     func submitBatchScores(_ scores: [String: Int]) {
-        guard isAuthenticated, !scores.isEmpty else { return }
-        
-        // Filter out scores that don't need to be updated
-        let scoresToSubmit = scores.filter { leaderboardID, score in
-            if let lastScore = lastSubmittedScores[leaderboardID], lastScore >= score {
-                return false
-            }
-            return true
-        }
-        
-        guard !scoresToSubmit.isEmpty else { 
-            print("No new scores to submit - all scores are already at or above current values")
-            return 
-        }
-        
-        print("Batch submitting new scores: \(scoresToSubmit)")
-        
-        // Update the cache with new scores
-        for (leaderboardID, score) in scoresToSubmit {
-            lastSubmittedScores[leaderboardID] = score
-        }
-        
-        // Process each score individually to ensure proper submission
-        for (leaderboardID, score) in scoresToSubmit {
-            GKLeaderboard.submitScore(score, context: 0, player: GKLocalPlayer.local, leaderboardIDs: [leaderboardID]) { [weak self] error in
-                guard let self = self else { return }
-                
-                if let error = error {
-                    print("❌ ERROR batch submitting score \(score) to leaderboard \(leaderboardID): \(error.localizedDescription)")
-                    
-                    // Add to pending updates for retry
-                    self.pendingLeaderboardUpdates.append((leaderboardID: leaderboardID, score: score))
-                    
-                    // Start retry mechanism if not already running
-                    self.startRetryMechanismIfNeeded()
-                } else {
-                    print("✅ Successfully submitted score \(score) to leaderboard \(leaderboardID)")
-                }
-            }
+        for (leaderboardID, score) in scores {
+            submitScore(score, to: leaderboardID)
         }
     }
-    
-    /// Starts the retry mechanism for failed leaderboard submissions if not already running
+
+    private func recordSuccessfulScore(_ score: Int, for leaderboardID: String) {
+        lastSubmittedScores[leaderboardID] = max(lastSubmittedScores[leaderboardID] ?? score, score)
+        if let pending = pendingLeaderboardUpdates[leaderboardID], pending <= score {
+            pendingLeaderboardUpdates.removeValue(forKey: leaderboardID)
+        }
+    }
+
     private func startRetryMechanismIfNeeded() {
-        // If there's already a retry task running, we don't need to start another one
-        guard retryTask == nil || retryTask?.isCancelled == true else { return }
-        
-        retryTask = Task {
-            // Reset retry count for new retry session
-            retryCount = 0
-            
-            while !pendingLeaderboardUpdates.isEmpty && retryCount < maxRetryAttempts {
-                // Wait with exponential backoff
-                let delay = pow(2.0, Double(retryCount)) // 1, 2, 4 seconds
-                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-                
-                if Task.isCancelled { break }
-                
-                // Increase retry count
-                retryCount += 1
-                
-                // Create a copy of the current pending updates
-                let updatesToRetry = pendingLeaderboardUpdates
-                
-                // Group submissions by score value to reduce API calls
-                let submissionsByScore = Dictionary(grouping: updatesToRetry) { $0.score }
-                
-                var failedUpdates: [(leaderboardID: String, score: Int)] = []
-                
-                for (score, leaderboardEntries) in submissionsByScore {
-                    let leaderboardIDs = leaderboardEntries.map { $0.leaderboardID }
-                    
-                    // Submit the score to multiple leaderboards
-                    let result = await withCheckedContinuation { continuation in
-                        GKLeaderboard.submitScore(score, context: 0, player: GKLocalPlayer.local, leaderboardIDs: leaderboardIDs) { error in
+        guard retryTask == nil else { return }
+        retryTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.retryTask = nil }
+
+            for attempt in 0..<self.maxRetryAttempts {
+                guard !self.pendingLeaderboardUpdates.isEmpty else { return }
+                do {
+                    try await Task.sleep(for: .seconds(pow(2.0, Double(attempt))))
+                } catch {
+                    return
+                }
+                guard self.isAuthenticated, !Task.isCancelled else { return }
+
+                let updates = self.pendingLeaderboardUpdates
+                for (leaderboardID, score) in updates {
+                    if let confirmed = self.lastSubmittedScores[leaderboardID], confirmed >= score {
+                        continue
+                    }
+                    guard self.inFlightScores[leaderboardID] == nil else { continue }
+                    self.inFlightScores[leaderboardID] = score
+                    let succeeded = await withCheckedContinuation { continuation in
+                        self.submitLeaderboardScore(score, leaderboardID) { error in
                             continuation.resume(returning: error == nil)
                         }
                     }
-                    
-                    if !result {
-                        // If submission failed, add back to failed updates
-                        failedUpdates.append(contentsOf: leaderboardEntries)
+                    if self.inFlightScores[leaderboardID] == score {
+                        self.inFlightScores.removeValue(forKey: leaderboardID)
+                    }
+                    if succeeded {
+                        self.recordSuccessfulScore(score, for: leaderboardID)
                     }
                 }
-                
-                // Update pending updates with only the failed ones
-                pendingLeaderboardUpdates = failedUpdates
-                
-                if pendingLeaderboardUpdates.isEmpty {
-                    print("Successfully retried all pending leaderboard updates")
-                    break
-                }
             }
-            
-            // Log if we still have pending updates after max retries
-            if !pendingLeaderboardUpdates.isEmpty {
-                print("Failed to submit \(pendingLeaderboardUpdates.count) leaderboard updates after \(maxRetryAttempts) attempts")
-                // Clear pending updates to avoid buildup
-                pendingLeaderboardUpdates.removeAll()
-            }
-            
-            retryTask = nil
+            // Keep the highest failed scores eligible for the next save or manual refresh.
         }
     }
-    
+
     // MARK: - Achievements
     
     /// Presents the Game Center achievements UI
@@ -573,53 +512,11 @@ import GameKit
         
         let now = Date()
         
-        // Throttle leaderboard updates
         if now.timeIntervalSince(lastLeaderboardUpdate) >= leaderboardUpdateInterval {
-            // Update local score cache immediately (even before submission)
-            lastSubmittedScores[Self.totalPackagesLeaderboardID] = gameState.totalPackagesShipped
-            lastSubmittedScores[Self.totalMoneyLeaderboardID] = Int(gameState.lifetimeTotalMoneyEarned)
-            lastSubmittedScores[Self.highestEthicsScoreLeaderboardID] = Int(gameState.ethicsScore)
-            
-            // Calculate packages per second rate
-            let workerContribution = gameState.baseWorkerRate * Double(gameState.workers) * gameState.workerEfficiency
-            let systemContribution = gameState.baseSystemRate * gameState.automationEfficiency
-            let packagesPerSecond = Int((workerContribution + systemContribution) * 100) // Multiply by 100 to store 2 decimal places as integer
-            lastSubmittedScores[Self.packagesPerSecondLeaderboardID] = packagesPerSecond
-            
-            // Total workers
-            lastSubmittedScores[Self.totalWorkersLeaderboardID] = gameState.workers
-            
-            // Prepare batch scores update
-            var scores: [String: Int] = [:]
-            
-            // Add core scores
-            scores[Self.totalPackagesLeaderboardID] = gameState.totalPackagesShipped
-            scores[Self.totalMoneyLeaderboardID] = Int(gameState.lifetimeTotalMoneyEarned)
-            scores[Self.highestEthicsScoreLeaderboardID] = Int(gameState.ethicsScore)
-            scores[Self.packagesPerSecondLeaderboardID] = packagesPerSecond
-            scores[Self.totalWorkersLeaderboardID] = gameState.workers
-            
-            // Submit scores in batch
-            submitBatchScores(scores)
-            
+            submitBatchScores(leaderboardScores(from: gameState))
             lastLeaderboardUpdate = now
-        } else {
-            // Even if we're throttling network updates, still update the local cache
-            // This ensures the UI can always see the latest scores
-            lastSubmittedScores[Self.totalPackagesLeaderboardID] = gameState.totalPackagesShipped
-            lastSubmittedScores[Self.totalMoneyLeaderboardID] = Int(gameState.lifetimeTotalMoneyEarned)
-            lastSubmittedScores[Self.highestEthicsScoreLeaderboardID] = Int(gameState.ethicsScore)
-            
-            // Calculate packages per second rate
-            let workerContribution = gameState.baseWorkerRate * Double(gameState.workers) * gameState.workerEfficiency
-            let systemContribution = gameState.baseSystemRate * gameState.automationEfficiency
-            let packagesPerSecond = Int((workerContribution + systemContribution) * 100) // Multiply by 100 to store 2 decimal places as integer
-            lastSubmittedScores[Self.packagesPerSecondLeaderboardID] = packagesPerSecond
-            
-            // Total workers
-            lastSubmittedScores[Self.totalWorkersLeaderboardID] = gameState.workers
         }
-        
+
         // Throttle achievement updates
         if now.timeIntervalSince(lastAchievementUpdate) >= achievementUpdateInterval {
             // Update achievements
@@ -705,70 +602,25 @@ import GameKit
         }
     }
     
-    /// Force a refresh of all leaderboard scores without throttling
+    /// Bypasses the update interval, while still skipping confirmed or in-flight scores.
     func forceRefreshScores(_ gameState: GameState) {
         guard isAuthenticated else { return }
-        
-        // Calculate scores to submit
-        let packagesScore = gameState.totalPackagesShipped
-        let moneyScore = Int(gameState.lifetimeTotalMoneyEarned)
-        let ethicsScore = Int(gameState.ethicsScore)
-        
-        // Calculate packages per second rate
+        submitBatchScores(leaderboardScores(from: gameState).filter { $0.value > 0 })
+        lastLeaderboardUpdate = Date()
+    }
+
+    private func leaderboardScores(from gameState: GameState) -> [String: Int] {
         let workerContribution = gameState.baseWorkerRate * Double(gameState.workers) * gameState.workerEfficiency
         let systemContribution = gameState.baseSystemRate * gameState.automationEfficiency
-        let packagesPerSecond = Int((workerContribution + systemContribution) * 100) // Multiply by 100 to store 2 decimal places as integer
-        
-        // Update local score cache immediately
-        lastSubmittedScores[Self.totalPackagesLeaderboardID] = packagesScore
-        lastSubmittedScores[Self.totalMoneyLeaderboardID] = moneyScore
-        lastSubmittedScores[Self.highestEthicsScoreLeaderboardID] = ethicsScore
-        lastSubmittedScores[Self.packagesPerSecondLeaderboardID] = packagesPerSecond
-        lastSubmittedScores[Self.totalWorkersLeaderboardID] = gameState.workers
-        
-        // Check for meaningfully different scores from what's already been submitted
-        let shouldSubmitPackages = packagesScore > 0
-        let shouldSubmitMoney = moneyScore > 0
-        let shouldSubmitEthics = ethicsScore > 0
-        let shouldSubmitPPS = packagesPerSecond > 0
-        let shouldSubmitWorkers = gameState.workers > 0
-        
-        if shouldSubmitPackages || shouldSubmitMoney || shouldSubmitEthics || shouldSubmitPPS || shouldSubmitWorkers {
-            // Prepare scores dictionary
-            var scores: [String: Int] = [:]
-            
-            if shouldSubmitPackages {
-                scores[Self.totalPackagesLeaderboardID] = packagesScore
-            }
-            
-            if shouldSubmitMoney {
-                scores[Self.totalMoneyLeaderboardID] = moneyScore
-            }
-            
-            if shouldSubmitEthics {
-                scores[Self.highestEthicsScoreLeaderboardID] = ethicsScore
-            }
-            
-            if shouldSubmitPPS {
-                scores[Self.packagesPerSecondLeaderboardID] = packagesPerSecond
-            }
-            
-            if shouldSubmitWorkers {
-                scores[Self.totalWorkersLeaderboardID] = gameState.workers
-            }
-            
-            // Submit scores individually for better error tracking
-            for (leaderboardID, score) in scores {
-                submitScore(score, to: leaderboardID)
-            }
-            
-            // Update last update time to prevent immediate re-submission
-            lastLeaderboardUpdate = Date()
-        } else {
-            print("No scores to update: current scores are already submitted or zero")
-        }
+        return [
+            Self.totalPackagesLeaderboardID: gameState.totalPackagesShipped,
+            Self.totalMoneyLeaderboardID: Int(gameState.lifetimeTotalMoneyEarned),
+            Self.highestEthicsScoreLeaderboardID: Int(gameState.ethicsScore),
+            Self.packagesPerSecondLeaderboardID: Int((workerContribution + systemContribution) * 100),
+            Self.totalWorkersLeaderboardID: gameState.workers
+        ]
     }
-    
+
     // MARK: - Helper Functions
     
     /// Gets the root view controller of the app
