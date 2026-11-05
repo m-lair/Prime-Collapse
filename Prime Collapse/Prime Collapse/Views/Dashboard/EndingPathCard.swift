@@ -93,17 +93,17 @@ struct EndingPathCard: View {
             requirements: [
                 RequirementItem(
                     title: "Ethical Choices",
-                    value: "3/5",
+                    value: "3/10",
                     isMet: false
                 ),
                 RequirementItem(
                     title: "Ethics Level",
-                    value: "< 50",
+                    value: "≥ 70",
                     isMet: true
                 ),
                 RequirementItem(
-                    title: "Money Earned",
-                    value: "> $1,000",
+                    title: "Lifetime Earnings",
+                    value: "≥ $25,000",
                     isMet: true
                 )
             ]

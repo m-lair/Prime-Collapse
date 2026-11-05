@@ -45,6 +45,9 @@ struct Prime_CollapseApp: App {
                 .onAppear {
                     // Authenticate Game Center when the app launches.
                     gameCenterManager.authenticatePlayer()
+                    #if DEBUG
+                    presentDebugEventIfRequested()
+                    #endif
                 }
                 .onChange(of: gameCenterManager.isAuthenticated) { _, isAuthenticated in
                     if isAuthenticated {
@@ -57,4 +60,19 @@ struct Prime_CollapseApp: App {
                 }
         }
     }
+
+    #if DEBUG
+    /// QA hook: `-debugEvent "Competitor Undercuts Prices" -debugMoney 500` opens that event on launch.
+    private func presentDebugEventIfRequested() {
+        let defaults = UserDefaults.standard
+        guard let title = defaults.string(forKey: "debugEvent") else { return }
+        let money = defaults.double(forKey: "debugMoney")
+        if money > 0 {
+            game.money = money
+            // Stakes scale with earnings; a balance nobody earned would understate them.
+            game.lifetimeTotalMoneyEarned = max(game.lifetimeTotalMoneyEarned, money)
+        }
+        eventManager.presentForTesting(titled: title)
+    }
+    #endif
 }

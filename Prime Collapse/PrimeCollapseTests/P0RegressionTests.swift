@@ -118,9 +118,9 @@ final class P0RegressionTests: XCTestCase {
 
     func testReformEndingFiresWhenCriteriaMet() {
         let gs = GameState()
-        gs.ethicalChoicesMade = 5
-        gs.ethicsScore = 60
-        gs.money = 1500
+        gs.ethicalChoicesMade = GameState.reformEthicalChoices
+        gs.ethicsScore = GameState.reformEthicsScore
+        gs.lifetimeTotalMoneyEarned = GameState.reformLifetimeEarnings
 
         gs.checkForReformEnding()
 
@@ -129,12 +129,12 @@ final class P0RegressionTests: XCTestCase {
     }
 
     func testReformEndingFiresFromAutomationTick() {
-        // Reform criteria can be completed by passive income (crossing $1000), so the
+        // Reform criteria can be completed by passive income (crossing the lifetime bar), so the
         // game loop itself must notice — not just upgrade purchases.
         let gs = GameState()
-        gs.ethicalChoicesMade = 5
-        gs.ethicsScore = 60
-        gs.money = 1500
+        gs.ethicalChoicesMade = GameState.reformEthicalChoices
+        gs.ethicsScore = GameState.reformEthicsScore
+        gs.lifetimeTotalMoneyEarned = GameState.reformLifetimeEarnings
         gs.lastUpdate = Date(timeIntervalSinceNow: -1)
 
         gs.processAutomation(currentTime: Date())
@@ -146,9 +146,9 @@ final class P0RegressionTests: XCTestCase {
     func testReformEndingDoesNotFireDuringCollapse() {
         let gs = GameState()
         gs.isCollapsing = true
-        gs.ethicalChoicesMade = 5
-        gs.ethicsScore = 60
-        gs.money = 1500
+        gs.ethicalChoicesMade = GameState.reformEthicalChoices
+        gs.ethicsScore = GameState.reformEthicsScore
+        gs.lifetimeTotalMoneyEarned = GameState.reformLifetimeEarnings
 
         gs.checkForReformEnding()
 
@@ -173,9 +173,9 @@ final class P0RegressionTests: XCTestCase {
 
     func testResetClearsEndingReached() {
         let gs = GameState()
-        gs.ethicalChoicesMade = 5
-        gs.ethicsScore = 60
-        gs.money = 1500
+        gs.ethicalChoicesMade = GameState.reformEthicalChoices
+        gs.ethicsScore = GameState.reformEthicsScore
+        gs.lifetimeTotalMoneyEarned = GameState.reformLifetimeEarnings
         gs.checkForReformEnding()
         XCTAssertTrue(gs.endingReached)
 
