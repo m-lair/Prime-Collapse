@@ -16,6 +16,7 @@ struct Prime_CollapseApp: App {
     @State private var eventManager = EventManager()
     @State private var saveManager: SaveManager
     @State private var prestigeManager: PrestigeManager
+    @State private var soundEffects = SoundEffects()
 
     init() {
         // Build the core objects up front and load any existing save synchronously,
@@ -40,6 +41,7 @@ struct Prime_CollapseApp: App {
                 .environment(eventManager)
                 .environment(saveManager)
                 .environment(prestigeManager)
+                .environment(soundEffects)
                 .onAppear {
                     // Authenticate Game Center when the app launches.
                     gameCenterManager.authenticatePlayer()

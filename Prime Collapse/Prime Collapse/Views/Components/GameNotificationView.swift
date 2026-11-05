@@ -2,6 +2,7 @@ import SwiftUI
 
 // Game notification view component
 struct GameNotificationView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let notification: GameNotification
     @State private var isShowing = false
     
@@ -35,10 +36,10 @@ struct GameNotificationView: View {
                 )
         )
         .opacity(isShowing ? 1.0 : 0.0)
-        .offset(y: isShowing ? 0 : -20)
+        .offset(y: reduceMotion || isShowing ? 0 : -20)
         .shadow(color: Color.black.opacity(0.3), radius: 5)
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+            withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.4, dampingFraction: 0.7)) {
                 isShowing = true
             }
         }

@@ -16,7 +16,7 @@ struct SettingsView: View {
     // State to hold save data information
     @State private var saveDataInfo: String = "No save data found"
 
-    // Persisted audio preferences (no audio engine yet, but the toggles are honest).
+    // Persisted audio preferences. SoundEffects reads the effects toggle; there is no music yet.
     @AppStorage("soundEffectsEnabled") private var soundEffectsEnabled = true
     @AppStorage("backgroundMusicEnabled") private var backgroundMusicEnabled = true
 

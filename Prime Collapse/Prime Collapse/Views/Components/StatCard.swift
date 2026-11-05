@@ -2,6 +2,7 @@ import SwiftUI
 
 // Card for displaying a statistic
 struct StatCard: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let icon: String
     let title: String
     let value: String
@@ -10,6 +11,7 @@ struct StatCard: View {
     var valueColor: Color? = nil
     var isHighlightSecondary: Bool = false // Highlight secondary text for emphasis
     var secondaryTextColor: Color? = nil
+    var iconPulse: Int = 0 // Bump to bounce the icon
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -18,6 +20,8 @@ struct StatCard: View {
                     .foregroundColor(iconColor)
                     .font(.system(size: 14, weight: .bold))
                     .shadow(color: iconColor.opacity(0.5), radius: 2, x: 0, y: 1)
+                    .symbolEffect(.bounce, value: iconPulse)
+                    .symbolEffectsRemoved(reduceMotion)
                 
                 Text(title)
                     .font(.system(size: 12, weight: .semibold))
@@ -27,8 +31,11 @@ struct StatCard: View {
             Text(value)
                 .font(.system(size: 18, weight: .bold, design: .rounded))
                 .foregroundColor(valueColor ?? .white)
+                .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
+                .contentTransition(reduceMotion ? .identity : .numericText())
+                .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: value)
             
             if let secondaryText = secondaryText {
                 Text(secondaryText)

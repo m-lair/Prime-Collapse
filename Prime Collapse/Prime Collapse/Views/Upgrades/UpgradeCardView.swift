@@ -91,7 +91,6 @@ struct UpgradeCardView: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         isPressed = false
                         gameState.applyUpgrade(upgrade)
-                        playHaptic(.light)
                     }
                 } label: {
                     Text("BUY")
@@ -216,11 +215,6 @@ struct UpgradeCardView: View {
 //        default: return .clear    // Default case for 0 or negative (ethical)
 //        }
 //    }
-    
-    private func playHaptic(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
-        let generator = UIImpactFeedbackGenerator(style: style)
-        generator.impactOccurred()
-    }
 }
 
 #Preview {

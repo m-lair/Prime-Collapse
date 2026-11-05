@@ -117,7 +117,6 @@ struct DetailedUpgradeRow: View {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                             isPressed = false
                             gameState.applyUpgrade(upgrade)
-                            playHaptic(.light)
                         }
                     } label: {
                         Text("PURCHASE")
@@ -307,11 +306,6 @@ struct DetailedUpgradeRow: View {
         } else { // Neutral
             return (.gray, 0) // No indicator for neutral
         }
-    }
-    
-    private func playHaptic(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
-        let generator = UIImpactFeedbackGenerator(style: style)
-        generator.impactOccurred()
     }
 }
 

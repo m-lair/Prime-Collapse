@@ -4,6 +4,7 @@ import SwiftUI
 struct GameStatsView: View {
     @Environment(GameState.self) private var gameState
     @Binding var isShowingDetails: Bool
+    var moneyPulse: Int = 0
     
     var body: some View {
         VStack(spacing: 8) {
@@ -12,8 +13,8 @@ struct GameStatsView: View {
                 StatCard(
                     icon: "shippingbox.fill",
                     title: "Packages",
-                    value: "\(gameState.totalPackagesShipped)",
-                    secondaryText: "$\(String(format: "%.2f", gameState.packageValue)) per pack",
+                    value: gameState.totalPackagesShipped.shortCount,
+                    secondaryText: "\(gameState.packageValue.shortCurrency) per pack",
                     iconColor: .yellow
                 )
                 
@@ -21,8 +22,9 @@ struct GameStatsView: View {
                 StatCard(
                     icon: "dollarsign.circle.fill",
                     title: "Money",
-                    value: "$\(String(format: "%.2f", gameState.money))",
-                    iconColor: .green
+                    value: gameState.money.shortCurrency,
+                    iconColor: .green,
+                    iconPulse: moneyPulse
                 )
             }
             
