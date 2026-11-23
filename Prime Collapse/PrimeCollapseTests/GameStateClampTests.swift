@@ -79,9 +79,9 @@ final class GameStateClampTests: XCTestCase {
 
     func testReformEndingThreshold() {
         let gs = GameState()
-        gs.ethicalChoicesMade = 5
-        gs.ethicsScore = 60
-        gs.money = 1500
+        gs.ethicalChoicesMade = GameState.reformEthicalChoices
+        gs.ethicsScore = GameState.reformEthicsScore
+        gs.lifetimeTotalMoneyEarned = GameState.reformLifetimeEarnings
 
         gs.checkForReformEnding()
 
