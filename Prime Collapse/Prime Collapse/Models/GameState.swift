@@ -9,16 +9,11 @@ import Foundation
 import SwiftUI
 import Observation
 
-// Define the structure for delayed effects
-struct DelayedEffect: Identifiable, Equatable {
-    let id = UUID()
-    let triggerTime: Date
-    let applyEffect: (GameState) -> Void
-
-    // Equatable conformance needed for removal from array
-    static func == (lhs: DelayedEffect, rhs: DelayedEffect) -> Bool {
-        lhs.id == rhs.id
-    }
+// Event deadlines use seconds since the reference date to retain subsecond precision in saves.
+struct DelayedEffect: Codable {
+    let triggerTime: TimeInterval
+    let fine: Double
+    let consequences: [FalloutConsequence]
 }
 
 @Observable final class GameState {
@@ -137,11 +132,11 @@ struct DelayedEffect: Identifiable, Equatable {
     // List to hold pending delayed effects
     var pendingEffects: [DelayedEffect] = []
 
-    /// Temporary income changes from event choices. Not persisted — they last a minute or two.
-    struct IncomeModifier: Equatable {
+    /// Temporary income changes from event choices, bounded by wall-clock time.
+    struct IncomeModifier: Codable, Equatable {
         let bonus: Double
-        let start: Date
-        let end: Date
+        let start: TimeInterval
+        let end: TimeInterval
     }
     var incomeModifiers: [IncomeModifier] = []
 
@@ -208,13 +203,15 @@ struct DelayedEffect: Identifiable, Equatable {
     /// long catch-up tick only pays a 60-second boost for 60 seconds. A zero-length window
     /// returns the multiplier at that instant.
     func incomeMultiplier(from: Date, to: Date) -> Double {
-        let window = to.timeIntervalSince(from)
+        let start = from.timeIntervalSinceReferenceDate
+        let end = to.timeIntervalSinceReferenceDate
+        let window = end - start
         var bonus = 0.0
         for modifier in incomeModifiers {
             if window > 0 {
-                let overlap = min(to, modifier.end).timeIntervalSince(max(from, modifier.start))
+                let overlap = min(end, modifier.end) - max(start, modifier.start)
                 if overlap > 0 { bonus += modifier.bonus * overlap / window }
-            } else if modifier.start <= to && to < modifier.end {
+            } else if modifier.start <= end && end < modifier.end {
                 bonus += modifier.bonus
             }
         }
@@ -222,13 +219,21 @@ struct DelayedEffect: Identifiable, Equatable {
     }
 
     func applyIncomeShift(_ shift: IncomeShift, at now: Date = Date()) {
-        incomeModifiers.append(IncomeModifier(bonus: shift.bonus, start: now,
-                                              end: now.addingTimeInterval(shift.duration)))
+        let start = now.timeIntervalSinceReferenceDate
+        incomeModifiers.append(IncomeModifier(bonus: shift.bonus, start: start, end: start + shift.duration))
     }
 
-    func scheduleEffect(after delay: TimeInterval, from now: Date = Date(),
-                        _ apply: @escaping (GameState) -> Void) {
-        pendingEffects.append(DelayedEffect(triggerTime: now.addingTimeInterval(delay), applyEffect: apply))
+    func settleEventEffects(at now: Date) {
+        let time = now.timeIntervalSinceReferenceDate
+        incomeModifiers.removeAll { $0.end <= time }
+        pendingEffects.removeAll { effect in
+            guard effect.triggerTime <= time else { return false }
+            money -= effect.fine
+            for consequence in effect.consequences {
+                consequence.apply(to: self)
+            }
+            return true
+        }
     }
     
     // Add money to the player's account
@@ -279,15 +284,7 @@ struct DelayedEffect: Identifiable, Equatable {
             // Subtract the shipped packages from the accumulator
             packageAccumulator -= Double(packagesShipped)
         }
-        incomeModifiers.removeAll { $0.end <= currentTime }
-
-        // Process pending delayed effects
-        let effectsToApply = pendingEffects.filter { currentTime >= $0.triggerTime }
-        for effect in effectsToApply {
-            effect.applyEffect(self)
-        }
-        // Remove applied effects
-        pendingEffects.removeAll { currentTime >= $0.triggerTime }
+        settleEventEffects(at: currentTime)
 
         // Slowly decay morale if very low ethics
         if corporateEthics < 0.3 && workerMorale > 0.2 {

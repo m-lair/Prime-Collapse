@@ -50,6 +50,100 @@ final class SaveFileTests: XCTestCase {
         XCTAssertNil(SaveFile.read(in: dir))
     }
 
+    func testRumorsFalloutSurvivesRelaunchAndLandsOnce() throws {
+        let state = GameState()
+        let saves = SaveManager(gameState: state, directory: dir)
+        state.totalPackagesShipped = 300
+        saves.saveGameState() // An older autosave may still be writing when the player chooses.
+        let manager = EventManager()
+        manager.presentForTesting(titled: "Competitor Undercuts Prices")
+        let rumors = try XCTUnwrap(manager.currentEvent?.choices.first { $0.text.contains("rumors") })
+        let start = Date()
+        manager.processChoice(choice: rumors, gameState: state, now: start)
+        let payout = state.money
+        XCTAssertGreaterThan(payout, 0)
+        XCTAssertEqual(state.publicPerception, 47)
+        saves.saveOnEvent(.eventChoice)
+
+        let restarted = GameState()
+        _ = SaveManager(gameState: restarted, directory: dir)
+        XCTAssertEqual(restarted.money, payout)
+        restarted.processAutomation(currentTime: start.addingTimeInterval(44.99))
+        XCTAssertEqual(restarted.publicPerception, 47)
+        restarted.processAutomation(currentTime: start.addingTimeInterval(45))
+        XCTAssertEqual(restarted.publicPerception, 37)
+        try SaveFile.write(GameSnapshot(from: restarted), in: dir)
+
+        let relaunchedAgain = GameState()
+        _ = SaveManager(gameState: relaunchedAgain, directory: dir)
+        relaunchedAgain.processAutomation(currentTime: start.addingTimeInterval(90))
+        XCTAssertEqual(relaunchedAgain.publicPerception, 37)
+        XCTAssertTrue(relaunchedAgain.pendingEffects.isEmpty)
+    }
+
+    func testOverdueFineUsesOriginalAmountAndIncomeShiftKeepsItsDeadline() throws {
+        let state = GameState()
+        state.money = 1_000
+        let start = Date(timeIntervalSinceReferenceDate: 1_000.75)
+        let choice = EventChoice(text: "Shortcut", cash: EventStakes.jackpot,
+                                 incomeShift: IncomeShift(bonus: -0.25, duration: 60),
+                                 fallout: Fallout(delay: 30, fine: EventStakes.fine,
+                                                  consequences: [.workerMorale(-0.1), .customerSatisfaction(-0.2)]))
+        EventManager().processChoice(choice: choice, gameState: state, now: start)
+        let fine = EventStakes.fine.sizedAmount(in: state)
+        state.money = 2_000
+        try SaveFile.write(GameSnapshot(from: state), in: dir)
+
+        let restored = GameState()
+        let resume = start.addingTimeInterval(45)
+        try XCTUnwrap(SaveFile.read(in: dir)).apply(to: restored, at: resume)
+        XCTAssertTrue(restored.pendingEffects.isEmpty)
+        XCTAssertEqual(restored.money, 2_000 - fine, accuracy: 0.001)
+        XCTAssertEqual(restored.workerMorale, 0.7, accuracy: 0.001)
+        XCTAssertEqual(restored.customerSatisfaction, 0.7, accuracy: 0.001)
+        XCTAssertEqual(restored.incomeMultiplier(from: resume, to: resume), 0.75)
+        try SaveFile.write(GameSnapshot(from: restored), in: dir)
+
+        let expired = GameState()
+        let end = start.addingTimeInterval(60)
+        try XCTUnwrap(SaveFile.read(in: dir)).apply(to: expired, at: end)
+        XCTAssertTrue(expired.incomeModifiers.isEmpty)
+        XCTAssertEqual(expired.incomeMultiplier(from: end, to: end), 1)
+        XCTAssertEqual(expired.money, restored.money)
+        XCTAssertEqual(expired.workerMorale, restored.workerMorale)
+    }
+
+    func testSaveWithoutEventFieldsRestoresPlayerProgress() throws {
+        var legacy = snapshot(money: 345)
+        legacy.pendingEffects = nil
+        legacy.incomeModifiers = nil
+        try SaveFile.write(legacy, in: dir)
+
+        let restored = GameState()
+        let saves = SaveManager(gameState: restored, directory: dir)
+        XCTAssertNil(saves.lastLoadMessage)
+        XCTAssertEqual(restored.money, 345)
+        XCTAssertTrue(restored.pendingEffects.isEmpty)
+        XCTAssertTrue(restored.incomeModifiers.isEmpty)
+    }
+
+    func testLaunchCommitsOverduePenaltyBeforeAnyGameplayOrAutosave() throws {
+        let state = GameState()
+        state.money = 100
+        state.pendingEffects = [DelayedEffect(triggerTime: Date.distantPast.timeIntervalSinceReferenceDate,
+                                              fine: 25, consequences: [.publicPerception(-10)])]
+        try SaveFile.write(GameSnapshot(from: state), in: dir)
+
+        for _ in 0..<2 {
+            let restarted = GameState()
+            _ = SaveManager(gameState: restarted, directory: dir)
+            let saved = try XCTUnwrap(SaveFile.read(in: dir))
+            XCTAssertEqual(saved.money, 75)
+            XCTAssertEqual(saved.publicPerception, 40)
+            XCTAssertTrue(try XCTUnwrap(saved.pendingEffects).isEmpty)
+        }
+    }
+
     func testReadMissingFileReturnsNil() {
         XCTAssertNil(SaveFile.read(in: dir))
     }

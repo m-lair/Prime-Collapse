@@ -126,11 +126,9 @@ private func worse(_ metric: String, _ change: String) -> EffectDescription {
         }
         if let fallout = choice.fallout, Double.random(in: 0..<1) < fallout.chance {
             let fine = fallout.fine?.sizedAmount(in: gameState) ?? 0
-            let consequences = fallout.consequences
-            gameState.scheduleEffect(after: fallout.delay, from: now) { gs in
-                gs.money -= fine
-                consequences(gs)
-            }
+            let deadline = now.timeIntervalSinceReferenceDate + fallout.delay
+            gameState.pendingEffects.append(DelayedEffect(triggerTime: deadline, fine: fine,
+                                                         consequences: fallout.consequences))
         }
 
         choice.effect(gameState)
@@ -175,10 +173,7 @@ private func worse(_ metric: String, _ change: String) -> EffectDescription {
                     delay: 90,
                     fine: EventStakes.penalty,
                     descriptions: [worse("Perception", "-20")],
-                    consequences: { gs in
-                        gs.publicPerception -= 20
-                        gs.corporateEthics -= 0.2
-                    }
+                    consequences: [.publicPerception(-20), .corporateEthics(-0.2)]
                 ),
                 effect: { state in
                     state.publicPerception -= 5
@@ -231,10 +226,7 @@ private func worse(_ metric: String, _ change: String) -> EffectDescription {
                 fallout: Fallout(
                     delay: 60,
                     descriptions: [worse("Perception", "-15"), worse("Satisfaction", "-10%")],
-                    consequences: { gs in
-                        gs.publicPerception -= 15
-                        gs.customerSatisfaction -= 0.1
-                    }
+                    consequences: [.publicPerception(-15), .customerSatisfaction(-0.1)]
                 ),
                 effect: { state in
                     state.publicPerception -= 10
@@ -290,9 +282,7 @@ private func worse(_ metric: String, _ change: String) -> EffectDescription {
                 fallout: Fallout(
                     delay: 45,
                     descriptions: [worse("Perception", "-20")],
-                    consequences: { gs in
-                        gs.publicPerception -= 20
-                    }
+                    consequences: [.publicPerception(-20)]
                 ),
                 effect: { state in
                     state.workerMorale -= 0.4
@@ -318,10 +308,7 @@ private func worse(_ metric: String, _ change: String) -> EffectDescription {
                     delay: 120,
                     fine: EventStakes.fine,
                     descriptions: [worse("Perception", "-10"), worse("Morale", "-10%")],
-                    consequences: { gs in
-                        gs.publicPerception -= 10
-                        gs.workerMorale -= 0.1
-                    }
+                    consequences: [.publicPerception(-10), .workerMorale(-0.1)]
                 ),
                 effect: { state in
                     state.workerMorale += 0.1
@@ -372,10 +359,7 @@ private func worse(_ metric: String, _ change: String) -> EffectDescription {
                     fallout: Fallout(
                         delay: 45,
                         descriptions: [worse("Perception", "-8"), worse("Morale", "-5%")],
-                        consequences: { gs in
-                            gs.publicPerception -= 8
-                            gs.workerMorale -= 0.05
-                        }
+                        consequences: [.publicPerception(-8), .workerMorale(-0.05)]
                     ),
                     effect: { state in
                         state.workerMorale -= 0.15
@@ -420,9 +404,7 @@ private func worse(_ metric: String, _ change: String) -> EffectDescription {
                     fallout: Fallout(
                         delay: 45,
                         descriptions: [worse("Satisfaction", "-10%")],
-                        consequences: { gs in
-                            gs.customerSatisfaction -= 0.1
-                        }
+                        consequences: [.customerSatisfaction(-0.1)]
                     ),
                     effect: { state in
                         state.publicPerception -= 3
@@ -464,9 +446,7 @@ private func worse(_ metric: String, _ change: String) -> EffectDescription {
                     fallout: Fallout(
                         delay: 30,
                         descriptions: [worse("Morale", "-10%")],
-                        consequences: { gs in
-                            gs.workerMorale -= 0.1
-                        }
+                        consequences: [.workerMorale(-0.1)]
                     ),
                     effect: { state in
                         state.publicPerception += 3
@@ -510,9 +490,7 @@ private func worse(_ metric: String, _ change: String) -> EffectDescription {
                         delay: 60,
                         fine: EventStakes.fine,
                         descriptions: [worse("Perception", "-15")],
-                        consequences: { gs in
-                            gs.publicPerception -= 15
-                        }
+                        consequences: [.publicPerception(-15)]
                     ),
                     effect: { state in
                         state.environmentalImpact += 10
@@ -567,9 +545,7 @@ private func worse(_ metric: String, _ change: String) -> EffectDescription {
                     fallout: Fallout(
                         delay: 45,
                         descriptions: [worse("Perception", "-5")],
-                        consequences: { gs in
-                            gs.publicPerception -= 5
-                        }
+                        consequences: [.publicPerception(-5)]
                     ),
                     effect: { state in
                         state.workerMorale -= 0.05
@@ -614,10 +590,7 @@ private func worse(_ metric: String, _ change: String) -> EffectDescription {
                         delay: 60,
                         fine: EventStakes.penalty,
                         descriptions: [worse("Perception", "-15"), worse("Morale", "-15%")],
-                        consequences: { gs in
-                            gs.publicPerception -= 15
-                            gs.workerMorale -= 0.15
-                        }
+                        consequences: [.publicPerception(-15), .workerMorale(-0.15)]
                     ),
                     effect: { state in
                         state.workerMorale -= 0.1
@@ -672,9 +645,7 @@ private func worse(_ metric: String, _ change: String) -> EffectDescription {
                     fallout: Fallout(
                         delay: 45,
                         descriptions: [worse("Perception", "-10")],
-                        consequences: { gs in
-                            gs.publicPerception -= 10
-                        }
+                        consequences: [.publicPerception(-10)]
                     ),
                     effect: { state in
                         state.publicPerception -= 3
@@ -728,9 +699,7 @@ private func worse(_ metric: String, _ change: String) -> EffectDescription {
                     fallout: Fallout(
                         delay: 45,
                         descriptions: [worse("Perception", "-6")],
-                        consequences: { gs in
-                            gs.publicPerception -= 6
-                        }
+                        consequences: [.publicPerception(-6)]
                     ),
                     effect: { state in
                         state.workerMorale -= 0.15
@@ -787,10 +756,7 @@ private func worse(_ metric: String, _ change: String) -> EffectDescription {
                     fallout: Fallout(
                         delay: 60,
                         descriptions: [worse("Perception", "-18"), worse("Satisfaction", "-5%")],
-                        consequences: { gs in
-                            gs.publicPerception -= 18
-                            gs.customerSatisfaction -= 0.05
-                        }
+                        consequences: [.publicPerception(-18), .customerSatisfaction(-0.05)]
                     ),
                     effect: { state in
                         state.publicPerception += 6
@@ -844,10 +810,7 @@ private func worse(_ metric: String, _ change: String) -> EffectDescription {
                         chance: 0.5,
                         delay: 60,
                         descriptions: [worse("Satisfaction", "-15%"), worse("Perception", "-10")],
-                        consequences: { gs in
-                            gs.customerSatisfaction -= 0.15
-                            gs.publicPerception -= 10
-                        }
+                        consequences: [.customerSatisfaction(-0.15), .publicPerception(-10)]
                     ),
                     effect: { state in
                         state.customerSatisfaction += 0.05
@@ -902,10 +865,7 @@ private func worse(_ metric: String, _ change: String) -> EffectDescription {
                         delay: 70,
                         fine: EventStakes.fine,
                         descriptions: [worse("Perception", "-10")],
-                        consequences: { gs in
-                            gs.publicPerception -= 10
-                            gs.corporateEthics -= 0.1
-                        }
+                        consequences: [.publicPerception(-10), .corporateEthics(-0.1)]
                     ),
                     effect: { state in
                         state.publicPerception -= 4
@@ -961,10 +921,7 @@ private func worse(_ metric: String, _ change: String) -> EffectDescription {
                         delay: 60,
                         fine: EventStakes.penalty,
                         descriptions: [worse("Perception", "-15")],
-                        consequences: { gs in
-                            gs.publicPerception -= 15
-                            gs.corporateEthics -= 0.2
-                        }
+                        consequences: [.publicPerception(-15), .corporateEthics(-0.2)]
                     ),
                     effect: { state in
                         state.publicPerception -= 3
@@ -982,10 +939,7 @@ private func worse(_ metric: String, _ change: String) -> EffectDescription {
                         delay: 45,
                         fine: EventStakes.fine,
                         descriptions: [worse("Perception", "-5")],
-                        consequences: { gs in
-                            gs.publicPerception -= 5
-                            gs.corporateEthics -= 0.15
-                        }
+                        consequences: [.publicPerception(-5), .corporateEthics(-0.15)]
                     )
                 ),
                 EventChoice(
@@ -1019,9 +973,7 @@ private func worse(_ metric: String, _ change: String) -> EffectDescription {
                     fallout: Fallout(
                         delay: 45,
                         descriptions: [worse("Perception", "-6")],
-                        consequences: { gs in
-                            gs.publicPerception -= 6
-                        }
+                        consequences: [.publicPerception(-6)]
                     ),
                     effect: { state in
                         state.automationEfficiency += 0.25
@@ -1083,9 +1035,7 @@ private func worse(_ metric: String, _ change: String) -> EffectDescription {
                     fallout: Fallout(
                         delay: 45,
                         descriptions: [worse("Perception", "-12")],
-                        consequences: { gs in
-                            gs.publicPerception -= 12
-                        }
+                        consequences: [.publicPerception(-12)]
                     ),
                     effect: { state in
                         let workersToLayoff = min(state.workers / 4, 5)

@@ -147,7 +147,6 @@ final class EventBalanceTests: XCTestCase {
             for choice in event.choices {
                 let state = lateGame()
                 choice.effect(state)
-                choice.fallout?.consequences(state)
                 XCTAssertEqual(state.money, 8_000, "\(event.title) / \(choice.text)")
                 XCTAssertEqual(state.lifetimeTotalMoneyEarned, 60_000, "\(event.title) / \(choice.text)")
             }
@@ -196,7 +195,7 @@ final class EventBalanceTests: XCTestCase {
             text: "Shortcut",
             moralImpact: -5,
             fallout: Fallout(delay: 45, fine: EventStakes.fine,
-                             consequences: { $0.publicPerception -= 10 })
+                             consequences: [.publicPerception(-10)])
         )
 
         manager.processChoice(choice: choice, gameState: state, now: start)
@@ -296,7 +295,8 @@ final class EventBalanceTests: XCTestCase {
     func testResetClearsPendingEffectsAndModifiers() {
         let state = lateGame()
         state.applyIncomeShift(IncomeShift(bonus: 0.5, duration: 60))
-        state.scheduleEffect(after: 30) { $0.money -= 1_000 }
+        state.pendingEffects = [DelayedEffect(triggerTime: Date().timeIntervalSinceReferenceDate + 30,
+                                              fine: 1_000, consequences: [])]
 
         state.reset()
 

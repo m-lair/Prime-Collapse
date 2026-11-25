@@ -13,6 +13,7 @@ struct ScaleButtonStyle: ButtonStyle {
 struct EventView: View {
     @Environment(GameState.self) private var gameState
     @Environment(EventManager.self) private var eventManager
+    @Environment(SaveManager.self) private var saveManager
     
     // Animation properties
     @State private var slideIn = false
@@ -81,6 +82,7 @@ struct EventView: View {
                                     // Reset interaction state if needed when the view is dismissed/reused
                                     isInteractable = false
                                 }
+                                saveManager.saveOnEvent(.eventChoice)
                             }) {
                                 // Use the helper function to build the button label content
                                 choiceButtonLabel(choice: choice, importance: event.importance,

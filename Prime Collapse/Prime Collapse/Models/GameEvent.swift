@@ -58,6 +58,22 @@ struct IncomeShift {
     let duration: TimeInterval
 }
 
+enum FalloutConsequence: Codable {
+    case publicPerception(Double)
+    case corporateEthics(Double)
+    case workerMorale(Double)
+    case customerSatisfaction(Double)
+
+    func apply(to state: GameState) {
+        switch self {
+        case .publicPerception(let delta): state.publicPerception += delta
+        case .corporateEthics(let delta): state.corporateEthics += delta
+        case .workerMorale(let delta): state.workerMorale += delta
+        case .customerSatisfaction(let delta): state.customerSatisfaction += delta
+        }
+    }
+}
+
 /// Consequences that land later — the bill for a shortcut. Rolled once when the choice is made.
 struct Fallout {
     /// 1.0 = certain.
@@ -67,14 +83,13 @@ struct Fallout {
     let fine: MoneyStake?
     /// Non-money rows for the sheet; the fine row is generated from `fine`.
     let descriptions: [EffectDescription]
-    /// Must not touch money — that's what `fine` is for.
-    let consequences: (GameState) -> Void
+    let consequences: [FalloutConsequence]
 
     init(chance: Double = 1.0,
          delay: TimeInterval,
          fine: MoneyStake? = nil,
          descriptions: [EffectDescription] = [],
-         consequences: @escaping (GameState) -> Void = { _ in }) {
+         consequences: [FalloutConsequence] = []) {
         self.chance = chance
         self.delay = delay
         self.fine = fine
