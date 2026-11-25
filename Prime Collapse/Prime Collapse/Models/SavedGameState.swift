@@ -51,6 +51,10 @@ struct GameSnapshot: Codable {
     var isInLoopEndingState: Bool = false
     var loopEndingStartTime: Date? = nil
 
+    // Older saves predate event timers and omit these fields.
+    var pendingEffects: [DelayedEffect]?
+    var incomeModifiers: [GameState.IncomeModifier]?
+
     // MARK: Upgrades (keyed by stable upgrade name)
     /// Names of purchased non-repeatable upgrades.
     var purchasedUpgradeNames: [String] = []
@@ -86,6 +90,8 @@ struct GameSnapshot: Codable {
         endingType = GameSnapshot.string(for: gameState.endingType)
         isInLoopEndingState = gameState.isInLoopEndingState
         loopEndingStartTime = gameState.loopEndingStartTime
+        pendingEffects = gameState.pendingEffects
+        incomeModifiers = gameState.incomeModifiers
 
         // Non-repeatable purchases: map purchased IDs back to their (unique) names.
         var purchasedNames = Set<String>()
@@ -105,7 +111,7 @@ struct GameSnapshot: Codable {
     // MARK: - Restore
 
     /// Apply this snapshot to a live game state, rebuilding upgrades from names.
-    func apply(to gameState: GameState) {
+    func apply(to gameState: GameState, at now: Date = Date()) {
         gameState.totalPackagesShipped = totalPackagesShipped
         gameState.money = money
         gameState.lifetimeTotalMoneyEarned = lifetimeTotalMoneyEarned
@@ -131,7 +137,10 @@ struct GameSnapshot: Codable {
         gameState.endingType = GameSnapshot.ending(for: endingType)
         gameState.isInLoopEndingState = isInLoopEndingState
         gameState.loopEndingStartTime = loopEndingStartTime
-        gameState.lastUpdate = Date() // Always resume from "now".
+        gameState.lastUpdate = now
+        gameState.pendingEffects = pendingEffects ?? []
+        gameState.incomeModifiers = incomeModifiers ?? []
+        gameState.settleEventEffects(at: now)
 
         // Rebuild upgrade tracking from scratch so the restored state is self-consistent.
         gameState.upgrades.removeAll()

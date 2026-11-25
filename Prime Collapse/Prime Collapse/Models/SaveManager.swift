@@ -39,7 +39,7 @@ import Observation
 
     // Debounce + write serialization.
     private var debounceTask: Task<Void, Never>?
-    private var writeTask: Task<Void, Never>?
+    private let writeQueue = DispatchQueue(label: "PrimeCollapse.save")
     private let debounceDelay: Duration = .seconds(2)
 
     init(gameState: GameState, gameCenterManager: GameCenterManager? = nil, directory: URL? = nil) {
@@ -58,7 +58,12 @@ import Observation
         let result = SaveFile.load(in: saveDirectory)
         if let snapshot = result.snapshot {
             snapshot.apply(to: gameState)
-            lastSnapshot = snapshot
+            if gameState.pendingEffects.count < (snapshot.pendingEffects?.count ?? 0) {
+                // Commit overdue penalties even if the player immediately quits again.
+                writeSnapshot(synchronously: true)
+            } else {
+                lastSnapshot = snapshot
+            }
             print("Loaded save from \(snapshot.savedAt): $\(gameState.money), \(gameState.totalPackagesShipped) packages, \(gameState.workers) workers")
         } else {
             print("No saved game found. Starting new game.")
@@ -99,6 +104,10 @@ import Observation
     /// Routes gameplay events to the appropriate save cadence.
     func saveOnEvent(_ event: SaveEvent) {
         switch event {
+        case .eventChoice:
+            guard hasCompletedInitialLoad else { return }
+            // Commit the payout and its rolled consequences before returning to play.
+            persist(synchronously: true)
         case .upgrade:
             saveGameStateDebounced()
         case .milestone(let value):
@@ -110,12 +119,10 @@ import Observation
         }
     }
 
-    /// Captures a snapshot and enqueues an atomic background write. Call on the main thread.
-    private func persist() {
+    /// Captures a snapshot on the main thread and updates save feedback.
+    private func persist(synchronously: Bool = false) {
         isSaving = true
-        let snapshot = GameSnapshot(from: gameState)
-        lastSnapshot = snapshot
-        enqueueWrite(snapshot)
+        writeSnapshot(synchronously: synchronously)
 
         lastSaveTime = Date()
         showSaveIndicator()
@@ -124,25 +131,28 @@ import Observation
     }
 
     /// Serializes writes so an older write can never land after a newer one.
-    private func enqueueWrite(_ snapshot: GameSnapshot) {
-        let previous = writeTask
+    private func writeSnapshot(synchronously: Bool) {
+        let snapshot = GameSnapshot(from: gameState)
+        lastSnapshot = snapshot
         let directory = saveDirectory
-        writeTask = Task.detached(priority: .utility) { [weak self] in
-            await previous?.value
+        let write = DispatchWorkItem { [weak self] in
+            let saveError: String?
             do {
                 try SaveFile.write(snapshot, in: directory)
-                await self?.recordSaveResult(error: nil)
+                saveError = nil
             } catch {
                 print("Save write failed: \(error)")
-                await self?.recordSaveResult(error: error.localizedDescription)
+                saveError = error.localizedDescription
+            }
+            DispatchQueue.main.async { [weak self] in
+                self?.lastSaveError = saveError
             }
         }
-    }
-
-    /// Records the outcome of a background write on the main actor (observable state).
-    @MainActor
-    private func recordSaveResult(error: String?) {
-        lastSaveError = error
+        if synchronously {
+            writeQueue.sync(execute: write)
+        } else {
+            writeQueue.async(execute: write)
+        }
     }
 
     // MARK: - Reset / endings
@@ -152,10 +162,8 @@ import Observation
         gameState.reset()
         lastSnapshot = nil
 
-        let previous = writeTask
         let directory = saveDirectory
-        writeTask = Task.detached(priority: .utility) {
-            await previous?.value
+        writeQueue.async {
             SaveFile.delete(in: directory)
         }
 
@@ -233,6 +241,7 @@ import Observation
 
     // Event types that can trigger a save.
     enum SaveEvent {
+        case eventChoice
         case upgrade
         case milestone(Int)
         case moneyGain(Double)
